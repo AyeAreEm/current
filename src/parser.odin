@@ -113,12 +113,12 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
 
     switch stmnt in statement {
     case StmntFnDecl:
-        fmt.printfln("%v :: fn() %v", stmnt.name, stmnt.type)
+        fmt.printfln("fn %v() %v", stmnt.name, stmnt.type)
         for s in stmnt.body {
             stmnt_print(s, indent+1)
         }
     case StmntVarDecl:
-        fmt.printfln("%v: %v = %v", stmnt.name, stmnt.type, stmnt.value)
+        fmt.printfln("%v %v = %v", stmnt.type, stmnt.name, stmnt.value)
     case StmntReturn:
         fmt.printfln("return %v of type %v", stmnt.value, stmnt.type)
     }
@@ -165,6 +165,10 @@ parse_block :: proc(using parser: ^Parser) -> [dynamic]Stmnt {
             token_next(&tokens)
             break
         }
+    }
+
+    if len(block) == 0 {
+        _ = token_expect(&tokens, TokenRc{})
     }
 
     return block
@@ -293,10 +297,9 @@ parse_ident :: proc(using parser: ^Parser, ident: string) -> Stmnt {
 parse_return :: proc(using parser: ^Parser) -> Stmnt {
     index := cursors_idx
     expr := parse_expr_until(parser, TokenSemiColon{})
-    type := type_of_expr(expr)
     return StmntReturn{
         value = expr,
-        type = type,
+        type = nil,
         cursors_idx = index,
     }
 }

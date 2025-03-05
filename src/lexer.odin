@@ -40,10 +40,10 @@ token_peek :: proc(tokens: ^[dynamic]Token) -> Token {
 }
 
 token_next :: proc(tokens: ^[dynamic]Token) -> Token {
-    cursors_idx += 1
     if len(tokens^) == 0 {
         return nil
     }
+    cursors_idx += 1
     return pop_front(tokens)
 }
 
@@ -98,7 +98,7 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
         if len(buf.buf) > 0 {
             append(cursor, [2]u32{row^, col^})
             string_buf := strings.to_string(buf^)
-            if _, ok := strconv.parse_f64(string_buf); ok {
+            if _, ok := strconv.parse_i64(string_buf); ok {
                 append(tokens, TokenIntLit{strings.clone(string_buf)})
             } else {
                 append(tokens, TokenIdent{strings.clone(string_buf)})
@@ -125,7 +125,11 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
 
     for ch in source {
         switch ch {
-        case ' ', '\n', '\t':
+        case ' ', '\r', '\n', '\t':
+            if ch == '\r' {
+                continue
+            }
+
             try_append(&cursor, &col, &row, &tokens, &buf)
             if ch == '\n' {
                 row += 1

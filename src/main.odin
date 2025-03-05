@@ -3,6 +3,12 @@ package main
 import "core:fmt"
 import "core:os"
 
+
+testing_filename :: "./test.x"
+
+cursors: [dynamic][2]u32
+cursors_idx := -1
+
 SymTab :: struct {
     scopes: [dynamic]map[string]Stmnt,
     curr_scope: uint,
@@ -48,10 +54,10 @@ Analyser :: struct {
     cursors: [dynamic][2]u32,
 }
 
-testing_filename :: "./test.x"
-
-cursors: [dynamic][2]u32
-cursors_idx := 0
+debug :: proc(format: string, args: ..any) {
+    fmt.eprint("[DEBUG]: ")
+    fmt.eprintfln(format, ..args)
+}
 
 elog :: proc(i: int, format: string, args: ..any) -> ! {
     fmt.eprintf("%v:%v:%v error: ", testing_filename, cursors[i][0], cursors[i][1])
@@ -81,7 +87,6 @@ main :: proc() {
     ast := [dynamic]Stmnt{}
     for stmnt := parse(&parser); stmnt != nil; stmnt = parse(&parser) {
         append(&ast, stmnt)
-        // stmnt_print(stmnt)
     }
 
     symtab := SymTab{
@@ -94,9 +99,10 @@ main :: proc() {
         ast = ast,
         symtab = symtab,
     }
-
+    
     analyse(&env)
+    debug("AST")
     for stmnt in env.ast {
-        stmnt_print(stmnt)
+        stmnt_print(stmnt, 1)
     }
 }
