@@ -22,7 +22,7 @@ tc_compare :: proc(lhs: Type, rhs: Type) -> bool {
     return false
 }
 
-tc_return :: proc(fn: StmntFnDecl, ret: ^StmntReturn) {
+tc_return :: proc(fn: FnDecl, ret: ^Return) {
     if ret.type == nil {
         ret.type = fn.type // fn.type can't be nil
     }
@@ -59,7 +59,7 @@ tc_infer :: proc(lhs: ^Type, expr: Expr) {
     }
 }
 
-tc_var_decl :: proc(vardecl: ^StmntVarDecl) {
+tc_var_decl :: proc(vardecl: ^VarDecl) {
     expr_type := type_of_expr(vardecl.value)
     expr_default_type := tc_default_untyped_type(expr_type)
 

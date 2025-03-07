@@ -72,14 +72,14 @@ type_of_expr :: proc(expr: Expr) -> Type {
     return nil
 }
 
-StmntFnDecl :: struct {
+FnDecl :: struct {
     name: string, // allocated
     type: Type,
     args: [dynamic]Stmnt,
     body: [dynamic]Stmnt,
     cursors_idx: int,
 }
-StmntVarDecl :: struct {
+VarDecl :: struct {
     name: string,
     type: Type,
     value: Expr,
@@ -91,15 +91,15 @@ ConstDecl :: struct {
     value: Expr,
     cursors_idx: int,
 }
-StmntReturn :: struct {
+Return :: struct {
     type: Type,
     value: Expr,
     cursors_idx: int,
 }
 Stmnt :: union {
-    StmntFnDecl,
-    StmntVarDecl,
-    StmntReturn,
+    FnDecl,
+    VarDecl,
+    Return,
     FuncCall,
     ConstDecl,
 }
@@ -119,11 +119,11 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     case Stmnt:
         switch stmnt in it {
-        case StmntVarDecl:
+        case VarDecl:
             return stmnt.cursors_idx
-        case StmntReturn:
+        case Return:
             return stmnt.cursors_idx
-        case StmntFnDecl:
+        case FnDecl:
             return stmnt.cursors_idx
         case FuncCall:
             return stmnt.cursors_idx
@@ -157,12 +157,12 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
     }
 
     switch stmnt in statement {
-    case StmntFnDecl:
+    case FnDecl:
         fmt.printfln("Fn %v %v()", stmnt.type, stmnt.name)
         for s in stmnt.body {
             stmnt_print(s, indent+1)
         }
-    case StmntVarDecl:
+    case VarDecl:
         expr := expr_print(stmnt.value)
         defer delete(expr)
 
@@ -172,7 +172,7 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
         defer delete(expr)
 
         fmt.printfln("Const %v %v = %v", stmnt.type, stmnt.name, expr)
-    case StmntReturn:
+    case Return:
         expr := expr_print(stmnt.value)
         defer delete(expr)
 
@@ -204,7 +204,7 @@ parse_fn_decl :: proc(using parser: ^Parser, name: string) -> Stmnt {
 
     body := parse_block(parser)
 
-    return StmntFnDecl{
+    return FnDecl{
         name = name,
         type = type,
         args = args,
@@ -372,7 +372,7 @@ parse_var_decl :: proc(using parser: ^Parser, name: string, type: Type = nil, ha
             elog(index, "expected expression after \"=\" in variable \"%v\" declaration", name)
         }
 
-        return StmntVarDecl{
+        return VarDecl{
             name = name,
             type = type,
             value = expr,
@@ -381,7 +381,7 @@ parse_var_decl :: proc(using parser: ^Parser, name: string, type: Type = nil, ha
     }
 
     // <ident>: <type>;
-    return StmntVarDecl{
+    return VarDecl{
         name = name,
         type = type,
         value = nil,
@@ -478,7 +478,7 @@ parse_ident :: proc(using parser: ^Parser, ident: string) -> Stmnt {
 parse_return :: proc(using parser: ^Parser) -> Stmnt {
     index := cursors_idx
     expr := parse_expr_until(parser, TokenSemiColon{})
-    return StmntReturn{
+    return Return{
         value = expr,
         type = nil,
         cursors_idx = index,
