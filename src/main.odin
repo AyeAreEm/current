@@ -14,27 +14,41 @@ SymTab :: struct {
     curr_scope: uint,
 }
 
-symtab_find :: proc(using symtab: ^SymTab, key: string) -> Stmnt {
+symtab_find :: proc(using symtab: ^SymTab, key: string, location: int) -> Stmnt {
     elem, ok := scopes[curr_scope][key]
     if !ok {
-        elog(cursors_idx, "use of undefined \"%v\"", key)
+        elog(location, "use of undefined \"%v\"", key)
     }
 
     return elem
 }
 
 symtab_push :: proc(using symtab: ^SymTab, key: string, value: Stmnt) {
-    _, ok := scopes[curr_scope][key]
+    elem, ok := scopes[curr_scope][key]
     if !ok {
         scopes[curr_scope][key] = value
         return
     }
-
-    elog(cursors_idx, "redeclaration of \"%v\"", key)
+    
+    cur_index := get_cursor_index(elem)
+    elog(get_cursor_index(value), "redeclaration of \"%v\" from %v:%v", key, cursors[cur_index][0], cursors[cur_index][1])
 }
 
 symtab_new_scope :: proc(using symtab: ^SymTab) {
-    append(&scopes, scopes[curr_scope])
+    // maybe im dumb but i fully expected
+    // append(&scopes, scopes[curr_scope])
+    // to copy `scopes[curr_scope]` and append it but no, it's a reference
+    // so any mutation to the newly appended scope also mutates the previous scope
+    // idk how i feel about this, on one hand, no implicit copies is good.
+    // on the other hand, implicit pointer is bad.
+
+    scope := map[string]Stmnt{}
+
+    for key, value in scopes[curr_scope] {
+        scope[key] = value
+    }
+
+    append(&scopes, scope)
     curr_scope += 1
 }
 
@@ -46,6 +60,7 @@ symtab_pop_scope :: proc(using symtab: ^SymTab) {
 Parser :: struct {
     tokens: [dynamic]Token,
     cursors: [dynamic][2]u32,
+    in_func_decl_args: bool,
 }
 
 Analyser :: struct {
@@ -82,6 +97,7 @@ main :: proc() {
     parser := Parser {
         tokens = tokens, // NOTE: does this do a copy? surely not
         cursors = cursors,
+        in_func_decl_args = false,
     }
 
     ast := [dynamic]Stmnt{}

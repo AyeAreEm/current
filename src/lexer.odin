@@ -18,6 +18,7 @@ TokenLc :: struct {} // left curl
 TokenRc :: struct {} // right curl
 TokenEqual :: struct {}
 TokenSemiColon :: struct {}
+TokenComma :: struct {}
 
 Token :: union {
     TokenIdent,
@@ -29,6 +30,7 @@ Token :: union {
     TokenRc,
     TokenEqual,
     TokenSemiColon,
+    TokenComma,
 }
 
 token_peek :: proc(tokens: ^[dynamic]Token) -> Token {
@@ -75,6 +77,9 @@ token_tag_equal :: proc(lhs, rhs: Token) -> bool {
         return ok
     case TokenSemiColon:
         _, ok := rhs.(TokenSemiColon)
+        return ok
+    case TokenComma:
+        _, ok := rhs.(TokenComma)
         return ok
     }
 
@@ -151,6 +156,8 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             try_append(&cursor, &col, &row, &tokens, &buf, TokenEqual{})
         case ';':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenSemiColon{})
+        case ',':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenComma{})
         case:
             append(&buf.buf, cast(u8)ch)
             col += 1

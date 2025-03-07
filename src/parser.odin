@@ -75,7 +75,7 @@ type_of_expr :: proc(expr: Expr) -> Type {
 StmntFnDecl :: struct {
     name: string, // allocated
     type: Type,
-    // args: [dynamic]Expr,
+    args: [dynamic]Stmnt,
     body: [dynamic]Stmnt,
     cursors_idx: int,
 }
@@ -146,9 +146,9 @@ expr_print :: proc(expression: Expr) -> string {
         return fmt.aprintf("Var %v %v", expr.type, expr.name)
     case Const:
         return fmt.aprintf("Const %v %v", expr.type, expr.name)
+    case:
+        return fmt.aprintf("")
     }
-
-    unreachable()
 }
 
 stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
@@ -194,9 +194,11 @@ convert_ident :: proc(using token: TokenIdent) -> union {Type, Keyword, string} 
 
 parse_fn_decl :: proc(using parser: ^Parser, name: string) -> Stmnt {
     index := cursors_idx
-    _ = token_expect(&tokens, TokenLb{})
 
-    _ = token_expect(&tokens, TokenRb{})
+    in_func_decl_args = true
+    args := parse_block(parser, TokenLb{}, TokenRb{})
+    in_func_decl_args = false
+
     type_ident := token_expect(&tokens, TokenIdent{})
     type := convert_ident(type_ident.(TokenIdent)).(Type)
 
@@ -205,28 +207,35 @@ parse_fn_decl :: proc(using parser: ^Parser, name: string) -> Stmnt {
     return StmntFnDecl{
         name = name,
         type = type,
+        args = args,
         body = body,
         cursors_idx = index,
     }
 }
 
-parse_block :: proc(using parser: ^Parser) -> [dynamic]Stmnt {
-    _ = token_expect(&tokens, TokenLc{})
+parse_block :: proc(using parser: ^Parser, start: Token = TokenLc{}, end: Token = TokenRc{}) -> [dynamic]Stmnt {
+    _ = token_expect(&tokens, start)
 
     block := [dynamic]Stmnt{}
+
+    // if there's nothing inside the block
+    if token := token_peek(&tokens); token_tag_equal(token, end) {
+        token_next(&tokens)
+        return block
+    }
 
     for stmnt := parse(parser); stmnt != nil; stmnt = parse(parser) {
         append(&block, stmnt)
 
         token := token_peek(&tokens)
-        if token_tag_equal(token, TokenRc{}) {
+        if token_tag_equal(token, end) {
             token_next(&tokens)
             break
         }
     }
 
     if len(block) == 0 {
-        _ = token_expect(&tokens, TokenRc{})
+        _ = token_expect(&tokens, end)
     }
 
     return block
@@ -355,17 +364,27 @@ parse_const_decl :: proc(using parser: ^Parser, ident: string, type: Type = nil)
 
 parse_var_decl :: proc(using parser: ^Parser, name: string, type: Type = nil, has_equals: bool = true) -> Stmnt {
     index := cursors_idx
-    expr := parse_expr_until(parser, TokenSemiColon{})
 
     // <ident>: <type?> = ;
-    if expr == nil && has_equals {
-        elog(index, "expected expression after \"=\" in variable \"%v\" declaration", name)
+    if has_equals {
+        expr := parse_expr_until(parser, TokenSemiColon{})
+        if expr == nil {
+            elog(index, "expected expression after \"=\" in variable \"%v\" declaration", name)
+        }
+
+        return StmntVarDecl{
+            name = name,
+            type = type,
+            value = expr,
+            cursors_idx = index,
+        }
     }
 
+    // <ident>: <type>;
     return StmntVarDecl{
         name = name,
         type = type,
-        value = expr,
+        value = nil,
         cursors_idx = index,
     }
 }
@@ -388,14 +407,33 @@ parse_decl :: proc(using parser: ^Parser, ident: string) -> Stmnt {
         converted_ident := convert_ident(tok)
 
         if type, type_ok := converted_ident.(Type); type_ok {
-            token_after_type := token_next(&tokens)
+            token_after_type := token_peek(&tokens)
             if token_after_type == nil do return nil
 
             #partial switch tat in token_after_type {
             case TokenColon:
+                token_next(&tokens)
                 return parse_const_decl(parser, ident, type)
             case TokenEqual:
+                token_next(&tokens)
                 return parse_var_decl(parser, ident, type)
+            case TokenSemiColon:
+                token_next(&tokens)
+                if type == nil {
+                    elog(cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
+                }
+                return parse_var_decl(parser, ident, type, false)
+            case TokenComma:
+                token_next(&tokens)
+                if !in_func_decl_args {
+                    elog(cursors_idx, "unexpected comma during declaration")
+                }
+                return parse_var_decl(parser, ident, type, false)
+            case TokenRb:
+                if !in_func_decl_args {
+                    elog(cursors_idx, "unexpected TokenRb during declaration")
+                }
+                return parse_var_decl(parser, ident, type, false)
             case:
                 elog(cursors_idx, "unexpected token %v", tok)
             }
