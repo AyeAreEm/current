@@ -14,6 +14,7 @@ X/Xlang is a statically typed compiled programming language with manual memory m
 - Receiver Methods
 - Compile Time Execution
 - Default Function Parameters
+- Allocators
 
 ```
 vec2 :: struct[T] {
