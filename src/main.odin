@@ -61,6 +61,7 @@ Parser :: struct {
     tokens: [dynamic]Token,
     cursors: [dynamic][2]u32,
     in_func_decl_args: bool,
+    in_func_call_args: bool,
 }
 
 Analyser :: struct {
@@ -98,6 +99,7 @@ main :: proc() {
         tokens = tokens, // NOTE: does this do a copy? surely not
         cursors = cursors,
         in_func_decl_args = false,
+        in_func_call_args = false,
     }
 
     ast := [dynamic]Stmnt{}

@@ -1,6 +1,6 @@
 package main
 
-tc_compare :: proc(lhs: Type, rhs: Type) -> bool {
+tc_equals :: proc(lhs: Type, rhs: Type) -> bool {
     if lhs == rhs {
         return true
     }
@@ -29,11 +29,11 @@ tc_return :: proc(fn: FnDecl, ret: ^Return) {
 
     ret_expr_type := type_of_expr(ret.value)
 
-    if !tc_compare(ret.type, ret_expr_type) {
+    if !tc_equals(ret.type, ret_expr_type) {
         elog(get_cursor_index(cast(Stmnt)ret^), "mismatch types, return type %v, expression type %v", ret.type, ret_expr_type)
     }
 
-    if !tc_compare(fn.type, ret.type) {
+    if !tc_equals(fn.type, ret.type) {
         elog(get_cursor_index(cast(Stmnt)ret^), "mismatch types, function type %v, return type %v", fn.type, ret.type)
     }
 }

@@ -6,13 +6,8 @@ import "core:strings"
 
 analyse_expr :: proc(using env: ^Analyser, expr: ^Expr) {
     switch &ex in expr {
-    case FuncCall:
-        stmnt_funcdecl := symtab_find(&symtab, ex.name, ex.cursors_idx)
-        if funcdecl, ok := stmnt_funcdecl.(FnDecl); ok {
-            ex.type = funcdecl.type
-        } else {
-            elog(ex.cursors_idx, "expected \"%v\" to be a function call, got %v", ex.name, stmnt_funcdecl)
-        }
+    case FnCall:
+        analyse_fn_call(env, &ex)
     case Var:
         stmnt_vardecl := symtab_find(&symtab, ex.name, ex.cursors_idx)
         if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
@@ -63,25 +58,45 @@ analyse_const_decl :: proc(using env: ^Analyser, constdecl: ^ConstDecl) {
     symtab_push(&symtab, constdecl.name, constdecl^)
 }
 
-analyse_func_call :: proc(using env: ^Analyser, fncall: ^FuncCall) {
+analyse_fn_call :: proc(using env: ^Analyser, fncall: ^FnCall) {
+    stmnt_fndecl := symtab_find(&symtab, fncall.name, fncall.cursors_idx)
+    fndecl, fndecl_ok := stmnt_fndecl.(FnDecl)
+    if !fndecl_ok {
+        elog(fncall.cursors_idx, "expected \"%v\" to be a function, got %v", stmnt_fndecl)
+    }
+
     if fncall.type == nil {
-        stmnt_fndecl := symtab_find(&symtab, fncall.name, fncall.cursors_idx)
-        if fndecl, ok := stmnt_fndecl.(FnDecl); ok {
-            fncall.type = fndecl.type
-        } else {
-            elog(fncall.cursors_idx, "expected \"%v\" to be a function, got %v", stmnt_fndecl)
+        fncall.type = fndecl.type
+    }
+
+    decl_args_len := len(fndecl.args)
+    fncall_args_len := len(fncall.args)
+    if decl_args_len != fncall_args_len {
+        elog(fncall.cursors_idx, "expected %v argument(s) in function call \"%v\", got %v", decl_args_len, fncall.name, fncall_args_len)
+    }
+
+    for &call_arg, i in fncall.args {
+        analyse_expr(env, &call_arg)
+    }
+
+    for decl_arg, i in fndecl.args {
+        darg_type := type_of_stmnt(decl_arg)
+        carg_type := type_of_expr(fncall.args[i])
+
+        if !tc_equals(darg_type, carg_type) {
+            elog(fncall.cursors_idx, "mismatch types, argument %v is expected to be of type %v, got %v", i + 1, darg_type, carg_type)
         }
     }
 }
 
-analyse_fn :: proc(using env: ^Analyser, fn: FnDecl) {
+analyse_fn_decl :: proc(using env: ^Analyser, fn: FnDecl) {
     symtab_push(&symtab, fn.name, fn)
 
     symtab_new_scope(&symtab)
     defer symtab_pop_scope(&symtab)
 
     for arg in fn.args {
-        symtab_push(&symtab, arg.(VarDecl).name, arg)
+        symtab_push(&symtab, arg.(ConstDecl).name, arg)
     }
 
     if strings.compare(fn.name, "main") == 0 && fn.type != .Void {
@@ -96,8 +111,8 @@ analyse_fn :: proc(using env: ^Analyser, fn: FnDecl) {
             analyse_var_decl(env, &stmnt)
         case ConstDecl:
             analyse_const_decl(env, &stmnt)
-        case FuncCall:
-            analyse_func_call(env, &stmnt)
+        case FnCall:
+            analyse_fn_call(env, &stmnt)
         case FnDecl:
             elog(stmnt.cursors_idx, "illegal function declaration \"%v\" inside another function", stmnt.name, fn.name)
         }
@@ -108,14 +123,14 @@ analyse :: proc(using env: ^Analyser) {
     for statement in ast {
         switch &stmnt in statement {
         case FnDecl:
-            analyse_fn(env, stmnt)
+            analyse_fn_decl(env, stmnt)
         case VarDecl:
             analyse_var_decl(env, &stmnt)
         case ConstDecl:
             analyse_const_decl(env, &stmnt)
         case Return:
             elog(stmnt.cursors_idx, "illegal use of return, not inside a function")
-        case FuncCall:
+        case FnCall:
             elog(stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
         }
     }

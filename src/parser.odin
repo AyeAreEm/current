@@ -41,16 +41,17 @@ Const :: struct {
     type: Type,
     cursors_idx: int,
 }
-FuncCall :: struct {
+FnCall :: struct {
     name: string,
     type: Type,
+    args: [dynamic]Expr,
     cursors_idx: int,
 }
 Expr :: union {
     IntLit,
     Var,
     Const,
-    FuncCall,
+    FnCall,
 }
 
 type_of_expr :: proc(expr: Expr) -> Type {
@@ -61,7 +62,7 @@ type_of_expr :: proc(expr: Expr) -> Type {
         return ex.type
     case Const:
         return ex.type
-    case FuncCall:
+    case FnCall:
         return ex.type
     }
 
@@ -100,15 +101,36 @@ Stmnt :: union {
     FnDecl,
     VarDecl,
     Return,
-    FuncCall,
+    FnCall,
     ConstDecl,
+}
+
+type_of_stmnt :: proc(statement: Stmnt) -> Type {
+    switch stmnt in statement {
+    case FnDecl:
+        return stmnt.type
+    case FnCall:
+        return stmnt.type
+    case VarDecl:
+        return stmnt.type
+    case ConstDecl:
+        return stmnt.type
+    case Return:
+        return stmnt.type
+    }
+
+    if statement == nil {
+        return .Void
+    }
+
+    return nil
 }
 
 get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
-        case FuncCall:
+        case FnCall:
             return expr.cursors_idx
         case Var:
             return expr.cursors_idx
@@ -125,7 +147,7 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return stmnt.cursors_idx
         case FnDecl:
             return stmnt.cursors_idx
-        case FuncCall:
+        case FnCall:
             return stmnt.cursors_idx
         case ConstDecl:
             return stmnt.cursors_idx
@@ -135,19 +157,27 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     unreachable()
 }
 
-// returns allocated string, free after
-expr_print :: proc(expression: Expr) -> string {
+expr_print :: proc(expression: Expr) {
     switch expr in expression {
     case IntLit:
-        return fmt.aprintf("IntLit %v %v", expr.type, expr.literal)
-    case FuncCall:
-        return fmt.aprintf("FnCall %v %v()", expr.type, expr.name)
+        fmt.printf("IntLit %v %v", expr.type, expr.literal)
+    case FnCall:
+        fmt.printf("FnCall %v %v(", expr.type, expr.name)
+        for arg, i in expr.args {
+            if i == 0 {
+                expr_print(arg)
+            } else {
+                fmt.print(", ")
+                expr_print(arg)
+            }
+        }
+        fmt.print(")")
     case Var:
-        return fmt.aprintf("Var %v %v", expr.type, expr.name)
+        fmt.printf("Var %v %v", expr.type, expr.name)
     case Const:
-        return fmt.aprintf("Const %v %v", expr.type, expr.name)
+        fmt.printf("Const %v %v", expr.type, expr.name)
     case:
-        return fmt.aprintf("")
+        fmt.printf("")
     }
 }
 
@@ -158,27 +188,45 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
 
     switch stmnt in statement {
     case FnDecl:
-        fmt.printfln("Fn %v %v()", stmnt.type, stmnt.name)
+        fmt.printf("Fn %v %v(", stmnt.type, stmnt.name)
+        for arg, i in stmnt.args {
+            if i == 0 {
+                stmnt_print(arg, 0)
+            } else {
+                fmt.print(", ")
+                stmnt_print(arg, 0)
+            }
+        }
+        fmt.println(")")
+
         for s in stmnt.body {
             stmnt_print(s, indent+1)
         }
     case VarDecl:
-        expr := expr_print(stmnt.value)
-        defer delete(expr)
+        if stmnt.value == nil {
+            fmt.printf("Var %v %v", stmnt.type, stmnt.name)
+            return
+        }
 
-        fmt.printfln("Var %v %v = %v", stmnt.type, stmnt.name, expr)
+        fmt.printf("Var %v %v = ", stmnt.type, stmnt.name)
+        expr_print(stmnt.value)
+        fmt.println("")
     case ConstDecl:
-        expr := expr_print(stmnt.value)
-        defer delete(expr)
+        if stmnt.value == nil {
+            fmt.printf("Const %v %v", stmnt.type, stmnt.name)
+            return
+        }
 
-        fmt.printfln("Const %v %v = %v", stmnt.type, stmnt.name, expr)
+        fmt.printf("Const %v %v = ", stmnt.type, stmnt.name)
+        expr_print(stmnt.value)
+        fmt.println("")
     case Return:
-        expr := expr_print(stmnt.value)
-        defer delete(expr)
 
-        fmt.printfln("Return %v %v", stmnt.type, expr)
-    case FuncCall:
-        fmt.printfln("FnCall %v %v()", stmnt.type, stmnt.name)
+        fmt.printf("Return %v ", stmnt.type)
+        expr_print(stmnt.value)
+        fmt.println("")
+    case FnCall:
+        expr_print(stmnt)
     }
 }
 
@@ -241,7 +289,7 @@ parse_block :: proc(using parser: ^Parser, start: Token = TokenLc{}, end: Token 
     return block
 }
 
-parse_expr_until :: proc(using parser: ^Parser, until: Maybe(Token) = nil) -> Expr {
+parse_expr_until :: proc(using parser: ^Parser, until: Token = nil) -> Expr {
     stack := [dynamic]Expr{}
     defer delete(stack)
 
@@ -250,7 +298,11 @@ parse_expr_until :: proc(using parser: ^Parser, until: Maybe(Token) = nil) -> Ex
     bracket_count: i8 = 0
     curly_count: i8 = 0
 
-    for token := token_next(&tokens); token != nil && token != until; token = token_next(&tokens) {
+    for token := token_next(&tokens); token != nil; token = token_next(&tokens) {
+        if token_tag_equal(token, until) {
+            break
+        }
+
         #partial switch tok in token {
         case TokenIntLit:
             append(&stack, IntLit{
@@ -264,11 +316,7 @@ parse_expr_until :: proc(using parser: ^Parser, until: Maybe(Token) = nil) -> Ex
             if name, ok := converted_ident.(string); ok {
                 token_after_ident := token_peek(&tokens)
                 if lb, lb_ok := token_after_ident.(TokenLb); lb_ok {
-                    append(&stack, FuncCall{
-                        name = tok.ident,
-                        type = nil,
-                        cursors_idx = cursors_idx,
-                    })
+                    append(&stack, parse_fn_call(parser, tok.ident))
                 } else {
                     append(&stack, Var{
                         name = tok.ident,
@@ -284,7 +332,10 @@ parse_expr_until :: proc(using parser: ^Parser, until: Maybe(Token) = nil) -> Ex
         case TokenRb:
             bracket_count -= 1
 
-            if curly_count < 0 {
+            if in_func_call_args && bracket_count == -1 {
+                in_func_call_args = false
+                return nil if len(stack) == 0 else stack[0]
+            } else if bracket_count < 0 {
                 elog(cursors_idx, "missing open bracket")
             }
         case TokenLc:
@@ -333,33 +384,30 @@ parse_const_decl :: proc(using parser: ^Parser, ident: string, type: Type = nil)
                 elog(index, "unexpected token %v", tok)
             }
         }
-
-        expr := parse_expr_until(parser, TokenSemiColon{})
-        // <ident>: <type?>: ;
-        if expr == nil {
-            elog(index, "expected expression after \":\" in variable \"%v\" declaration", ident)
-        }
-        return ConstDecl{
-            name = ident,
-            type = type,
-            value = expr,
-            cursors_idx = index,
-        }
-    case:
-        expr := parse_expr_until(parser, TokenSemiColon{})
-        // <ident>: <type?>: ;
-        if expr == nil {
-            elog(index, "expected expression after \":\" in variable \"%v\" declaration", ident)
-        }
-        return ConstDecl{
-            name = ident,
-            type = type,
-            value = expr,
-            cursors_idx = index,
-        }
     }
 
-    return nil
+    // <ident>: <type> ,
+    if in_func_decl_args {
+        return ConstDecl{
+            name = ident,
+            type = type,
+            value = nil,
+            cursors_idx = index,
+        }
+        // TODO: implement default function arguments
+    }
+
+    expr := parse_expr_until(parser, TokenSemiColon{})
+    // <ident>: <type?>: ;
+    if expr == nil {
+        elog(index, "expected expression after \":\" in variable \"%v\" declaration", ident)
+    }
+    return ConstDecl{
+        name = ident,
+        type = type,
+        value = expr,
+        cursors_idx = index,
+    }
 }
 
 parse_var_decl :: proc(using parser: ^Parser, name: string, type: Type = nil, has_equals: bool = true) -> Stmnt {
@@ -428,32 +476,52 @@ parse_decl :: proc(using parser: ^Parser, ident: string) -> Stmnt {
                 if !in_func_decl_args {
                     elog(cursors_idx, "unexpected comma during declaration")
                 }
-                return parse_var_decl(parser, ident, type, false)
+                return parse_const_decl(parser, ident, type)
             case TokenRb:
                 if !in_func_decl_args {
                     elog(cursors_idx, "unexpected TokenRb during declaration")
                 }
-                return parse_var_decl(parser, ident, type, false)
+                return parse_const_decl(parser, ident, type)
             case:
                 elog(cursors_idx, "unexpected token %v", tok)
             }
         }
     case:
-        elog(cursors_idx, "unexpected token %v", tok)
+        elog(cursors_idx, "unexpected token %v during declaration", tok)
     }
 
     return nil
 }
 
-parse_func_call :: proc(using parser: ^Parser, name: string) -> FuncCall {
+parse_fn_call :: proc(using parser: ^Parser, name: string) -> FnCall {
     _ = token_expect(&tokens, TokenLb{})
-    
-    _ = token_expect(&tokens, TokenRb{})
-    _ = token_expect(&tokens, TokenSemiColon{})
 
-    return FuncCall {
+    bracket_count: i8 = 0
+    args := [dynamic]Expr{}
+
+    in_func_call_args = true
+    for token := token_peek(&tokens); token != nil && in_func_call_args; token = token_peek(&tokens) {
+        #partial switch tok in token {
+        case TokenLb:
+            bracket_count += 1
+        case TokenRb:
+            bracket_count -= 1
+
+            if bracket_count == 0 {
+                break
+            } else if bracket_count < 0 {
+                elog(cursors_idx, "missing open bracket")
+            }
+        }
+
+        append(&args, parse_expr_until(parser, TokenComma{}))
+    }
+    in_func_call_args = false
+    
+    return FnCall {
         name = name,
         type = nil,
+        args = args,
         cursors_idx = cursors_idx,
     }
 }
@@ -467,7 +535,7 @@ parse_ident :: proc(using parser: ^Parser, ident: string) -> Stmnt {
         token_next(&tokens) // no nil check, already checked when peeked
         return parse_decl(parser, ident)
     case TokenLb:
-        return parse_func_call(parser, ident)
+        return parse_fn_call(parser, ident)
     case:
         elog(cursors_idx, "unexpected token %v", tok)
     }
