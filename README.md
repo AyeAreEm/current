@@ -1,25 +1,30 @@
-# X
+# Current
 - NOTE: this language is still being development. expect bugs as features<br>
-X/Xlang is a statically typed compiled programming language with manual memory management
+
+## Description
+Current is a statically typed compiled programming language with manual memory management<br>
+It's an ergonomic middle ground between C and C++, similar to new programming languages are in this space.<br>
+
+## Principles
+Current's main principles are simplicity and ease of use. A language with these principles would be one that doesn't stand in the way of the programmer and has features you'd expect in a modern language.<br>
+To do this, we "borrow" features from other languages. For example, receiver methods from Golang, generics from Rust, options and errors from Zig, etc.
 
 ## Features
 - Generics
 - UTF-8 Strings
-- Cross Platform
 - Defer Statements
-- Manual Memory Management
 - Zero Initalised
 - Options and Errors (as values)
 - Name First Declaration
 - Receiver Methods
 - Compile Time Execution
-- Default Function Parameters
+- Default Function Arguments
 - Allocators
 
-```
-vec2 :: struct[T] {
-    x: f32,
-    y: f32,
+```odin
+vec2 :: struct[$T] {
+    x: T,
+    y: T,
 }
 
 vec2[$T].add :: fn(^self, other: vec2[T]) void {
@@ -33,7 +38,7 @@ main :: fn() void {
 
     pos.add(other);
 
-    nums := dyn.init(i32)!; // ! == "unwrap"
+    nums := dyn.init(i32)!; // ! == "unwrap" / "or_return"
     defer nums.deinit()!;
 
     nums.push(69)!;
@@ -61,8 +66,10 @@ Well, mainly because all languages miss features and I wanted a language that ha
 - First Class Error Unions
 - Receiver Methods
 - Compile Time Execution
+- Immutable Variables
 
-It might be good to point out that Odin has polymorphic parameters, not generics. So `Maybe(vec2(i32))` does not work. Of course there are ways around this but I want true generics
+It might be good to point out that Odin has polymorphic parameters, not generics. So `Maybe(vec2(i32))` does not work. Of course there are ways around this but I want true generics<br>
+Also, when I say "immutable variables", I mean "const" variables in the traditional sense. Odin does have constants but they must be compile time known, I think a language should have a way to declare a constant variable
 
 ### Features Zig Doesn't Have
 - Default Function Parameters
