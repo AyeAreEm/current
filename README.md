@@ -38,7 +38,7 @@ main :: fn() void {
 
     pos.add(other);
 
-    nums := dyn.init(i32)!; // ! == "unwrap" / "or_return"
+    nums := dyn[i32].init()!; // ! == "unwrap" / "or_return"
     defer nums.deinit()!;
 
     nums.push(69)!;
