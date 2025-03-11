@@ -22,7 +22,7 @@ tc_equals :: proc(lhs: Type, rhs: Type) -> bool {
     return false
 }
 
-tc_return :: proc(fn: FnDecl, ret: ^Return) {
+tc_return :: proc(analyser: ^Analyser, fn: FnDecl, ret: ^Return) {
     if ret.type == nil {
         ret.type = fn.type // fn.type can't be nil
     }
@@ -30,11 +30,11 @@ tc_return :: proc(fn: FnDecl, ret: ^Return) {
     ret_expr_type := type_of_expr(ret.value)
 
     if !tc_equals(ret.type, ret_expr_type) {
-        elog(get_cursor_index(cast(Stmnt)ret^), "mismatch types, return type %v, expression type %v", ret.type, ret_expr_type)
+        elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, return type %v, expression type %v", ret.type, ret_expr_type)
     }
 
     if !tc_equals(fn.type, ret.type) {
-        elog(get_cursor_index(cast(Stmnt)ret^), "mismatch types, function type %v, return type %v", fn.type, ret.type)
+        elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, function type %v, return type %v", fn.type, ret.type)
     }
 }
 
@@ -59,24 +59,24 @@ tc_infer :: proc(lhs: ^Type, expr: Expr) {
     }
 }
 
-tc_var_decl :: proc(vardecl: ^VarDecl) {
+tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
     expr_type := type_of_expr(vardecl.value)
     expr_default_type := tc_default_untyped_type(expr_type)
 
     if vardecl.type == nil {
         tc_infer(&vardecl.type, vardecl.value)
     } else if vardecl.type != expr_type && expr_default_type == nil {
-        elog(get_cursor_index(vardecl.value), "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, expr_type)
+        elog(analyser, get_cursor_index(vardecl.value), "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, expr_type)
     }
 }
 
-tc_const_decl :: proc(constdecl: ^ConstDecl) {
+tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
     expr_type := type_of_expr(constdecl.value)
     expr_default_type := tc_default_untyped_type(expr_type)
 
     if constdecl.type == nil {
         tc_infer(&constdecl.type, constdecl.value)
     } else if constdecl.type != expr_type && expr_default_type == nil {
-        elog(get_cursor_index(constdecl.value), "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, expr_type)
+        elog(analyser, get_cursor_index(constdecl.value), "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, expr_type)
     }
 }

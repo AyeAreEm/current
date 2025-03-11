@@ -81,13 +81,13 @@ FnDecl :: struct {
     cursors_idx: int,
 }
 VarDecl :: struct {
-    name: string,
+    name: string, // allocated
     type: Type,
     value: Expr,
     cursors_idx: int,
 }
 ConstDecl :: struct {
-    name: string,
+    name: string, // allocated
     type: Type,
     value: Expr,
     cursors_idx: int,
@@ -240,6 +240,24 @@ convert_ident :: proc(using token: TokenIdent) -> union {Type, Keyword, string} 
     }
 }
 
+Parser :: struct {
+    tokens: [dynamic]Token,
+    in_func_decl_args: bool,
+    in_func_call_args: bool,
+
+    // debug
+    filename: string,
+    cursors: [dynamic][2]u32,
+    cursors_idx: int,
+}
+
+parse_elog :: proc(using parser: ^Parser, i: int, format: string, args: ..any) -> ! {
+    fmt.eprintf("%v:%v:%v \x1b[91;1merror\x1b[0m: ", filename, cursors[i][0], cursors[i][1])
+    fmt.eprintfln(format, ..args)
+
+    os.exit(1)
+}
+
 parse_fn_decl :: proc(using parser: ^Parser, name: string) -> Stmnt {
     index := cursors_idx
 
@@ -247,7 +265,7 @@ parse_fn_decl :: proc(using parser: ^Parser, name: string) -> Stmnt {
     args := parse_block(parser, TokenLb{}, TokenRb{})
     in_func_decl_args = false
 
-    type_ident := token_expect(&tokens, TokenIdent{})
+    type_ident := token_expect(parser, TokenIdent{})
     type := convert_ident(type_ident.(TokenIdent)).(Type)
 
     body := parse_block(parser)
@@ -262,28 +280,28 @@ parse_fn_decl :: proc(using parser: ^Parser, name: string) -> Stmnt {
 }
 
 parse_block :: proc(using parser: ^Parser, start: Token = TokenLc{}, end: Token = TokenRc{}) -> [dynamic]Stmnt {
-    _ = token_expect(&tokens, start)
+    _ = token_expect(parser, start)
 
     block := [dynamic]Stmnt{}
 
     // if there's nothing inside the block
-    if token := token_peek(&tokens); token_tag_equal(token, end) {
-        token_next(&tokens)
+    if token := token_peek(parser); token_tag_equal(token, end) {
+        token_next(parser)
         return block
     }
 
     for stmnt := parse(parser); stmnt != nil; stmnt = parse(parser) {
         append(&block, stmnt)
 
-        token := token_peek(&tokens)
+        token := token_peek(parser)
         if token_tag_equal(token, end) {
-            token_next(&tokens)
+            token_next(parser)
             break
         }
     }
 
     if len(block) == 0 {
-        _ = token_expect(&tokens, end)
+        _ = token_expect(parser, end)
     }
 
     return block
@@ -298,7 +316,7 @@ parse_expr_until :: proc(using parser: ^Parser, until: Token = nil) -> Expr {
     bracket_count: i8 = 0
     curly_count: i8 = 0
 
-    for token := token_next(&tokens); token != nil; token = token_next(&tokens) {
+    for token := token_next(parser); token != nil; token = token_next(parser) {
         if token_tag_equal(token, until) {
             break
         }
@@ -314,7 +332,7 @@ parse_expr_until :: proc(using parser: ^Parser, until: Token = nil) -> Expr {
             converted_ident := convert_ident(tok)
 
             if name, ok := converted_ident.(string); ok {
-                token_after_ident := token_peek(&tokens)
+                token_after_ident := token_peek(parser)
                 if lb, lb_ok := token_after_ident.(TokenLb); lb_ok {
                     append(&stack, parse_fn_call(parser, tok.ident))
                 } else {
@@ -325,7 +343,7 @@ parse_expr_until :: proc(using parser: ^Parser, until: Token = nil) -> Expr {
                     })
                 }
             } else {
-                elog(cursors_idx, "expected identifier, got %v", converted_ident)
+                elog(parser, cursors_idx, "expected identifier, got %v", converted_ident)
             }
         case TokenLb:
             bracket_count += 1
@@ -336,26 +354,26 @@ parse_expr_until :: proc(using parser: ^Parser, until: Token = nil) -> Expr {
                 in_func_call_args = false
                 return nil if len(stack) == 0 else stack[0]
             } else if bracket_count < 0 {
-                elog(cursors_idx, "missing open bracket")
+                elog(parser, cursors_idx, "missing open bracket")
             }
         case TokenLc:
             curly_count += 1
         case TokenRc:
             curly_count -= 1
             if curly_count < 0 {
-                elog(cursors_idx, "missing open curly bracket")
+                elog(parser, cursors_idx, "missing open curly bracket")
             }
         case:
-            elog(cursors_idx, "unexpected token %v", tok)
+            elog(parser, cursors_idx, "unexpected token %v", tok)
         }
     }
 
     if bracket_count != 0 {
-        elog(cursors_idx, "missing close bracket")
+        elog(parser, cursors_idx, "missing close bracket")
     }
 
     if curly_count != 0 {
-        elog(cursors_idx, "missing close curly bracket")
+        elog(parser, cursors_idx, "missing close curly bracket")
     }
 
     if len(stack) == 0 {
@@ -367,7 +385,7 @@ parse_expr_until :: proc(using parser: ^Parser, until: Token = nil) -> Expr {
 parse_const_decl :: proc(using parser: ^Parser, ident: string, type: Type = nil) -> Stmnt {
     // <ident> : <type?> :
 
-    token := token_peek(&tokens)
+    token := token_peek(parser)
     if token == nil do return nil
 
     index := cursors_idx
@@ -378,10 +396,10 @@ parse_const_decl :: proc(using parser: ^Parser, ident: string, type: Type = nil)
         if keyword, keyword_ok := converted_ident.(Keyword); keyword_ok {
             #partial switch keyword {
             case .Fn:
-                token_next(&tokens) // no nil check, checked when peeked
+                token_next(parser) // no nil check, checked when peeked
                 return parse_fn_decl(parser, ident)
             case:
-                elog(index, "unexpected token %v", tok)
+                elog(parser, index, "unexpected token %v", tok)
             }
         }
     }
@@ -400,7 +418,7 @@ parse_const_decl :: proc(using parser: ^Parser, ident: string, type: Type = nil)
     expr := parse_expr_until(parser, TokenSemiColon{})
     // <ident>: <type?>: ;
     if expr == nil {
-        elog(index, "expected expression after \":\" in variable \"%v\" declaration", ident)
+        elog(parser, index, "expected expression after \":\" in variable \"%v\" declaration", ident)
     }
     return ConstDecl{
         name = ident,
@@ -417,7 +435,7 @@ parse_var_decl :: proc(using parser: ^Parser, name: string, type: Type = nil, ha
     if has_equals {
         expr := parse_expr_until(parser, TokenSemiColon{})
         if expr == nil {
-            elog(index, "expected expression after \"=\" in variable \"%v\" declaration", name)
+            elog(parser, index, "expected expression after \"=\" in variable \"%v\" declaration", name)
         }
 
         return VarDecl{
@@ -440,67 +458,67 @@ parse_var_decl :: proc(using parser: ^Parser, name: string, type: Type = nil, ha
 parse_decl :: proc(using parser: ^Parser, ident: string) -> Stmnt {
     // <ident> :
 
-    token := token_peek(&tokens)
+    token := token_peek(parser)
     if token == nil do return nil
 
     #partial switch tok in token {
     case TokenColon:
-        token_next(&tokens) // no nil check, already checked when peeked
+        token_next(parser) // no nil check, already checked when peeked
         return parse_const_decl(parser, ident)
     case TokenEqual:
-        token_next(&tokens)
+        token_next(parser)
         return parse_var_decl(parser, ident)
     case TokenIdent:
-        token_next(&tokens)
+        token_next(parser)
         converted_ident := convert_ident(tok)
 
         if type, type_ok := converted_ident.(Type); type_ok {
-            token_after_type := token_peek(&tokens)
+            token_after_type := token_peek(parser)
             if token_after_type == nil do return nil
 
             #partial switch tat in token_after_type {
             case TokenColon:
-                token_next(&tokens)
+                token_next(parser)
                 return parse_const_decl(parser, ident, type)
             case TokenEqual:
-                token_next(&tokens)
+                token_next(parser)
                 return parse_var_decl(parser, ident, type)
             case TokenSemiColon:
-                token_next(&tokens)
+                token_next(parser)
                 if type == nil {
-                    elog(cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
+                    elog(parser, cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
                 }
                 return parse_var_decl(parser, ident, type, false)
             case TokenComma:
-                token_next(&tokens)
+                token_next(parser)
                 if !in_func_decl_args {
-                    elog(cursors_idx, "unexpected comma during declaration")
+                    elog(parser, cursors_idx, "unexpected comma during declaration")
                 }
                 return parse_const_decl(parser, ident, type)
             case TokenRb:
                 if !in_func_decl_args {
-                    elog(cursors_idx, "unexpected TokenRb during declaration")
+                    elog(parser, cursors_idx, "unexpected TokenRb during declaration")
                 }
                 return parse_const_decl(parser, ident, type)
             case:
-                elog(cursors_idx, "unexpected token %v", tok)
+                elog(parser, cursors_idx, "unexpected token %v", tok)
             }
         }
     case:
-        elog(cursors_idx, "unexpected token %v during declaration", tok)
+        elog(parser, cursors_idx, "unexpected token %v during declaration", tok)
     }
 
     return nil
 }
 
 parse_fn_call :: proc(using parser: ^Parser, name: string) -> FnCall {
-    _ = token_expect(&tokens, TokenLb{})
+    _ = token_expect(parser, TokenLb{})
 
     bracket_count: i8 = 0
     args := [dynamic]Expr{}
 
     in_func_call_args = true
-    for token := token_peek(&tokens); token != nil && in_func_call_args; token = token_peek(&tokens) {
+    for token := token_peek(parser); token != nil && in_func_call_args; token = token_peek(parser) {
         #partial switch tok in token {
         case TokenLb:
             bracket_count += 1
@@ -510,7 +528,7 @@ parse_fn_call :: proc(using parser: ^Parser, name: string) -> FnCall {
             if bracket_count == 0 {
                 break
             } else if bracket_count < 0 {
-                elog(cursors_idx, "missing open bracket")
+                elog(parser, cursors_idx, "missing open bracket")
             }
         }
 
@@ -527,17 +545,17 @@ parse_fn_call :: proc(using parser: ^Parser, name: string) -> FnCall {
 }
 
 parse_ident :: proc(using parser: ^Parser, ident: string) -> Stmnt {
-    token := token_peek(&tokens)
+    token := token_peek(parser)
     if token == nil do return nil
 
     #partial switch tok in token {
     case TokenColon:
-        token_next(&tokens) // no nil check, already checked when peeked
+        token_next(parser) // no nil check, already checked when peeked
         return parse_decl(parser, ident)
     case TokenLb:
         return parse_fn_call(parser, ident)
     case:
-        elog(cursors_idx, "unexpected token %v", tok)
+        elog(parser, cursors_idx, "unexpected token %v", tok)
     }
 
     return nil
@@ -554,12 +572,12 @@ parse_return :: proc(using parser: ^Parser) -> Stmnt {
 }
 
 parse :: proc(using parser: ^Parser) -> Stmnt {
-    token := token_peek(&tokens)
+    token := token_peek(parser)
     if token == nil do return nil
 
     #partial switch tok in token {
     case TokenIdent:
-        token_next(&tokens) // no nil check, already checked when peeked
+        token_next(parser) // no nil check, already checked when peeked
         converted_ident := convert_ident(tok)
 
         if ident, ident_ok := converted_ident.(string); ident_ok {
@@ -568,7 +586,7 @@ parse :: proc(using parser: ^Parser) -> Stmnt {
             return parse_return(parser)
         }
     case:
-        elog(cursors_idx, "unexpected token %v", tok)
+        elog(parser, cursors_idx, "unexpected token %v", tok)
     }
     return nil
 }

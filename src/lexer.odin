@@ -33,20 +33,20 @@ Token :: union {
     TokenComma,
 }
 
-token_peek :: proc(tokens: ^[dynamic]Token) -> Token {
-    if len(tokens^) == 0 {
+token_peek :: proc(using parser: ^Parser) -> Token {
+    if len(tokens) == 0 {
         return nil
     }
 
     return tokens[0]
 }
 
-token_next :: proc(tokens: ^[dynamic]Token) -> Token {
-    if len(tokens^) == 0 {
+token_next :: proc(using parser: ^Parser) -> Token {
+    if len(tokens) == 0 {
         return nil
     }
     cursors_idx += 1
-    return pop_front(tokens)
+    return pop_front(&tokens)
 }
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
@@ -86,16 +86,16 @@ token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     return false
 }
 
-token_expect :: proc(tokens: ^[dynamic]Token, expected: Token) -> Token {
-    if token := token_next(tokens); token != nil {
+token_expect :: proc(using parser: ^Parser, expected: Token) -> Token {
+    if token := token_next(parser); token != nil {
         if !token_tag_equal(token, expected) {
-            elog(cursors_idx, "expected token %v, got %v", expected, token)
+            elog(parser, cursors_idx, "expected token %v, got %v", expected, token)
         }
 
         return token
     }
 
-    elog(cursors_idx, "expected token %v when no more tokens left", expected)
+    elog(parser, cursors_idx, "expected token %v when no more tokens left", expected)
 }
 
 lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u32) {

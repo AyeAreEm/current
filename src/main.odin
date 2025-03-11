@@ -2,72 +2,16 @@ package main
 
 import "core:fmt"
 import "core:os"
+import "core:strings"
 
-
-testing_filename :: "./test.x"
-
-cursors: [dynamic][2]u32
-cursors_idx := -1
-
-SymTab :: struct {
-    scopes: [dynamic]map[string]Stmnt,
-    curr_scope: uint,
-}
-
-symtab_find :: proc(using symtab: ^SymTab, key: string, location: int) -> Stmnt {
-    elem, ok := scopes[curr_scope][key]
-    if !ok {
-        elog(location, "use of undefined \"%v\"", key)
+args_next :: proc(args: ^[]string, arg: string) -> string {
+    if len(args) == 0 {
+        elog("expected another argument")
     }
 
-    return elem
-}
-
-symtab_push :: proc(using symtab: ^SymTab, key: string, value: Stmnt) {
-    elem, ok := scopes[curr_scope][key]
-    if !ok {
-        scopes[curr_scope][key] = value
-        return
-    }
-    
-    cur_index := get_cursor_index(elem)
-    elog(get_cursor_index(value), "redeclaration of \"%v\" from %v:%v", key, cursors[cur_index][0], cursors[cur_index][1])
-}
-
-symtab_new_scope :: proc(using symtab: ^SymTab) {
-    // maybe im dumb but i fully expected
-    // append(&scopes, scopes[curr_scope])
-    // to copy `scopes[curr_scope]` and append it but no, it's a reference
-    // so any mutation to the newly appended scope also mutates the previous scope
-    // idk how i feel about this, on one hand, no implicit copies is good.
-    // on the other hand, implicit pointer is bad.
-
-    scope := map[string]Stmnt{}
-
-    for key, value in scopes[curr_scope] {
-        scope[key] = value
-    }
-
-    append(&scopes, scope)
-    curr_scope += 1
-}
-
-symtab_pop_scope :: proc(using symtab: ^SymTab) {
-    pop(&scopes)
-    curr_scope -= 1
-}
-
-Parser :: struct {
-    tokens: [dynamic]Token,
-    cursors: [dynamic][2]u32,
-    in_func_decl_args: bool,
-    in_func_call_args: bool,
-}
-
-Analyser :: struct {
-    ast: [dynamic]Stmnt,
-    symtab: SymTab,
-    cursors: [dynamic][2]u32,
+    arg := args[0]
+    args^ = args[1:]
+    return arg
 }
 
 debug :: proc(format: string, args: ..any) {
@@ -75,31 +19,40 @@ debug :: proc(format: string, args: ..any) {
     fmt.eprintfln(format, ..args)
 }
 
-elog :: proc(i: int, format: string, args: ..any) -> ! {
-    fmt.eprintf("%v:%v:%v error: ", testing_filename, cursors[i][0], cursors[i][1])
+usage :: proc() {
+    fmt.eprintln("USAGE: ")
+    fmt.eprintln("    build [filename.cur] | build executable")
+}
+
+current_elog :: proc(format: string, args: ..any) -> ! {
+    fmt.eprintf("\x1b[91;1merror\x1b[0m: ")
     fmt.eprintfln(format, ..args)
+    usage()
 
     os.exit(1)
 }
 
-main :: proc() {
-    content_bytes, content_bytes_ok := os.read_entire_file(testing_filename)
+elog :: proc{current_elog, parse_elog, analyse_elog}
+
+build :: proc(filename: string) {
+    content_bytes, content_bytes_ok := os.read_entire_file(filename)
     if !content_bytes_ok {
-        fmt.eprintfln("failed to read %v", testing_filename)
+        fmt.eprintfln("failed to read %v", filename)
         os.exit(1)
     }
 
     content := transmute(string)content_bytes
-    tokens, cursor := lexer(content)
-    assert(len(tokens) == len(cursor), "expected the length of tokens and length of cursors to be the same")
-
-    cursors = cursor
+    tokens, cursors := lexer(content)
+    assert(len(tokens) == len(cursors), "expected the length of tokens and length of cursors to be the same")
 
     parser := Parser {
         tokens = tokens, // NOTE: does this do a copy? surely not
-        cursors = cursors,
         in_func_decl_args = false,
         in_func_call_args = false,
+
+        filename = filename,
+        cursors = cursors,
+        cursors_idx = -1,
     }
 
     ast := [dynamic]Stmnt{}
@@ -116,11 +69,33 @@ main :: proc() {
     env := Analyser{
         ast = ast,
         symtab = symtab,
+
+        filename = filename,
+        cursors = cursors,
+        cursors_idx = -1
     }
     
     analyse(&env)
     debug("AST")
     for stmnt in env.ast {
         stmnt_print(stmnt, 1)
+    }
+}
+
+main :: proc() {
+    args := os.args
+    if len(args) == 1 {
+        usage()
+        os.exit(1)
+    }
+
+    arg0 := args_next(&args, "")
+    command := args_next(&args, arg0)
+
+    if strings.compare(command, "build") == 0 {
+        filename := args_next(&args, command)
+        build(filename)
+    } else {
+        elog("unexpected command %v", command)
     }
 }
