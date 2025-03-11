@@ -2,10 +2,10 @@
 
 option="$1"
 
-if [[ "$option" == "build" ]]; then
-    odin build src -out:xlang
-else [[ "$option" == "run" ]]; then
-    odin run src -out:xlang
+if [ "$option" == "build" ]; then
+    odin build src -out:current
+elif [ "$option" == "run" ]; then
+    odin run src -out:current -- ${@:2}
 else
     echo invalid option
 fi

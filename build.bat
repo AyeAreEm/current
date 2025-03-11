@@ -3,9 +3,10 @@
 set option=%1
 
 if "%option%"=="build" (
-    odin build src -out:xlang.exe
+    odin build src -out:current.exe
 ) else if "%option%"=="run" (
-    odin run src -out:xlang.exe
+    shift
+    odin run src -out:current.exe -- %*
 ) else (
     echo invalid option
 )
