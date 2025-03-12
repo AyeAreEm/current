@@ -70,7 +70,40 @@ Analyser :: struct {
     cursors_idx: int,
 }
 
+type_of_expr :: proc(using analyser: ^Analyser, expr: Expr) -> Type {
+    switch ex in expr {
+    case IntLit:
+        return ex.type
+    case Var:
+        var := symtab_find(analyser, ex.name, ex.cursors_idx).(VarDecl)
+        return var.type
+    case Const:
+        const := symtab_find(analyser, ex.name, ex.cursors_idx).(ConstDecl)
+        return const.type
+    case FnCall:
+        call := symtab_find(analyser, ex.name, ex.cursors_idx).(FnDecl)
+        return call.type
+    case Plus:
+        return ex.type
+    case Minus:
+        return ex.type
+    case Multiply:
+        return ex.type
+    case Divide:
+        return ex.type
+    }
+
+    if expr == nil {
+        return .Void
+    }
+
+    return nil
+}
+
 analyse_elog :: proc(using analyser: ^Analyser, i: int, format: string, args: ..any) -> ! {
+    if DEBUG_MODE {
+        debug("elog from analyser")
+    }
     fmt.eprintf("%v:%v:%v \x1b[91;1merror\x1b[0m: ", filename, cursors[i][0], cursors[i][1])
     fmt.eprintfln(format, ..args)
 
@@ -105,12 +138,71 @@ analyse_expr :: proc(using env: ^Analyser, expr: ^Expr) {
         }
     case IntLit:
         return
+    case Plus:
+        analyse_expr(env, ex.left)
+        analyse_expr(env, ex.right)
+
+        lt := type_of_expr(env, ex.left^)
+        rt := type_of_expr(env, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(env, ex.cursors_idx, "mismatch types, %v + %v", lt, rt)
+        }
+
+        if t := tc_default_untyped_type(lt); t != nil {
+            ex.type = t
+        } else {
+            ex.type = lt
+        }
+    case Minus:
+        analyse_expr(env, ex.left)
+        analyse_expr(env, ex.right)
+
+        lt := type_of_expr(env, ex.left^)
+        rt := type_of_expr(env, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(env, ex.cursors_idx, "mismatch types, %v - %v", lt, rt)
+        }
+
+        if t := tc_default_untyped_type(lt); t != nil {
+            ex.type = t
+        } else {
+            ex.type = lt
+        }
+    case Multiply:
+        analyse_expr(env, ex.left)
+        analyse_expr(env, ex.right)
+
+        lt := type_of_expr(env, ex.left^)
+        rt := type_of_expr(env, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(env, ex.cursors_idx, "mismatch types, %v * %v", lt, rt)
+        }
+
+        if t := tc_default_untyped_type(lt); t != nil {
+            ex.type = t
+        } else {
+            ex.type = lt
+        }
+    case Divide:
+        analyse_expr(env, ex.left)
+        analyse_expr(env, ex.right)
+
+        lt := type_of_expr(env, ex.left^)
+        rt := type_of_expr(env, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(env, ex.cursors_idx, "mismatch types, %v / %v", lt, rt)
+        }
+
+        if t := tc_default_untyped_type(lt); t != nil {
+            ex.type = t
+        } else {
+            ex.type = lt
+        }
     }
 }
 
 analyse_return :: proc(using env: ^Analyser, fn: FnDecl, ret: ^Return) {
     analyse_expr(env, &ret.value)
-    expr_type := type_of_expr(ret.value)
 
     tc_return(env, fn, ret)
 }
@@ -121,6 +213,21 @@ analyse_var_decl :: proc(using env: ^Analyser, vardecl: ^VarDecl) {
     tc_var_decl(env, vardecl)
 
     symtab_push(env, vardecl.name, vardecl^)
+}
+
+analyse_var_reassign :: proc(using env: ^Analyser, varre: ^VarReassign) {
+    analyse_expr(env, &varre.value)
+
+    stmnt_vardecl := symtab_find(env, varre.name, varre.cursors_idx)
+    if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
+        varre.type = vardecl.type
+    } else if _, ok := stmnt_vardecl.(ConstDecl); ok {
+        elog(env, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
+    } else {
+        elog(env, varre.cursors_idx, "expected \"%v\" to be a variable, got %v", varre.name, stmnt_vardecl)
+    }
+
+    tc_equals(varre.type, type_of_expr(env, varre.value))
 }
 
 analyse_const_decl :: proc(using env: ^Analyser, constdecl: ^ConstDecl) {
@@ -154,7 +261,7 @@ analyse_fn_call :: proc(using env: ^Analyser, fncall: ^FnCall) {
 
     for decl_arg, i in fndecl.args {
         darg_type := type_of_stmnt(decl_arg)
-        carg_type := type_of_expr(fncall.args[i])
+        carg_type := type_of_expr(env, fncall.args[i])
 
         if !tc_equals(darg_type, carg_type) {
             elog(env, fncall.cursors_idx, "mismatch types, argument %v is expected to be of type %v, got %v", i + 1, darg_type, carg_type)
@@ -182,6 +289,8 @@ analyse_fn_decl :: proc(using env: ^Analyser, fn: FnDecl) {
             analyse_return(env, fn, &stmnt)
         case VarDecl:
             analyse_var_decl(env, &stmnt)
+        case VarReassign:
+            analyse_var_reassign(env, &stmnt)
         case ConstDecl:
             analyse_const_decl(env, &stmnt)
         case FnCall:
@@ -199,6 +308,8 @@ analyse :: proc(using env: ^Analyser) {
             analyse_fn_decl(env, stmnt)
         case VarDecl:
             analyse_var_decl(env, &stmnt)
+        case VarReassign:
+            analyse_var_reassign(env, &stmnt)
         case ConstDecl:
             analyse_const_decl(env, &stmnt)
         case Return:

@@ -4,6 +4,8 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 
+DEBUG_MODE :: false
+
 args_next :: proc(args: ^[]string, arg: string) -> string {
     if len(args) == 0 {
         elog("expected another argument")

@@ -11,26 +11,44 @@ TokenIdent :: struct {
 TokenIntLit :: struct {
     literal: string,
 }
+
 TokenColon :: struct {}
+TokenSemiColon :: struct {}
+TokenEqual :: struct {}
+
 TokenLb :: struct {} // left bracket
 TokenRb :: struct {} // right bracket
 TokenLc :: struct {} // left curl
 TokenRc :: struct {} // right curl
-TokenEqual :: struct {}
-TokenSemiColon :: struct {}
+
 TokenComma :: struct {}
+
+TokenPlus :: struct {}
+TokenMinus :: struct {}
+TokenStar :: struct {}
+TokenSlash :: struct {}
+TokenBackSlash :: struct {}
 
 Token :: union {
     TokenIdent,
     TokenIntLit,
+
     TokenColon,
+    TokenSemiColon,
+    TokenEqual,
+
     TokenLb,
     TokenRb,
     TokenLc,
     TokenRc,
-    TokenEqual,
-    TokenSemiColon,
+
     TokenComma,
+
+    TokenPlus,
+    TokenMinus,
+    TokenStar,
+    TokenSlash,
+    TokenBackSlash,
 }
 
 token_peek :: proc(using parser: ^Parser) -> Token {
@@ -51,6 +69,21 @@ token_next :: proc(using parser: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenPlus:
+        _, ok := rhs.(TokenPlus)
+        return ok
+    case TokenMinus:
+        _, ok := rhs.(TokenMinus)
+        return ok
+    case TokenStar:
+        _, ok := rhs.(TokenStar)
+        return ok
+    case TokenSlash:
+        _, ok := rhs.(TokenSlash)
+        return ok
+    case TokenBackSlash:
+        _, ok := rhs.(TokenBackSlash)
+        return ok
     case TokenIdent:
         _, ok := rhs.(TokenIdent)
         return ok
@@ -99,7 +132,7 @@ token_expect :: proc(using parser: ^Parser, expected: Token) -> Token {
 }
 
 lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u32) {
-    try_append :: proc(cursor: ^[dynamic][2]u32, col, row: ^u32, tokens: ^[dynamic]Token, buf: ^strings.Builder, extra_token: Maybe(Token) = nil) {
+    try_append :: proc(cursor: ^[dynamic][2]u32, col, row: ^u32, tokens: ^[dynamic]Token, buf: ^strings.Builder, extra_token: Token = nil) {
         if len(buf.buf) > 0 {
             append(cursor, [2]u32{row^, col^})
             string_buf := strings.to_string(buf^)
@@ -110,10 +143,10 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             }
         }
 
-        if extra, ok := extra_token.?; ok {
+        if extra_token != nil {
             col^ += 1
             append(cursor, [2]u32{row^, col^})
-            append(tokens, extra)
+            append(tokens, extra_token)
         }
 
         clear(&buf.buf)
@@ -158,6 +191,16 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             try_append(&cursor, &col, &row, &tokens, &buf, TokenSemiColon{})
         case ',':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenComma{})
+        case '+':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenPlus{})
+        case '-':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenMinus{})
+        case '*':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenStar{})
+        case '/':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenSlash{})
+        case '\\':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenBackSlash{})
         case:
             append(&buf.buf, cast(u8)ch)
             col += 1
