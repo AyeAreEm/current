@@ -51,20 +51,20 @@ Token :: union {
     TokenBackSlash,
 }
 
-token_peek :: proc(using parser: ^Parser) -> Token {
-    if len(tokens) == 0 {
+token_peek :: proc(self: ^Parser) -> Token {
+    if len(self.tokens) == 0 {
         return nil
     }
 
-    return tokens[0]
+    return self.tokens[0]
 }
 
-token_next :: proc(using parser: ^Parser) -> Token {
-    if len(tokens) == 0 {
+token_next :: proc(self: ^Parser) -> Token {
+    if len(self.tokens) == 0 {
         return nil
     }
-    cursors_idx += 1
-    return pop_front(&tokens)
+    self.cursors_idx += 1
+    return pop_front(&self.tokens)
 }
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
@@ -119,16 +119,16 @@ token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     return false
 }
 
-token_expect :: proc(using parser: ^Parser, expected: Token) -> Token {
-    if token := token_next(parser); token != nil {
+token_expect :: proc(self: ^Parser, expected: Token) -> Token {
+    if token := token_next(self); token != nil {
         if !token_tag_equal(token, expected) {
-            elog(parser, cursors_idx, "expected token %v, got %v", expected, token)
+            elog(self, self.cursors_idx, "expected token %v, got %v", expected, token)
         }
 
         return token
     }
 
-    elog(parser, cursors_idx, "expected token %v when no more tokens left", expected)
+    elog(self, self.cursors_idx, "expected token %v when no more tokens left", expected)
 }
 
 lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u32) {
