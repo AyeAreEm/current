@@ -43,6 +43,7 @@ Keyword :: enum {
     True,
     False,
     If,
+    Else,
 }
 keyword_map := map[string]Keyword{
     "fn" = .Fn,
@@ -50,6 +51,7 @@ keyword_map := map[string]Keyword{
     "true" = .True,
     "false" = .False,
     "if" = .If,
+    "else" = .Else,
 }
 expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
     #partial switch k {
@@ -163,6 +165,7 @@ If :: struct {
     condition: Expr,
     // capture: Const,
     body: [dynamic]Stmnt,
+    els: [dynamic]Stmnt,
     cursors_idx: int,
 }
 Stmnt :: union {
@@ -768,9 +771,22 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
 
     body := parse_block(self)
 
+    else_block: [dynamic]Stmnt
+    
+    if token := token_peek(self); token_tag_equal(token, TokenIdent{}) {
+        converted := convert_ident(token.(TokenIdent))
+        if keyword, ok := converted.(Keyword); ok {
+            if keyword == .Else {
+                token_next(self)
+                else_block = parse_block(self)
+            }
+        }
+    }
+
     return If{
         condition = expr,
         body = body,
+        els = else_block,
         cursors_idx = index,
     }
 }

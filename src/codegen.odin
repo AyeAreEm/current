@@ -10,92 +10,100 @@ Codegen :: struct {
     indent_level: u8,
 }
 
-gen_indent :: proc(using env: ^Codegen) {
-    for i in 0..<indent_level {
-        fmt.sbprint(&code, "    ")
+gen_indent :: proc(self: ^Codegen) {
+    for i in 0..<self.indent_level {
+        fmt.sbprint(&self.code, "    ")
     }
 }
 
-gen_block :: proc(using env: ^Codegen, block: [dynamic]Stmnt) {
+gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
     for statement in block {
         switch stmnt in statement {
         case FnDecl:
-            gen_fn_decl(env, stmnt)
+            gen_fn_decl(self, stmnt)
         case VarDecl:
-            gen_var_decl(env, stmnt)
+            gen_var_decl(self, stmnt)
         case ConstDecl:
-            gen_const_decl(env, stmnt)
+            gen_const_decl(self, stmnt)
         case VarReassign:
-            gen_var_reassign(env, stmnt)
+            gen_var_reassign(self, stmnt)
         case Return:
-            gen_return(env, stmnt)
+            gen_return(self, stmnt)
         case FnCall:
-            gen_fn_call(env, stmnt, true)
+            gen_fn_call(self, stmnt, true)
         case If:
-            gen_if(env, stmnt)
+            gen_if(self, stmnt)
         }
     }
 }
 
-gen_if :: proc(using env: ^Codegen, ifs: If) {
-    gen_indent(env)
-    fmt.sbprint(&code, "if (")
+gen_if :: proc(self: ^Codegen, ifs: If) {
+    gen_indent(self)
+    fmt.sbprint(&self.code, "if (")
 
-    condition, alloced := gen_expr(env, ifs.condition)
+    condition, alloced := gen_expr(self, ifs.condition)
     defer if alloced do delete(condition)
 
-    fmt.sbprintfln(&code, "%v) {{", condition)
-    defer {
-        gen_indent(env)
-        fmt.sbprintln(&code, "}")
-    }
+    fmt.sbprintfln(&self.code, "%v) {{", condition)
+    self.indent_level += 1
+    gen_block(self, ifs.body)
 
-    gen_block(env, ifs.body)
+    self.indent_level -= 1
+    gen_indent(self)
+    fmt.sbprint(&self.code, "}")
+
+    self.indent_level += 1
+    fmt.sbprintln(&self.code, " else {")
+    gen_block(self, ifs.els)
+
+    self.indent_level -= 1
+    gen_indent(self)
+    fmt.sbprintln(&self.code, "}")
 }
 
-gen_fn_decl :: proc(using env: ^Codegen, fndecl: FnDecl) {
-    gen_indent(env)
-    fmt.sbprintf(&code, "pub fn %v(", fndecl.name)
+gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
+    gen_indent(self)
+    fmt.sbprintf(&self.code, "pub fn %v(", fndecl.name)
 
     for stmnt, i in fndecl.args {
         arg := stmnt.(ConstDecl)
 
         if i == 0 {
-            fmt.sbprintf(&code, "%v: %v", arg.name, string_from_type(arg.type))
+            fmt.sbprintf(&self.code, "%v: %v", arg.name, string_from_type(arg.type))
         } else {
-            fmt.sbprintf(&code, ", %v: %v", arg.name, string_from_type(arg.type))
+            fmt.sbprintf(&self.code, ", %v: %v", arg.name, string_from_type(arg.type))
         }
     }
-    fmt.sbprintfln(&code, ") %v {{", string_from_type(fndecl.type))
-    defer fmt.sbprintln(&code, "}")
+    fmt.sbprintfln(&self.code, ") %v {{", string_from_type(fndecl.type))
+    defer fmt.sbprintln(&self.code, "}")
 
-    indent_level += 1
-    defer indent_level -= 1
+    self.indent_level += 1
+    defer self.indent_level -= 1
 
-    gen_block(env, fndecl.body)
+    gen_block(self, fndecl.body)
 }
 
-gen_fn_call :: proc(using env: ^Codegen, fncall: FnCall, with_indent: bool = false) {
+gen_fn_call :: proc(self: ^Codegen, fncall: FnCall, with_indent: bool = false) {
     if with_indent {
-        gen_indent(env)
+        gen_indent(self)
     }
 
-    fmt.sbprintf(&code, "%v(", fncall.name)
+    fmt.sbprintf(&self.code, "%v(", fncall.name)
     for arg, i in fncall.args {
-        expr, alloced := gen_expr(env, arg)
+        expr, alloced := gen_expr(self, arg)
         defer if alloced do delete(expr)
 
         if i == 0 {
-            fmt.sbprintf(&code, "%v", expr)
+            fmt.sbprintf(&self.code, "%v", expr)
         } else {
-            fmt.sbprintf(&code, ", %v", expr)
+            fmt.sbprintf(&self.code, ", %v", expr)
         }
     }
-    fmt.sbprint(&code, ")")
+    fmt.sbprint(&self.code, ")")
 }
 
 // returns string and true if string is allocated
-gen_expr :: proc(using env: ^Codegen, expression: Expr) -> (string, bool) {
+gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     switch expr in expression {
     case Var:
         return expr.name, false
@@ -108,10 +116,10 @@ gen_expr :: proc(using env: ^Codegen, expression: Expr) -> (string, bool) {
     case False:
         return "false", false
     case FnCall:
-        gen_fn_call(env, expr)
+        gen_fn_call(self, expr)
     case Plus:
-        lhs, lhs_alloc := gen_expr(env, expr.left^)
-        rhs, rhs_alloc := gen_expr(env, expr.right^)
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v + %v", lhs, rhs)
 
         if lhs_alloc || rhs_alloc {
@@ -120,8 +128,8 @@ gen_expr :: proc(using env: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Minus:
-        lhs, lhs_alloc := gen_expr(env, expr.left^)
-        rhs, rhs_alloc := gen_expr(env, expr.right^)
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v - %v", lhs, rhs)
 
         if lhs_alloc || rhs_alloc {
@@ -130,8 +138,8 @@ gen_expr :: proc(using env: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Multiply:
-        lhs, lhs_alloc := gen_expr(env, expr.left^)
-        rhs, rhs_alloc := gen_expr(env, expr.right^)
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v * %v", lhs, rhs)
 
         if lhs_alloc || rhs_alloc {
@@ -140,8 +148,8 @@ gen_expr :: proc(using env: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Divide:
-        lhs, lhs_alloc := gen_expr(env, expr.left^)
-        rhs, rhs_alloc := gen_expr(env, expr.right^)
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v / %v", lhs, rhs)
 
         if lhs_alloc || rhs_alloc {
@@ -154,54 +162,54 @@ gen_expr :: proc(using env: ^Codegen, expression: Expr) -> (string, bool) {
     unreachable()
 }
 
-gen_var_decl :: proc(using env: ^Codegen, vardecl: VarDecl) {
-    gen_indent(env)
-    fmt.sbprintf(&code, "var %v: %v = ", vardecl.name, string_from_type(vardecl.type))
+gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
+    gen_indent(self)
+    fmt.sbprintf(&self.code, "var %v: %v = ", vardecl.name, string_from_type(vardecl.type))
 
     if vardecl.value == nil {
-        fmt.sbprintln(&code, "undefined;")
+        fmt.sbprintln(&self.code, "undefined;")
     } else {
-        value, alloced := gen_expr(env, vardecl.value)
+        value, alloced := gen_expr(self, vardecl.value)
         defer if alloced do delete(value)
-        fmt.sbprintfln(&code, "%v;", value)
+        fmt.sbprintfln(&self.code, "%v;", value)
     }
 }
 
-gen_var_reassign :: proc(using env: ^Codegen, varre: VarReassign) {
-    gen_indent(env)
-    value, alloced := gen_expr(env, varre.value)
+gen_var_reassign :: proc(self: ^Codegen, varre: VarReassign) {
+    gen_indent(self)
+    value, alloced := gen_expr(self, varre.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&code, "%v = %v;", varre.name, value)
+    fmt.sbprintfln(&self.code, "%v = %v;", varre.name, value)
 }
 
-gen_const_decl :: proc(using env: ^Codegen, constdecl: ConstDecl) {
-    gen_indent(env)
-    value, alloced := gen_expr(env, constdecl.value)
+gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
+    gen_indent(self)
+    value, alloced := gen_expr(self, constdecl.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&code, "const %v: %v = %v;", constdecl.name, string_from_type(constdecl.type), value);
+    fmt.sbprintfln(&self.code, "const %v: %v = %v;", constdecl.name, string_from_type(constdecl.type), value);
 }
 
-gen_return :: proc(using env: ^Codegen, ret: Return) {
-    gen_indent(env)
-    value, alloced := gen_expr(env, ret.value)
+gen_return :: proc(self: ^Codegen, ret: Return) {
+    gen_indent(self)
+    value, alloced := gen_expr(self, ret.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&code, "return %v;", value)
+    fmt.sbprintfln(&self.code, "return %v;", value)
 }
 
-gen :: proc(using env: ^Codegen) {
-    for statement in ast {
+gen :: proc(self: ^Codegen) {
+    for statement in self.ast {
         #partial switch stmnt in statement {
         case FnDecl:
-            gen_fn_decl(env, stmnt)
+            gen_fn_decl(self, stmnt)
         case VarDecl:
-            gen_var_decl(env, stmnt)
+            gen_var_decl(self, stmnt)
         case ConstDecl:
-            gen_const_decl(env, stmnt)
+            gen_const_decl(self, stmnt)
         case VarReassign:
-            gen_var_reassign(env, stmnt)
+            gen_var_reassign(self, stmnt)
         }
     }
 }

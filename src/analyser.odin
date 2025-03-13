@@ -286,6 +286,7 @@ analyse_if :: proc(self: ^Analyser, ifs: ^If) {
     defer symtab_pop_scope(self)
 
     analyse_block(self, ifs.body)
+    analyse_block(self, ifs.els)
 }
 
 analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
