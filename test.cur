@@ -1,8 +1,3 @@
 main :: fn() void {
-    x := true;
-    if (x) {
-        x = false;
-    } else {
-        x = true;
-    }
+    x := 5 < 10;
 }

@@ -85,3 +85,33 @@ tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
         elog(analyser, get_cursor_index(constdecl.value), "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, expr_type)
     }
 }
+
+tc_can_compare_value :: proc(analyser: ^Analyser, t1, t2: Type) -> bool {
+    #partial switch t1 {
+    case .Bool:
+        return t2 == .Bool
+    case .I32, .I64, .Untyped_Int:
+        #partial switch t2 {
+        case .I32, .I64, .Untyped_Int:
+            return true
+        case:
+            return false
+        }
+    case:
+        return false
+    }
+}
+
+tc_can_compare_order :: proc(analyser: ^Analyser, t1, t2: Type) -> bool {
+    #partial switch t1 {
+    case .I32, .I64, .Untyped_Int:
+        #partial switch t2 {
+        case .I32, .I64, .Untyped_Int:
+            return true
+        case:
+            return false
+        }
+    case:
+        return false
+    }
+}

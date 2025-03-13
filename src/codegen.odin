@@ -117,6 +117,75 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return "false", false
     case FnCall:
         gen_fn_call(self, expr)
+    case Not:
+        cond, alloced := gen_expr(self, expr.condition^)
+        ret := fmt.aprintf("!%v", cond)
+        
+        if alloced {
+            debug("memory leak")
+        }
+
+        return ret, true
+    case LessThan:
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
+        ret := fmt.aprintf("%v < %v", lhs, rhs)
+
+        if lhs_alloc || rhs_alloc {
+            debug("memory leak")
+        }
+
+        return ret, true
+    case LessOrEqual:
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
+        ret := fmt.aprintf("%v <= %v", lhs, rhs)
+
+        if lhs_alloc || rhs_alloc {
+            debug("memory leak")
+        }
+
+        return ret, true
+    case GreaterThan:
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
+        ret := fmt.aprintf("%v > %v", lhs, rhs)
+
+        if lhs_alloc || rhs_alloc {
+            debug("memory leak")
+        }
+
+        return ret, true
+    case GreaterOrEqual:
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
+        ret := fmt.aprintf("%v >= %v", lhs, rhs)
+
+        if lhs_alloc || rhs_alloc {
+            debug("memory leak")
+        }
+
+        return ret, true
+    case Equality:
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
+        ret := fmt.aprintf("%v == %v", lhs, rhs)
+
+        if lhs_alloc || rhs_alloc {
+            debug("memory leak")
+        }
+
+        return ret, true
+    case Inequality:
+        lhs, lhs_alloc := gen_expr(self, expr.left^)
+        rhs, rhs_alloc := gen_expr(self, expr.right^)
+        ret := fmt.aprintf("%v != %v", lhs, rhs)
+
+        if lhs_alloc || rhs_alloc {
+            debug("memory leak")
+        }
+
+        return ret, true
     case Plus:
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)

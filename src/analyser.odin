@@ -83,6 +83,20 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     case FnCall:
         call := symtab_find(analyser, ex.name, ex.cursors_idx).(FnDecl)
         return call.type
+    case LessThan:
+        return .Bool
+    case LessOrEqual:
+        return .Bool
+    case GreaterThan:
+        return .Bool
+    case GreaterOrEqual:
+        return .Bool
+    case Equality:
+        return .Bool
+    case Inequality:
+        return .Bool
+    case Not:
+        return .Bool
     case Plus:
         return ex.type
     case Minus:
@@ -144,6 +158,96 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case True, False:
         return
+    case Not:
+        analyse_expr(self, ex.condition)
+        t := type_of_expr(self, ex.condition^)
+
+        if !tc_equals(.Bool, t) {
+            elog(self, ex.cursors_idx, "expected a boolean after '!' operator, got %v", t)
+        }
+    // you may be asking "hey... wtf... why don't you do `case Equality, Inequality:`"
+    // best believe i tried, odin just doesn't let you because `ex.left` cannot be used
+    // since one of those types (Equality, Inequality) may not have a left field, EVEN THO THEY DO
+    // so there's no duck typing and I have to fully separate them, even tho the ONLY difference
+    // in the code block is the error message using "==" or "!="
+    case Equality:
+        analyse_expr(self, ex.left)
+        analyse_expr(self, ex.right)
+
+        lt := type_of_expr(self, ex.left^)
+        rt := type_of_expr(self, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(self, ex.cursors_idx, "mismatch types, %v == %v", lt, rt)
+        }
+
+        if !tc_can_compare_value(self, lt, rt) {
+            elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
+        }
+    case Inequality:
+        analyse_expr(self, ex.left)
+        analyse_expr(self, ex.right)
+
+        lt := type_of_expr(self, ex.left^)
+        rt := type_of_expr(self, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(self, ex.cursors_idx, "mismatch types, %v != %v", lt, rt)
+        }
+
+        if !tc_can_compare_value(self, lt, rt) {
+            elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
+        }
+    case LessThan:
+        analyse_expr(self, ex.left)
+        analyse_expr(self, ex.right)
+
+        lt := type_of_expr(self, ex.left^)
+        rt := type_of_expr(self, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(self, ex.cursors_idx, "mismatch types, %v < %v", lt, rt)
+        }
+
+        if !tc_can_compare_order(self, lt, rt) {
+            elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
+        }
+    case LessOrEqual:
+        analyse_expr(self, ex.left)
+        analyse_expr(self, ex.right)
+
+        lt := type_of_expr(self, ex.left^)
+        rt := type_of_expr(self, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(self, ex.cursors_idx, "mismatch types, %v <= %v", lt, rt)
+        }
+
+        if !tc_can_compare_order(self, lt, rt) {
+            elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
+        }
+    case GreaterThan:
+        analyse_expr(self, ex.left)
+        analyse_expr(self, ex.right)
+
+        lt := type_of_expr(self, ex.left^)
+        rt := type_of_expr(self, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(self, ex.cursors_idx, "mismatch types, %v > %v", lt, rt)
+        }
+
+        if !tc_can_compare_order(self, lt, rt) {
+            elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
+        }
+    case GreaterOrEqual:
+        analyse_expr(self, ex.left)
+        analyse_expr(self, ex.right)
+
+        lt := type_of_expr(self, ex.left^)
+        rt := type_of_expr(self, ex.right^)
+        if !tc_equals(lt, rt) {
+            elog(self, ex.cursors_idx, "mismatch types, %v >= %v", lt, rt)
+        }
+
+        if !tc_can_compare_order(self, lt, rt) {
+            elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
+        }
     case Plus:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)

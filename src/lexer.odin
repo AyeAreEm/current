@@ -14,7 +14,10 @@ TokenIntLit :: struct {
 
 TokenColon :: struct {}
 TokenSemiColon :: struct {}
+
 TokenEqual :: struct {}
+TokenLa :: struct {} // left angle
+TokenRa :: struct {} // right angle
 
 TokenLb :: struct {} // left bracket
 TokenRb :: struct {} // right bracket
@@ -22,6 +25,7 @@ TokenLc :: struct {} // left curl
 TokenRc :: struct {} // right curl
 
 TokenComma :: struct {}
+TokenExclaim :: struct {}
 
 TokenPlus :: struct {}
 TokenMinus :: struct {}
@@ -35,7 +39,10 @@ Token :: union {
 
     TokenColon,
     TokenSemiColon,
+
     TokenEqual,
+    TokenLa,
+    TokenRa,
 
     TokenLb,
     TokenRb,
@@ -43,6 +50,7 @@ Token :: union {
     TokenRc,
 
     TokenComma,
+    TokenExclaim,
 
     TokenPlus,
     TokenMinus,
@@ -69,6 +77,15 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenLa:
+        _, ok := rhs.(TokenLa)
+        return ok
+    case TokenRa:
+        _, ok := rhs.(TokenRa)
+        return ok
+    case TokenExclaim:
+        _, ok := rhs.(TokenExclaim)
+        return ok
     case TokenPlus:
         _, ok := rhs.(TokenPlus)
         return ok
@@ -185,8 +202,14 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             try_append(&cursor, &col, &row, &tokens, &buf, TokenLc{})
         case '}':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenRc{})
+        case '<':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenLa{})
+        case '>':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenRa{})
         case '=':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenEqual{})
+        case '!':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenExclaim{})
         case ';':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenSemiColon{})
         case ',':

@@ -109,6 +109,40 @@ Multiply :: struct {
     type: Type,
     cursors_idx: int,
 }
+LessThan :: struct {
+    left: ^Expr, // these have to be pointers
+    right: ^Expr,
+    cursors_idx: int,
+}
+LessOrEqual :: struct {
+    left: ^Expr, // these have to be pointers
+    right: ^Expr,
+    cursors_idx: int,
+}
+GreaterThan :: struct {
+    left: ^Expr, // these have to be pointers
+    right: ^Expr,
+    cursors_idx: int,
+}
+GreaterOrEqual :: struct {
+    left: ^Expr, // these have to be pointers
+    right: ^Expr,
+    cursors_idx: int,
+}
+Equality :: struct {
+    left: ^Expr, // these have to be pointers
+    right: ^Expr,
+    cursors_idx: int,
+}
+Inequality :: struct {
+    left: ^Expr, // these have to be pointers
+    right: ^Expr,
+    cursors_idx: int,
+}
+Not :: struct {
+    condition: ^Expr,
+    cursors_idx: int,
+}
 True :: struct {
     type: Type,
     cursors_idx: int,
@@ -122,10 +156,20 @@ Expr :: union {
     Var,
     Const,
     FnCall,
+
     Plus,
     Minus,
     Multiply,
     Divide,
+
+    LessThan,
+    LessOrEqual,
+    GreaterThan,
+    GreaterOrEqual,
+    Equality,
+    Inequality,
+    Not,
+
     True,
     False
 }
@@ -223,6 +267,20 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return expr.cursors_idx
         case Divide:
             return expr.cursors_idx
+        case LessThan:
+            return expr.cursors_idx
+        case LessOrEqual:
+            return expr.cursors_idx
+        case GreaterThan:
+            return expr.cursors_idx
+        case GreaterOrEqual:
+            return expr.cursors_idx
+        case Equality:
+            return expr.cursors_idx
+        case Inequality:
+            return expr.cursors_idx
+        case Not:
+            return expr.cursors_idx
         case True:
             return expr.cursors_idx
         case False:
@@ -256,6 +314,33 @@ expr_print :: proc(expression: Expr) {
         fmt.printf("True")
     case False:
         fmt.printf("False")
+    case Not:
+        fmt.printf("Not ")
+        expr_print(expr.condition^)
+    case LessThan:
+        expr_print(expr.left^)
+        fmt.printf(" Less Than ")
+        expr_print(expr.right^)
+    case LessOrEqual:
+        expr_print(expr.left^)
+        fmt.printf(" Less Or Equal ")
+        expr_print(expr.right^)
+    case GreaterThan:
+        expr_print(expr.left^)
+        fmt.printf(" Greater Than ")
+        expr_print(expr.right^)
+    case GreaterOrEqual:
+        expr_print(expr.left^)
+        fmt.printf(" Greater Or Equal ")
+        expr_print(expr.right^)
+    case Equality:
+        expr_print(expr.left^)
+        fmt.printf(" Equals ")
+        expr_print(expr.right^)
+    case Inequality:
+        expr_print(expr.left^)
+        fmt.printf(" Not Equals ")
+        expr_print(expr.right^)
     case Plus:
         expr_print(expr.left^)
         fmt.printf(" Plus(%v) ", expr.type)
@@ -486,6 +571,115 @@ parse_expr_until :: proc(self: ^Parser, until: Token = nil) -> Expr {
                     cursors_idx = self.cursors_idx
                 })
             }
+        case TokenLa:
+            next_token := token_peek(self)
+            index := self.cursors_idx
+
+            if token_tag_equal(next_token, TokenEqual{}) {
+                token_next(self)
+                // <lhs> <= <rhs>
+                lhs := pop(&stack)
+                rhs := parse_expr_until(self, until)
+
+                left, _ := new(Expr); left^ = lhs
+                right, _ := new(Expr); right^ = rhs
+
+                append(&stack, LessOrEqual{
+                    left = left,
+                    right = right,
+                    cursors_idx = index
+                })
+            } else {
+                lhs := pop(&stack)
+                rhs := parse_expr_until(self, until)
+
+                left, _ := new(Expr); left^ = lhs
+                right, _ := new(Expr); right^ = rhs
+
+                append(&stack, LessThan{
+                    left = left,
+                    right = right,
+                    cursors_idx = index
+                })
+            }
+        case TokenRa:
+            next_token := token_peek(self)
+            index := self.cursors_idx
+
+            if token_tag_equal(next_token, TokenEqual{}) {
+                token_next(self)
+                // <lhs> <= <rhs>
+                lhs := pop(&stack)
+                rhs := parse_expr_until(self, until)
+
+                left, _ := new(Expr); left^ = lhs
+                right, _ := new(Expr); right^ = rhs
+
+                append(&stack, GreaterOrEqual{
+                    left = left,
+                    right = right,
+                    cursors_idx = index
+                })
+            } else {
+                lhs := pop(&stack)
+                rhs := parse_expr_until(self, until)
+
+                left, _ := new(Expr); left^ = lhs
+                right, _ := new(Expr); right^ = rhs
+
+                append(&stack, GreaterThan{
+                    left = left,
+                    right = right,
+                    cursors_idx = index
+                })
+            }
+        case TokenEqual:
+            next_token := token_next(self)
+            index := self.cursors_idx
+            if token_tag_equal(next_token, TokenEqual{}) {
+                // <lhs> == <rhs>
+                lhs := pop(&stack)
+                rhs := parse_expr_until(self, until)
+
+                left, _ := new(Expr); left^ = lhs
+                right, _ := new(Expr); right^ = rhs
+
+                append(&stack, Equality{
+                    left = left,
+                    right = right,
+                    cursors_idx = index
+                })
+            } else {
+                elog(self, self.cursors_idx, "unexpected token %v", next_token)
+            }
+        case TokenExclaim:
+            next_token := token_peek(self)
+            index := self.cursors_idx
+
+            if token_tag_equal(next_token, TokenEqual{}) {
+                // <lhs> != <rhs>
+                token_next(self)
+                lhs := pop(&stack)
+                rhs := parse_expr_until(self, until)
+
+                left, _ := new(Expr); left^ = lhs
+                right, _ := new(Expr); right^ = rhs
+
+                append(&stack, Inequality{
+                    left = left,
+                    right = right,
+                    cursors_idx = index
+                })
+            } else {
+                // !<expr>
+                expr := parse_expr_until(self, until)
+                cond, _ := new(Expr); cond^ = expr;
+                append(&stack, Not{
+                    condition = cond,
+                    cursors_idx = index,
+                })
+            }
+
         case TokenIntLit:
             append(&stack, IntLit{
                 literal = tok.literal,
