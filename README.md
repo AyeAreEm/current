@@ -22,12 +22,12 @@ To do this, we "borrow" features from other languages. For example, receiver met
 - Allocators
 
 ```odin
-vec2 :: struct[$T] {
+vec2 :: struct[T] {
     x: T,
     y: T,
 }
 
-vec2[$T].add :: fn(^self, other: vec2[T]) void {
+vec2[T].add :: fn(^self, other: vec2[T]) void {
     self.x += other.x;
     self.y += other.y;
 }
@@ -80,3 +80,37 @@ Also, when I say "immutable variables", I mean "const" variables in the traditio
 
 While Zig does have generics, if you want `fn max(x: $T, y: T) T`, this doesn't work. You'd have to pass an `anytype` which could mean that `x` and `y` are different types unless checked inside the function or do `fn max(comptime T: type, x: T, y: T) T`<br>
 Also Zig is just a pain at times. Unused variables errors, Variable that isn't mutated errors, and so on. I'm sure in critical applications this would be useful but for prototyping, it sucks.
+
+## Noteworthy Differences from Mainstream Languages
+1. There is no garbage collection
+    - Like in languages such as C, you'll have to free memory yourself
+1. There are no classes, just structs
+    - The key difference is that all fields are public
+1. Zig-like Try Catch
+    - All functions that might return an error must be handled
+1. Name focused declarations
+    - This is mainly stylistic but it does have the benefit of grepping for declarations easier by doing 'name ::'
+1. Receiever methods
+    - Lets the developer add onto types for more functionality rather than being locked into what's available by the developer of the type
+1. Two pointer symbols
+    - `^` is a pointer to a variable. `*` is a pointer to a constant. More on why <a href="#why-two-pointer-symbols">here</a>
+1. Global constants are compile time constants
+    - Constants in global scope are known at compile time and are similar to `#define` or `constexpr`
+1. No operator overloading
+    - Usually used for math so we'll have common math structures be first class citizens
+1. No function overloading
+    - Feel as tho it's unnecessary in a language like this but my opinion my change
+
+## Why Two Pointer Symbols
+I have noticed one major problem with the ":=", "::" syntax. While it's clear to see which is a variable and which is a constant, there's no way to tell if a pointer points to a variable or constant<br>
+Odin doesn't let you take the address of a constant because they're similar to `#define` and may not have a runtime address.<br>
+Similarly in Golang, constant may or may not be addressable at runtime so you can't take the address. Golang authors also said "if you could take the address of a string constant, you could call a function [that assigns to the pointed value resulting in] possibly strange effects - you certainly wouldn't want the literal string constant to change."<br>
+<br>
+I thought about just changing "::" to be constant variables instead of something like `#define` but some problems arise. If you want to pass a large constant structure, you'd be forced to pass by value and copy that large amount of data. Usually you'd pass a pointer that way not performing a copy and still not allowing the function to mutate it.<br>
+In that case, pointers to constant are neccessary but there isn't a proper syntactic way to do this in languages like this because there is no `const` keyword. Hence, two pointer symbols.<br>
+`^` is a pointer to a variable / mutable data.<br>
+`*` is a pointer to a constant / immutable data.<br>
+<br>
+The reason why the usual pointer symbol `*` is being used specifically for pointers to constants is because it may be unclear that there is another pointer symbol otherwise.<br>
+Also because I think there's a better association between `=` <-> `^`, `:` <-> `*` than `=` <-> `*`, `:`, `^` but that's a nothing burger
+
