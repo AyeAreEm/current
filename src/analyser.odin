@@ -63,11 +63,11 @@ symtab_pop_scope :: proc(using analyser: ^Analyser) {
 Analyser :: struct {
     ast: [dynamic]Stmnt,
     symtab: SymTab,
+    current_fn: Maybe(FnDecl),
 
     // debug
     filename: string,
     cursors: [dynamic][2]u32,
-    cursors_idx: int,
 }
 
 type_of_expr :: proc(using analyser: ^Analyser, expr: Expr) -> Type {
@@ -90,6 +90,10 @@ type_of_expr :: proc(using analyser: ^Analyser, expr: Expr) -> Type {
     case Multiply:
         return ex.type
     case Divide:
+        return ex.type
+    case True:
+        return ex.type
+    case False:
         return ex.type
     }
 
@@ -137,6 +141,8 @@ analyse_expr :: proc(using env: ^Analyser, expr: ^Expr) {
             elog(env, ex.cursors_idx, "expected \"%v\" to be a variable, got %v", ex.name, stmnt_constdecl)
         }
     case IntLit:
+        return
+    case True, False:
         return
     case Plus:
         analyse_expr(env, ex.left)
@@ -260,11 +266,49 @@ analyse_fn_call :: proc(using env: ^Analyser, fncall: ^FnCall) {
     }
 
     for decl_arg, i in fndecl.args {
-        darg_type := type_of_stmnt(decl_arg)
+        darg_type := type_of_stmnt(env, decl_arg)
         carg_type := type_of_expr(env, fncall.args[i])
 
         if !tc_equals(darg_type, carg_type) {
             elog(env, fncall.cursors_idx, "mismatch types, argument %v is expected to be of type %v, got %v", i + 1, darg_type, carg_type)
+        }
+    }
+}
+
+analyse_if :: proc(using env: ^Analyser, ifs: ^If) {
+    analyse_expr(env, &ifs.condition)
+    condition_type := type_of_expr(env, ifs.condition)
+    if !tc_equals(.Bool, condition_type) {
+        elog(env, ifs.cursors_idx, "condition must be bool, got %v", condition_type)
+    }
+
+    symtab_new_scope(env)
+    defer symtab_pop_scope(env)
+
+    analyse_block(env, ifs.body)
+}
+
+analyse_block :: proc(using env: ^Analyser, block: [dynamic]Stmnt) {
+    for &statement in block {
+        switch &stmnt in statement {
+        case Return:
+            if fn, ok := current_fn.?; ok {
+                analyse_return(env, fn, &stmnt)
+            } else {
+                elog(env, stmnt.cursors_idx, "illegal use of return, not inside a function")
+            }
+        case VarDecl:
+            analyse_var_decl(env, &stmnt)
+        case VarReassign:
+            analyse_var_reassign(env, &stmnt)
+        case ConstDecl:
+            analyse_const_decl(env, &stmnt)
+        case FnCall:
+            analyse_fn_call(env, &stmnt)
+        case If:
+            analyse_if(env, &stmnt)
+        case FnDecl:
+            elog(env, stmnt.cursors_idx, "illegal function declaration \"%v\" inside another function", stmnt.name)
         }
     }
 }
@@ -282,23 +326,9 @@ analyse_fn_decl :: proc(using env: ^Analyser, fn: FnDecl) {
     if strings.compare(fn.name, "main") == 0 && fn.type != .Void {
         elog(env, fn.cursors_idx, "illegal main function, expected return type to be void, got %v", fn.type)
     }
+    current_fn = fn
 
-    for &statement in fn.body {
-        switch &stmnt in statement {
-        case Return:
-            analyse_return(env, fn, &stmnt)
-        case VarDecl:
-            analyse_var_decl(env, &stmnt)
-        case VarReassign:
-            analyse_var_reassign(env, &stmnt)
-        case ConstDecl:
-            analyse_const_decl(env, &stmnt)
-        case FnCall:
-            analyse_fn_call(env, &stmnt)
-        case FnDecl:
-            elog(env, stmnt.cursors_idx, "illegal function declaration \"%v\" inside another function", stmnt.name, fn.name)
-        }
-    }
+    analyse_block(env, fn.body)
 }
 
 analyse :: proc(using env: ^Analyser) {
@@ -316,6 +346,8 @@ analyse :: proc(using env: ^Analyser) {
             elog(env, stmnt.cursors_idx, "illegal use of return, not inside a function")
         case FnCall:
             elog(env, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
+        case If:
+            elog(env, stmnt.cursors_idx, "illegal use of if statement, not inside a function")
         }
     }
 }

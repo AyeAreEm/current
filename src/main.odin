@@ -47,6 +47,8 @@ build :: proc(filename: string) {
     tokens, cursors := lexer(content)
     assert(len(tokens) == len(cursors), "expected the length of tokens and length of cursors to be the same")
 
+    // TODO: add another pass to get definitions
+
     parser := Parser {
         tokens = tokens, // NOTE: does this do a copy? surely not
         in_func_decl_args = false,
@@ -68,20 +70,25 @@ build :: proc(filename: string) {
     }
     append(&symtab.scopes, map[string]Stmnt{})
 
-    env := Analyser{
+    analyser := Analyser{
         ast = ast,
         symtab = symtab,
+        current_fn = nil,
 
         filename = filename,
         cursors = cursors,
-        cursors_idx = -1
     }
-    
-    analyse(&env)
-    debug("AST")
-    for stmnt in env.ast {
-        stmnt_print(stmnt, 1)
+    analyse(&analyser)
+
+    codegen := Codegen{
+        ast = ast,
+        symtab = symtab,
+        code = strings.builder_make(),
+        indent_level = 0,
     }
+    gen(&codegen);
+
+    os.write_entire_file("output.zig", transmute([]byte)strings.to_string(codegen.code))
 }
 
 main :: proc() {

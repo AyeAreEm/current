@@ -8,6 +8,7 @@ import "core:mem"
 
 Type :: enum {
     Void,
+    Bool,
     I32,
     I64,
     Untyped_Int,
@@ -16,15 +17,49 @@ type_map := map[string]Type{
     "void" = .Void,
     "i32" = .I32,
     "i64" = .I64,
+    "bool" = .Bool,
+}
+
+string_from_type :: proc(t: Type) -> string {
+    switch t {
+    case .Bool:
+        return "bool"
+    case .I64:
+        return "i64"
+    case .I32:
+        return "i32"
+    case .Void:
+        return "void"
+    case .Untyped_Int:
+        panic("compiler error: should not be converting untyped_int to a string")
+    }
+
+    return ""
 }
 
 Keyword :: enum {
     Fn,
     Return,
+    True,
+    False,
+    If,
 }
 keyword_map := map[string]Keyword{
     "fn" = .Fn,
     "return" = .Return,
+    "true" = .True,
+    "false" = .False,
+    "if" = .If,
+}
+expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
+    #partial switch k {
+    case .True:
+        return True{type = .Bool, cursors_idx = cursors_idx}
+    case .False:
+        return False{type = .Bool, cursors_idx = cursors_idx}
+    case:
+        elog(parser, cursors_idx, "expected an expression, got keyword %v", k)
+    }
 }
 
 IntLit :: struct {
@@ -72,6 +107,14 @@ Multiply :: struct {
     type: Type,
     cursors_idx: int,
 }
+True :: struct {
+    type: Type,
+    cursors_idx: int,
+}
+False :: struct {
+    type: Type,
+    cursors_idx: int,
+}
 Expr :: union {
     IntLit,
     Var,
@@ -81,6 +124,8 @@ Expr :: union {
     Minus,
     Multiply,
     Divide,
+    True,
+    False
 }
 
 FnDecl :: struct {
@@ -113,6 +158,13 @@ Return :: struct {
     value: Expr,
     cursors_idx: int,
 }
+If :: struct {
+    // type: Type,
+    condition: Expr,
+    // capture: Const,
+    body: [dynamic]Stmnt,
+    cursors_idx: int,
+}
 Stmnt :: union {
     FnDecl,
     VarDecl,
@@ -120,9 +172,10 @@ Stmnt :: union {
     Return,
     FnCall,
     ConstDecl,
+    If,
 }
 
-type_of_stmnt :: proc(statement: Stmnt) -> Type {
+type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
     switch stmnt in statement {
     case FnDecl:
         return stmnt.type
@@ -136,6 +189,8 @@ type_of_stmnt :: proc(statement: Stmnt) -> Type {
         return stmnt.type
     case Return:
         return stmnt.type
+    case If:
+        elog(analyser, stmnt.cursors_idx, "unexpected if statement")
     }
 
     if statement == nil {
@@ -165,6 +220,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return expr.cursors_idx
         case Divide:
             return expr.cursors_idx
+        case True:
+            return expr.cursors_idx
+        case False:
+            return expr.cursors_idx
         }
     case Stmnt:
         switch stmnt in it {
@@ -180,6 +239,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return stmnt.cursors_idx
         case ConstDecl:
             return stmnt.cursors_idx
+        case If:
+            return stmnt.cursors_idx
         }
     }
 
@@ -188,6 +249,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case True:
+        fmt.printf("True")
+    case False:
+        fmt.printf("False")
     case Plus:
         expr_print(expr.left^)
         fmt.printf(" Plus(%v) ", expr.type)
@@ -232,6 +297,10 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
     }
 
     switch stmnt in statement {
+    case If:
+        fmt.printf("If (")
+        expr_print(stmnt.condition)
+        fmt.print(")")
     case FnDecl:
         fmt.printf("Fn(%v) %v(", stmnt.type, stmnt.name)
         for arg, i in stmnt.args {
@@ -435,6 +504,9 @@ parse_expr_until :: proc(using parser: ^Parser, until: Token = nil) -> Expr {
                         cursors_idx = cursors_idx,
                     })
                 }
+            } else if keyword, ok := converted_ident.(Keyword); ok {
+                val := expr_from_keyword(parser, keyword)
+                append(&stack, val)
             } else {
                 elog(parser, cursors_idx, "expected identifier, got %v", converted_ident)
             }
@@ -598,6 +670,8 @@ parse_decl :: proc(using parser: ^Parser, ident: string) -> Stmnt {
             case:
                 elog(parser, cursors_idx, "unexpected token %v", tok)
             }
+        } else {
+            elog(parser, cursors_idx, "expected a type during declaration, got %v", converted_ident)
         }
     case:
         elog(parser, cursors_idx, "unexpected token %v during declaration", tok)
@@ -685,6 +759,22 @@ parse_return :: proc(using parser: ^Parser) -> Stmnt {
     }
 }
 
+parse_if :: proc(using parser: ^Parser) -> Stmnt {
+    index := cursors_idx
+
+    _ = token_expect(parser, TokenLb{})
+    expr := parse_expr_until(parser, TokenRb{})
+    _ = token_expect(parser, TokenRb{})
+
+    body := parse_block(parser)
+
+    return If{
+        condition = expr,
+        body = body,
+        cursors_idx = index,
+    }
+}
+
 parse :: proc(using parser: ^Parser) -> Stmnt {
     token := token_peek(parser)
     if token == nil do return nil
@@ -697,7 +787,12 @@ parse :: proc(using parser: ^Parser) -> Stmnt {
         if ident, ident_ok := converted_ident.(string); ident_ok {
             return parse_ident(parser, ident)
         } else if keyword, keyword_ok := converted_ident.(Keyword); keyword_ok {
-            return parse_return(parser)
+            #partial switch keyword {
+            case .Return:
+                return parse_return(parser)
+            case .If:
+                return parse_if(parser)
+            }
         }
     case:
         elog(parser, cursors_idx, "unexpected token %v", tok)
