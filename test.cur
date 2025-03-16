@@ -1,8 +1,4 @@
-gimme_five :: fn() i64 {
-    return 5;
-}
-
 main :: fn() void {
     x := 10;
-    y :: 2 * (gimme_five() + x);
+    x *= 5 + 7;
 }

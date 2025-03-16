@@ -940,6 +940,62 @@ parse_var_reassign :: proc(self: ^Parser, name: string) -> Stmnt {
     }
 }
 
+parse_var_operator_equal :: proc(self: ^Parser, ident: string, operator: Token) -> Stmnt {
+    // <name> [+-*/]= 
+    operator_index := self.cursors_idx
+    var := new(Expr); var^ = Ident{
+        literal = ident,
+        type = nil,
+        cursors_idx = self.cursors_idx
+    }
+    expr := new(Expr); expr^ = parse_expr(self)
+    group := new(Expr); group^ = Grouping{
+        value = expr,
+        type = nil,
+        cursors_idx = self.cursors_idx
+    }
+    token_expect(self, TokenSemiColon{})
+
+    reassign := VarReassign{
+        name = ident,
+        type = nil,
+        cursors_idx = self.cursors_idx
+    }
+
+    #partial switch _ in operator {
+    case TokenPlus:
+        reassign.value = Plus{
+            left = var,
+            right = group,
+            type = nil,
+            cursors_idx = operator_index,
+        }
+    case TokenMinus:
+        reassign.value = Minus{
+            left = var,
+            right = group,
+            type = nil,
+            cursors_idx = operator_index,
+        }
+    case TokenStar:
+        reassign.value = Multiply{
+            left = var,
+            right = group,
+            type = nil,
+            cursors_idx = operator_index,
+        }
+    case TokenSlash:
+        reassign.value = Divide{
+            left = var,
+            right = group,
+            type = nil,
+            cursors_idx = operator_index,
+        }
+    }
+
+    return reassign
+}
+
 parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
     ident_index := self.cursors_idx
     
@@ -950,13 +1006,14 @@ parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
     case TokenColon:
         token_next(self) // no nil check, already checked when peeked
         return parse_decl(self, ident)
-    case TokenPlus:
+    case TokenPlus, TokenMinus, TokenStar, TokenSlash:
         token_next(self) // no nil check, already checked when peeked
         token_after := token_next(self)
 
         if token_tag_equal(token_after, TokenEqual{}) {
-            elog(self, self.cursors_idx, "+= operator not yet implemented");
-            // return parse_var_plus_equal(self, ident)
+            return parse_var_operator_equal(self, ident, tok)
+        } else {
+            elog(self, self.cursors_idx, "unexpected token %v", tok)
         }
     case TokenEqual:
         token_next(self) // no nil check, already checked when peeked
