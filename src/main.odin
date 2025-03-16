@@ -79,6 +79,9 @@ build :: proc(filename: string) {
         cursors = cursors,
     }
     analyse(&analyser)
+    // for stmnt in ast {
+    //     stmnt_print(stmnt)
+    // }
 
     codegen := Codegen{
         ast = ast,

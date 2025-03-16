@@ -72,16 +72,20 @@ Analyser :: struct {
 
 type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     switch ex in expr {
+    case Negative:
+        return ex.type
+    case Grouping:
+        return ex.type
     case IntLit:
         return ex.type
-    case Var:
-        var := symtab_find(analyser, ex.name, ex.cursors_idx).(VarDecl)
+    case Ident:
+        var := symtab_find(analyser, ex.literal, ex.cursors_idx).(VarDecl)
         return var.type
     case Const:
         const := symtab_find(analyser, ex.name, ex.cursors_idx).(ConstDecl)
         return const.type
     case FnCall:
-        call := symtab_find(analyser, ex.name, ex.cursors_idx).(FnDecl)
+        call := symtab_find(analyser, ex.name.literal, ex.cursors_idx).(FnDecl)
         return call.type
     case LessThan:
         return .Bool
@@ -132,18 +136,18 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     switch &ex in expr {
     case FnCall:
         analyse_fn_call(self, &ex)
-    case Var:
-        stmnt_vardecl := symtab_find(self, ex.name, ex.cursors_idx)
+    case Ident:
+        stmnt_vardecl := symtab_find(self, ex.literal, ex.cursors_idx)
         if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
             ex.type = vardecl.type
         } else if constdecl, ok := stmnt_vardecl.(ConstDecl); ok {
             expr^ = Const {
-                name = ex.name,
+                name = ex.literal,
                 type = constdecl.type,
                 cursors_idx = ex.cursors_idx,
             }
         } else {
-            elog(self, ex.cursors_idx, "expected \"%v\" to be a variable, got %v", ex.name, stmnt_vardecl)
+            elog(self, ex.cursors_idx, "expected \"%v\" to be a variable, got %v", ex.literal, stmnt_vardecl)
         }
     case Const:
         stmnt_constdecl := symtab_find(self, ex.name, ex.cursors_idx)
@@ -158,6 +162,24 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case True, False:
         return
+    case Grouping:
+        analyse_expr(self, ex.value)
+        value_type := type_of_expr(self, ex.value^)
+
+        if t := tc_default_untyped_type(value_type); t != nil {
+            ex.type = t
+        } else {
+            ex.type = value_type
+        }
+    case Negative:
+        analyse_expr(self, ex.value)
+        value_type := type_of_expr(self, ex.value^)
+
+        if t := tc_default_untyped_type(value_type); t != nil {
+            ex.type = t
+        } else {
+            ex.type = value_type
+        }
     case Not:
         analyse_expr(self, ex.condition)
         t := type_of_expr(self, ex.condition^)
@@ -349,7 +371,7 @@ analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {
 }
 
 analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
-    stmnt_fndecl := symtab_find(self, fncall.name, fncall.cursors_idx)
+    stmnt_fndecl := symtab_find(self, fncall.name.literal, fncall.cursors_idx)
     fndecl, fndecl_ok := stmnt_fndecl.(FnDecl)
     if !fndecl_ok {
         elog(self, fncall.cursors_idx, "expected \"%v\" to be a function, got %v", stmnt_fndecl)

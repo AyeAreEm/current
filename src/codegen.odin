@@ -30,7 +30,9 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
         case Return:
             gen_return(self, stmnt)
         case FnCall:
-            gen_fn_call(self, stmnt, true)
+            call := gen_fn_call(self, stmnt, true)
+            defer delete(call)
+            fmt.sbprint(&self.code, call)
         case If:
             gen_if(self, stmnt)
         }
@@ -83,30 +85,35 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
     gen_block(self, fndecl.body)
 }
 
-gen_fn_call :: proc(self: ^Codegen, fncall: FnCall, with_indent: bool = false) {
+// returns allocated string, needs to be freed
+@(require_results)
+gen_fn_call :: proc(self: ^Codegen, fncall: FnCall, with_indent: bool = false) -> string {
     if with_indent {
         gen_indent(self)
     }
 
-    fmt.sbprintf(&self.code, "%v(", fncall.name)
+    call := strings.builder_make()
+    fmt.sbprintf(&call, "%v(", fncall.name.literal)
     for arg, i in fncall.args {
         expr, alloced := gen_expr(self, arg)
         defer if alloced do delete(expr)
 
         if i == 0 {
-            fmt.sbprintf(&self.code, "%v", expr)
+            fmt.sbprintf(&call, "%v", expr)
         } else {
-            fmt.sbprintf(&self.code, ", %v", expr)
+            fmt.sbprintf(&call, ", %v", expr)
         }
     }
-    fmt.sbprint(&self.code, ")")
+    fmt.sbprint(&call, ")")
+
+    return strings.to_string(call)
 }
 
 // returns string and true if string is allocated
 gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     switch expr in expression {
-    case Var:
-        return expr.name, false
+    case Ident:
+        return expr.literal, false
     case Const:
         return expr.name, false
     case IntLit:
@@ -116,7 +123,24 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     case False:
         return "false", false
     case FnCall:
-        gen_fn_call(self, expr)
+        return gen_fn_call(self, expr), true
+    case Grouping:
+        value, alloced := gen_expr(self, expr.value^)
+        ret := fmt.aprintf("(%v)", value)
+        if alloced {
+            debug("memory leak")
+        }
+
+        return ret, true
+    case Negative:
+        value, alloced := gen_expr(self, expr.value^)
+        ret := fmt.aprintf("-%v", value)
+        
+        if alloced {
+            debug("memory leak")
+        }
+
+        return ret, true
     case Not:
         cond, alloced := gen_expr(self, expr.condition^)
         ret := fmt.aprintf("!%v", cond)

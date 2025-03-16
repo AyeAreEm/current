@@ -69,8 +69,8 @@ IntLit :: struct {
     type: Type,
     cursors_idx: int,
 }
-Var :: struct {
-    name: string,
+Ident :: struct {
+    literal: string,
     type: Type,
     cursors_idx: int,
 }
@@ -80,7 +80,7 @@ Const :: struct {
     cursors_idx: int,
 }
 FnCall :: struct {
-    name: string,
+    name: Ident,
     type: Type,
     args: [dynamic]Expr,
     cursors_idx: int,
@@ -143,6 +143,11 @@ Not :: struct {
     condition: ^Expr,
     cursors_idx: int,
 }
+Negative :: struct {
+    value: ^Expr,
+    type: Type,
+    cursors_idx: int,
+}
 True :: struct {
     type: Type,
     cursors_idx: int,
@@ -151,9 +156,14 @@ False :: struct {
     type: Type,
     cursors_idx: int,
 }
+Grouping :: struct {
+    value: ^Expr,
+    type: Type,
+    cursors_idx: int,
+}
 Expr :: union {
     IntLit,
-    Var,
+    Ident,
     Const,
     FnCall,
 
@@ -169,9 +179,11 @@ Expr :: union {
     Equality,
     Inequality,
     Not,
+    Negative,
 
     True,
-    False
+    False,
+    Grouping,
 }
 
 FnDecl :: struct {
@@ -251,9 +263,11 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case Grouping:
+            return expr.cursors_idx
         case FnCall:
             return expr.cursors_idx
-        case Var:
+        case Ident:
             return expr.cursors_idx
         case Const:
             return expr.cursors_idx
@@ -280,6 +294,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         case Inequality:
             return expr.cursors_idx
         case Not:
+            return expr.cursors_idx
+        case Negative:
             return expr.cursors_idx
         case True:
             return expr.cursors_idx
@@ -310,6 +326,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case Grouping:
+        fmt.printf("(")
+        expr_print(expr.value^)
+        fmt.printf(")")
     case True:
         fmt.printf("True")
     case False:
@@ -317,6 +337,9 @@ expr_print :: proc(expression: Expr) {
     case Not:
         fmt.printf("Not ")
         expr_print(expr.condition^)
+    case Negative:
+        fmt.printf("- ")
+        expr_print(expr.value^)
     case LessThan:
         expr_print(expr.left^)
         fmt.printf(" Less Than ")
@@ -370,8 +393,8 @@ expr_print :: proc(expression: Expr) {
             }
         }
         fmt.print(")")
-    case Var:
-        fmt.printf("Var(%v) %v", expr.type, expr.name)
+    case Ident:
+        fmt.printf("Ident(%v) %v", expr.type, expr.literal)
     case Const:
         fmt.printf("Const(%v) %v", expr.type, expr.name)
     case:
@@ -516,231 +539,258 @@ parse_block :: proc(self: ^Parser, start: Token = TokenLc{}, end: Token = TokenR
     return block
 }
 
-parse_expr_until :: proc(self: ^Parser, until: Token = nil) -> Expr {
-    stack := [dynamic]Expr{}
-    defer delete(stack)
-
-    // i8 because this really does not need to be more
-    // than 127 like cmon
-    bracket_count: i8 = 0
-    curly_count: i8 = 0
+parse_comparison :: proc(self: ^Parser) -> Expr {
+    expr := parse_term(self)
 
     for token := token_peek(self); token != nil; token = token_peek(self) {
-        if token_tag_equal(token, until) {
+        index := self.cursors_idx
+        if !token_tag_equal(token, TokenLa{}) && !token_tag_equal(token, TokenRa{}) {
+            break
+        }
+        token_next(self)
+
+        left := new(Expr); left^ = expr
+        right := new(Expr); right^ = parse_term(self)
+
+        after := token_peek(self)
+        if token_tag_equal(after, TokenEqual{}) {
+            token_next(self)
+
+            if token_tag_equal(token, TokenLa{}) {
+                expr = LessOrEqual{
+                    left = left,
+                    right = right,
+                    cursors_idx = index,
+                }
+            } else {
+                expr = GreaterOrEqual{
+                    left = left,
+                    right = right,
+                    cursors_idx = index,
+                }
+            }
+        } else {
+            if token_tag_equal(token, TokenLa{}) {
+                expr = LessThan{
+                    left = left,
+                    right = right,
+                    cursors_idx = index,
+                }
+            } else {
+                expr = GreaterThan{
+                    left = left,
+                    right = right,
+                    cursors_idx = index,
+                }
+            }
+        }
+    }
+
+    return expr
+}
+
+parse_equality :: proc(self: ^Parser) -> Expr {
+    expr := parse_comparison(self)
+
+    for token := token_peek(self); token != nil; token = token_peek(self) {
+        index := self.cursors_idx
+        if !token_tag_equal(token, TokenExclaim{}) && !token_tag_equal(token, TokenEqual{}) {
+            break
+        }
+        token_next(self)
+
+        after := token_next(self)
+        if !token_tag_equal(after, TokenEqual{}) {
             break
         }
 
-        token_next(self)
-
-        #partial switch tok in token {
-        case TokenPlus, TokenMinus, TokenStar, TokenSlash:
-            lhs := pop(&stack)
-            rhs := parse_expr_until(self, until)
-            // no token_expect because this scope needs to call next on it
-
-            left, _ := new(Expr); left^ = lhs
-            right, _ := new(Expr); right^ = rhs
-
-            #partial switch _ in token {
-            case TokenPlus:
-                append(&stack, Plus{
-                    left = left,
-                    right = right,
-                    type = nil,
-                    cursors_idx = self.cursors_idx
-                })
-            case TokenMinus:
-                append(&stack, Minus{
-                    left = left,
-                    right = right,
-                    type = nil,
-                    cursors_idx = self.cursors_idx
-                })
-            case TokenStar:
-                append(&stack, Multiply{
-                    left = left,
-                    right = right,
-                    type = nil,
-                    cursors_idx = self.cursors_idx
-                })
-            case TokenSlash:
-                append(&stack, Divide{
-                    left = left,
-                    right = right,
-                    type = nil,
-                    cursors_idx = self.cursors_idx
-                })
+        left := new(Expr); left^ = expr;
+        right := new(Expr); right^ = parse_comparison(self)
+        if token_tag_equal(token, TokenExclaim{}) {
+            expr = Inequality{
+                left = left,
+                right = right,
+                cursors_idx = index,
             }
-        case TokenLa:
-            next_token := token_peek(self)
-            index := self.cursors_idx
-
-            if token_tag_equal(next_token, TokenEqual{}) {
-                token_next(self)
-                // <lhs> <= <rhs>
-                lhs := pop(&stack)
-                rhs := parse_expr_until(self, until)
-
-                left, _ := new(Expr); left^ = lhs
-                right, _ := new(Expr); right^ = rhs
-
-                append(&stack, LessOrEqual{
-                    left = left,
-                    right = right,
-                    cursors_idx = index
-                })
-            } else {
-                lhs := pop(&stack)
-                rhs := parse_expr_until(self, until)
-
-                left, _ := new(Expr); left^ = lhs
-                right, _ := new(Expr); right^ = rhs
-
-                append(&stack, LessThan{
-                    left = left,
-                    right = right,
-                    cursors_idx = index
-                })
+        } else {
+            expr = Equality{
+                left = left,
+                right = right,
+                cursors_idx = index,
             }
-        case TokenRa:
-            next_token := token_peek(self)
-            index := self.cursors_idx
-
-            if token_tag_equal(next_token, TokenEqual{}) {
-                token_next(self)
-                // <lhs> <= <rhs>
-                lhs := pop(&stack)
-                rhs := parse_expr_until(self, until)
-
-                left, _ := new(Expr); left^ = lhs
-                right, _ := new(Expr); right^ = rhs
-
-                append(&stack, GreaterOrEqual{
-                    left = left,
-                    right = right,
-                    cursors_idx = index
-                })
-            } else {
-                lhs := pop(&stack)
-                rhs := parse_expr_until(self, until)
-
-                left, _ := new(Expr); left^ = lhs
-                right, _ := new(Expr); right^ = rhs
-
-                append(&stack, GreaterThan{
-                    left = left,
-                    right = right,
-                    cursors_idx = index
-                })
-            }
-        case TokenEqual:
-            next_token := token_next(self)
-            index := self.cursors_idx
-            if token_tag_equal(next_token, TokenEqual{}) {
-                // <lhs> == <rhs>
-                lhs := pop(&stack)
-                rhs := parse_expr_until(self, until)
-
-                left, _ := new(Expr); left^ = lhs
-                right, _ := new(Expr); right^ = rhs
-
-                append(&stack, Equality{
-                    left = left,
-                    right = right,
-                    cursors_idx = index
-                })
-            } else {
-                elog(self, self.cursors_idx, "unexpected token %v", next_token)
-            }
-        case TokenExclaim:
-            next_token := token_peek(self)
-            index := self.cursors_idx
-
-            if token_tag_equal(next_token, TokenEqual{}) {
-                // <lhs> != <rhs>
-                token_next(self)
-                lhs := pop(&stack)
-                rhs := parse_expr_until(self, until)
-
-                left, _ := new(Expr); left^ = lhs
-                right, _ := new(Expr); right^ = rhs
-
-                append(&stack, Inequality{
-                    left = left,
-                    right = right,
-                    cursors_idx = index
-                })
-            } else {
-                // !<expr>
-                expr := parse_expr_until(self, until)
-                cond, _ := new(Expr); cond^ = expr;
-                append(&stack, Not{
-                    condition = cond,
-                    cursors_idx = index,
-                })
-            }
-
-        case TokenIntLit:
-            append(&stack, IntLit{
-                literal = tok.literal,
-                type = .Untyped_Int,
-                cursors_idx = self.cursors_idx,
-            })
-        case TokenIdent:
-            converted_ident := convert_ident(tok)
-
-            if name, ok := converted_ident.(string); ok {
-                token_after_ident := token_peek(self)
-                if lb, lb_ok := token_after_ident.(TokenLb); lb_ok {
-                    append(&stack, parse_fn_call(self, tok.ident))
-                } else {
-                    append(&stack, Var{
-                        name = tok.ident,
-                        type = nil,
-                        cursors_idx = self.cursors_idx,
-                    })
-                }
-            } else if keyword, ok := converted_ident.(Keyword); ok {
-                val := expr_from_keyword(self, keyword)
-                append(&stack, val)
-            } else {
-                elog(self, self.cursors_idx, "expected identifier, got %v", converted_ident)
-            }
-        case TokenLb:
-            bracket_count += 1
-        case TokenRb:
-            bracket_count -= 1
-
-            if self.in_func_call_args && bracket_count == -1 {
-                self.in_func_call_args = false
-                return nil if len(stack) == 0 else stack[0]
-            } else if bracket_count < 0 {
-                elog(self, self.cursors_idx, "missing open bracket")
-            }
-        case TokenLc:
-            curly_count += 1
-        case TokenRc:
-            curly_count -= 1
-            if curly_count < 0 {
-                elog(self, self.cursors_idx, "missing open curly bracket")
-            }
-        case:
-            elog(self, self.cursors_idx, "unexpected token %v", tok)
         }
     }
 
-    if bracket_count != 0 {
-        elog(self, self.cursors_idx, "missing close bracket")
+    return expr
+}
+
+parse_expr :: proc(self: ^Parser) -> Expr {
+    return parse_equality(self)
+}
+
+parse_primary :: proc(self: ^Parser) -> Expr {
+    token := token_next(self)
+
+    #partial switch tok in token {
+    case TokenIdent:
+        converted_ident := convert_ident(tok)
+        if name, ok := converted_ident.(string); ok {
+            return Ident{
+                literal = tok.ident,
+                type = nil,
+                cursors_idx = self.cursors_idx,
+            }
+        } else if keyword, ok := converted_ident.(Keyword); ok {
+            return expr_from_keyword(self, keyword)
+        } else {
+            elog(self, self.cursors_idx, "expected identifier, got %v", converted_ident)
+        }
+    case TokenIntLit:
+        return IntLit{
+            literal = tok.literal,
+            type = .Untyped_Int,
+            cursors_idx = self.cursors_idx
+        }
+    case TokenLb:
+        index := self.cursors_idx
+        expr := new(Expr); expr^ = parse_expr(self)
+        token_expect(self, TokenRb{})
+        return Grouping{
+            value = expr,
+            type = nil,
+            cursors_idx = index
+        }
+    case:
+        elog(self, self.cursors_idx, "unexpected token %v", tok)
+    }
+}
+
+parse_end_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
+    index := self.cursors_idx
+    args := [dynamic]Expr{}
+
+    token := token_peek(self)
+    if !token_tag_equal(token, TokenRb{}) {
+        token_next(self)
+
+        append(&args, parse_expr(self))
+        for after := token_peek(self); token_tag_equal(after, TokenSemiColon{}); after = token_peek(self) {
+            token_next(self)
+            append(&args, parse_expr(self))
+        }
     }
 
-    if curly_count != 0 {
-        elog(self, self.cursors_idx, "missing close curly bracket")
+    token_expect(self, TokenRb{})
+    return FnCall{
+        name = callee,
+        type = nil,
+        args = args,
+        cursors_idx = index,
+    }
+}
+
+parse_fn_call :: proc(self: ^Parser, ident: Maybe(Ident) = nil) -> Expr {
+    expr := parse_primary(self)
+
+    for {
+        token := token_peek(self)
+        if token_tag_equal(token, TokenLb{}) {
+            token_next(self)
+            expr = parse_end_call(self, expr.(Ident))
+        } else {
+            break
+        }
     }
 
-    if len(stack) == 0 {
-        return nil
+    return expr
+}
+
+parse_unary :: proc(self: ^Parser) -> Expr {
+    op := token_peek(self)
+    index := self.cursors_idx
+    if !token_tag_equal(op, TokenExclaim{}) && !token_tag_equal(op, TokenMinus{}) {
+        return parse_fn_call(self)
     }
-    return stack[0]
+
+    token_next(self)
+
+    right := new(Expr); right^ = parse_unary(self)
+    if token_tag_equal(op, TokenExclaim{}) {
+        return Not{
+            condition = right,
+            cursors_idx = index,
+        }
+    } else {
+        return Negative{
+            value = right,
+            cursors_idx = index,
+        }
+    }
+}
+
+parse_factor :: proc(self: ^Parser) -> Expr {
+    expr := parse_unary(self)
+
+    for op := token_peek(self); op != nil; op = token_peek(self) {
+        if !token_tag_equal(op, TokenStar{}) && !token_tag_equal(op, TokenSlash{}) {
+            break
+        }
+        token_next(self)
+
+        index := self.cursors_idx
+        left := new(Expr); left^ = expr
+        right := new(Expr); right^ = parse_unary(self)
+
+        if token_tag_equal(op, TokenStar{}) {
+            expr = Multiply{
+                left = left,
+                right = right,
+                type = nil,
+                cursors_idx = index,
+            }
+        } else {
+            expr = Divide{
+                left = left,
+                right = right,
+                type = nil,
+                cursors_idx = index,
+            }
+        }
+    }
+
+    return expr
+}
+
+parse_term :: proc(self: ^Parser) -> Expr {
+    expr := parse_factor(self)
+
+    for op := token_peek(self); op != nil; op = token_peek(self) {
+        if !token_tag_equal(op, TokenPlus{}) && !token_tag_equal(op, TokenMinus{}) {
+            break
+        }
+        token_next(self)
+
+        index := self.cursors_idx
+        left := new(Expr); left^ = expr
+        right := new(Expr); right^ = parse_factor(self)
+
+        if token_tag_equal(op, TokenPlus{}) {
+            expr = Plus{
+                left = left,
+                right = right,
+                type = nil,
+                cursors_idx = index,
+            }
+        } else {
+            expr = Minus{
+                left = left,
+                right = right,
+                type = nil,
+                cursors_idx = index,
+            }
+        }
+    }
+    return expr 
 }
 
 parse_const_decl :: proc(self: ^Parser, ident: string, type: Type = nil) -> Stmnt {
@@ -777,7 +827,7 @@ parse_const_decl :: proc(self: ^Parser, ident: string, type: Type = nil) -> Stmn
         // TODO: implement default function arguments
     }
 
-    expr := parse_expr_until(self, TokenSemiColon{})
+    expr := parse_expr(self)
     token_expect(self, TokenSemiColon{})
     // <ident>: <type?>: ;
     if expr == nil {
@@ -796,7 +846,7 @@ parse_var_decl :: proc(self: ^Parser, name: string, type: Type = nil, has_equals
 
     // <ident>: <type?> = ;
     if has_equals {
-        expr := parse_expr_until(self, TokenSemiColon{})
+        expr := parse_expr(self)
         token_expect(self, TokenSemiColon{})
         if expr == nil {
             elog(self, index, "expected expression after \"=\" in variable \"%v\" declaration", name)
@@ -877,44 +927,9 @@ parse_decl :: proc(self: ^Parser, ident: string) -> Stmnt {
     return nil
 }
 
-parse_fn_call :: proc(self: ^Parser, name: string) -> FnCall {
-    _ = token_expect(self, TokenLb{})
-
-    bracket_count: i8 = 0
-    args := [dynamic]Expr{}
-
-    self.in_func_call_args = true
-    for token := token_peek(self); token != nil && self.in_func_call_args; token = token_peek(self) {
-        #partial switch tok in token {
-        case TokenLb:
-            bracket_count += 1
-        case TokenRb:
-            bracket_count -= 1
-
-            if bracket_count == 0 {
-                break
-            } else if bracket_count < 0 {
-                elog(self, self.cursors_idx, "missing open bracket")
-            }
-        }
-
-        arg := parse_expr_until(self, TokenComma{})
-        token_expect(self, TokenComma{})
-        append(&args, arg)
-    }
-    self.in_func_call_args = false
-    
-    return FnCall {
-        name = name,
-        type = nil,
-        args = args,
-        cursors_idx = self.cursors_idx,
-    }
-}
-
 parse_var_reassign :: proc(self: ^Parser, name: string) -> Stmnt {
     // <name> = 
-    expr := parse_expr_until(self, TokenSemiColon{})
+    expr := parse_expr(self)
     token_expect(self, TokenSemiColon{})
 
     return VarReassign{
@@ -926,6 +941,8 @@ parse_var_reassign :: proc(self: ^Parser, name: string) -> Stmnt {
 }
 
 parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
+    ident_index := self.cursors_idx
+    
     token := token_peek(self)
     if token == nil do return nil
 
@@ -933,11 +950,23 @@ parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
     case TokenColon:
         token_next(self) // no nil check, already checked when peeked
         return parse_decl(self, ident)
+    case TokenPlus:
+        token_next(self) // no nil check, already checked when peeked
+        token_after := token_next(self)
+
+        if token_tag_equal(token_after, TokenEqual{}) {
+            elog(self, self.cursors_idx, "+= operator not yet implemented");
+            // return parse_var_plus_equal(self, ident)
+        }
     case TokenEqual:
         token_next(self) // no nil check, already checked when peeked
         return parse_var_reassign(self, ident);
     case TokenLb:
-        return parse_fn_call(self, ident)
+        return parse_fn_call(self, Ident{
+            literal = ident,
+            type = nil,
+            cursors_idx = ident_index,
+        }).(FnCall)
     case:
         elog(self, self.cursors_idx, "unexpected token %v", tok)
     }
@@ -947,7 +976,7 @@ parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
 
 parse_return :: proc(self: ^Parser) -> Stmnt {
     index := self.cursors_idx
-    expr := parse_expr_until(self, TokenSemiColon{})
+    expr := parse_expr(self)
     token_expect(self, TokenSemiColon{})
     return Return{
         value = expr,
@@ -960,7 +989,7 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
     index := self.cursors_idx
 
     _ = token_expect(self, TokenLb{})
-    expr := parse_expr_until(self, TokenRb{})
+    expr := parse_expr(self)
     _ = token_expect(self, TokenRb{})
 
     body := parse_block(self)
