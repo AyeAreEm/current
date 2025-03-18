@@ -9,6 +9,13 @@ SymTab :: struct {
     curr_scope: uint,
 }
 
+symtab_init :: proc() -> (symtab: SymTab) {
+    symtab.scopes = [dynamic]map[string]Stmnt{}
+    append(&symtab.scopes, map[string]Stmnt{})
+    symtab.curr_scope = 0
+    return
+}
+
 symtab_find :: proc(analyser: ^Analyser, key: string, location: int) -> Stmnt {
     using analyser.symtab
 
@@ -68,6 +75,17 @@ Analyser :: struct {
     // debug
     filename: string,
     cursors: [dynamic][2]u32,
+}
+
+analyser_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab, filename: string, cursors: [dynamic][2]u32) -> Analyser {
+    return {
+        ast = ast,
+        symtab = symtab,
+        current_fn = nil,
+        
+        filename = filename,
+        cursors = cursors,
+    }
 }
 
 type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {

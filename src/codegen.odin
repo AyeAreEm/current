@@ -10,6 +10,15 @@ Codegen :: struct {
     indent_level: u8,
 }
 
+codegen_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab) -> Codegen {
+    return {
+        ast = ast,
+        symtab = symtab,
+        code = strings.builder_make(),
+        indent_level = 0,
+    }
+}
+
 gen_indent :: proc(self: ^Codegen) {
     for i in 0..<self.indent_level {
         fmt.sbprint(&self.code, "    ")
@@ -128,7 +137,7 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         value, alloced := gen_expr(self, expr.value^)
         ret := fmt.aprintf("(%v)", value)
         if alloced {
-            debug("memory leak")
+            delete(value)
         }
 
         return ret, true
@@ -137,7 +146,7 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         ret := fmt.aprintf("-%v", value)
         
         if alloced {
-            debug("memory leak")
+            delete(value)
         }
 
         return ret, true
@@ -146,7 +155,7 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         ret := fmt.aprintf("!%v", cond)
         
         if alloced {
-            debug("memory leak")
+            delete(cond)
         }
 
         return ret, true
@@ -155,8 +164,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v < %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -165,8 +177,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v <= %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -175,8 +190,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v > %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -185,8 +203,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v >= %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -195,8 +216,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v == %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -205,8 +229,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v != %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -215,8 +242,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v + %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -225,8 +255,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v - %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -235,8 +268,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v * %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true
@@ -245,8 +281,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v / %v", lhs, rhs)
 
-        if lhs_alloc || rhs_alloc {
-            debug("memory leak")
+        if lhs_alloc {
+            delete(lhs)
+        }
+        if rhs_alloc {
+            delete(rhs)
         }
 
         return ret, true

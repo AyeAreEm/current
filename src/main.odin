@@ -34,13 +34,12 @@ current_elog :: proc(format: string, args: ..any) -> ! {
     os.exit(1)
 }
 
-elog :: proc{current_elog, parse_elog, analyse_elog}
+elog :: proc{current_elog, parser_elog, analyse_elog}
 
 build :: proc(filename: string) {
     content_bytes, content_bytes_ok := os.read_entire_file(filename)
     if !content_bytes_ok {
-        fmt.eprintfln("failed to read %v", filename)
-        os.exit(1)
+        elog("failed to read %v", filename)
     }
 
     content := transmute(string)content_bytes
@@ -48,50 +47,26 @@ build :: proc(filename: string) {
     assert(len(tokens) == len(cursors), "expected the length of tokens and length of cursors to be the same")
 
     // TODO: add another pass to get definitions
-
-    parser := Parser {
-        tokens = tokens, // NOTE: does this do a copy? surely not
-        in_func_decl_args = false,
-        in_func_call_args = false,
-
-        filename = filename,
-        cursors = cursors,
-        cursors_idx = -1,
-    }
-
     ast := [dynamic]Stmnt{}
+    parser := parser_init(tokens, filename, cursors)
     for stmnt := parse(&parser); stmnt != nil; stmnt = parse(&parser) {
         append(&ast, stmnt)
     }
 
-    symtab := SymTab{
-        scopes = [dynamic]map[string]Stmnt{},
-        curr_scope = 0,
-    }
-    append(&symtab.scopes, map[string]Stmnt{})
-
-    analyser := Analyser{
-        ast = ast,
-        symtab = symtab,
-        current_fn = nil,
-
-        filename = filename,
-        cursors = cursors,
-    }
+    symtab := symtab_init()
+    analyser := analyser_init(ast, symtab, filename, cursors)
     analyse(&analyser)
-    // for stmnt in ast {
-    //     stmnt_print(stmnt)
-    // }
 
-    codegen := Codegen{
-        ast = ast,
-        symtab = symtab,
-        code = strings.builder_make(),
-        indent_level = 0,
+    if DEBUG_MODE {
+        for stmnt in ast {
+            stmnt_print(stmnt)
+        }
     }
+
+    codegen := codegen_init(ast, symtab)
     gen(&codegen);
 
-    os.write_entire_file("output.zig", transmute([]byte)strings.to_string(codegen.code))
+    os.write_entire_file("output.zig", codegen.code.buf[:])
 }
 
 main :: proc() {

@@ -471,7 +471,6 @@ convert_ident :: proc(using token: TokenIdent) -> union {Type, Keyword, string} 
 Parser :: struct {
     tokens: [dynamic]Token,
     in_func_decl_args: bool,
-    in_func_call_args: bool,
 
     // debug
     filename: string,
@@ -479,7 +478,18 @@ Parser :: struct {
     cursors_idx: int,
 }
 
-parse_elog :: proc(self: ^Parser, i: int, format: string, args: ..any) -> ! {
+parser_init :: proc(tokens: [dynamic]Token, filename: string, cursors: [dynamic][2]u32) -> Parser {
+    return {
+        tokens = tokens, // NOTE: does this do a copy? surely not
+        in_func_decl_args = false,
+
+        filename = filename,
+        cursors = cursors,
+        cursors_idx = -1,
+    }
+}
+
+parser_elog :: proc(self: ^Parser, i: int, format: string, args: ..any) -> ! {
     if DEBUG_MODE {
         debug("elog from parser")
     }
