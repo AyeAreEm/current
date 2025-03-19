@@ -9,31 +9,44 @@ import "core:mem"
 Type :: enum {
     Void,
     Bool,
+
+    I8,
+    I16,
     I32,
     I64,
+
+    U8,
+    U16,
+    U32,
+    U64,
+
     Untyped_Int,
 }
 type_map := map[string]Type{
     "void" = .Void,
+    "bool" = .Bool,
+
+    "i8" = .I8,
+    "i16" = .I16,
     "i32" = .I32,
     "i64" = .I64,
-    "bool" = .Bool,
+
+    "u8" = .U8,
+    "u16" = .U16,
+    "u32" = .U32,
+    "u64" = .U64,
 }
 
 string_from_type :: proc(t: Type) -> string {
-    switch t {
-    case .Bool:
-        return "bool"
-    case .I64:
-        return "i64"
-    case .I32:
-        return "i32"
-    case .Void:
-        return "void"
-    case .Untyped_Int:
-        panic("compiler error: should not be converting untyped_int to a string")
+    if t == .Untyped_Int {
+        panic("compiler error: should not be converting untyped_int to string")
     }
 
+    for k, v in type_map {
+        if t == v {
+            return k
+        }
+    }
     return ""
 }
 
@@ -252,9 +265,9 @@ type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
         elog(analyser, stmnt.cursors_idx, "unexpected if statement")
     }
 
-    if statement == nil {
-        return .Void
-    }
+    // if statement == nil {
+    //     return .Void
+    // }
 
     return nil
 }
@@ -733,6 +746,7 @@ parse_unary :: proc(self: ^Parser) -> Expr {
     } else {
         return Negative{
             value = right,
+            type = nil,
             cursors_idx = index,
         }
     }

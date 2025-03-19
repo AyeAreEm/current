@@ -193,11 +193,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         analyse_expr(self, ex.value)
         value_type := type_of_expr(self, ex.value^)
 
-        if t := tc_default_untyped_type(value_type); t != nil {
-            ex.type = t
-        } else {
-            ex.type = value_type
-        }
+        ex.type = value_type
     case Not:
         analyse_expr(self, ex.condition)
         t := type_of_expr(self, ex.condition^)

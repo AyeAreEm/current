@@ -153,7 +153,7 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
         if len(buf.buf) > 0 {
             append(cursor, [2]u32{row^, col^})
             string_buf := strings.to_string(buf^)
-            if _, ok := strconv.parse_i64(string_buf); ok {
+            if _, ok := strconv.parse_u64(string_buf); ok {
                 append(tokens, TokenIntLit{strings.clone(string_buf)})
             } else {
                 append(tokens, TokenIdent{strings.clone(string_buf)})
