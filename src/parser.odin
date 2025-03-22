@@ -6,7 +6,46 @@ import "core:strings"
 import "core:os"
 import "core:mem"
 
-Type :: enum {
+Void :: struct {
+    cursors_idx: int,
+}
+Bool :: struct {
+    cursors_idx: int,
+}
+I8 :: struct {
+    cursors_idx: int,
+}
+I16 :: struct {
+    cursors_idx: int,
+}
+I32 :: struct {
+    cursors_idx: int,
+}
+I64 :: struct {
+    cursors_idx: int,
+}
+
+U8 :: struct {
+    cursors_idx: int,
+}
+U16 :: struct {
+    cursors_idx: int,
+}
+U32 :: struct {
+    cursors_idx: int,
+}
+U64 :: struct {
+    cursors_idx: int,
+}
+
+Array :: struct {
+    type: ^Type,
+    len: ^Expr,
+}
+
+Untyped_Int :: struct {}
+TypeId :: struct{}
+Type :: union {
     Void,
     Bool,
 
@@ -21,33 +60,68 @@ Type :: enum {
     U64,
 
     Untyped_Int,
+    Array,
+    TypeId,
 }
 type_map := map[string]Type{
-    "void" = .Void,
-    "bool" = .Bool,
+    "void" = Void{},
+    "bool" = Bool{},
 
-    "i8" = .I8,
-    "i16" = .I16,
-    "i32" = .I32,
-    "i64" = .I64,
+    "i8" = I8{},
+    "i16" = I16{},
+    "i32" = I32{},
+    "i64" = I64{},
 
-    "u8" = .U8,
-    "u16" = .U16,
-    "u32" = .U32,
-    "u64" = .U64,
+    "u8" = U8{},
+    "u16" = U16{},
+    "u32" = U32{},
+    "u64" = U64{},
 }
 
-string_from_type :: proc(t: Type) -> string {
-    if t == .Untyped_Int {
-        panic("compiler error: should not be converting untyped_int to string")
+type_tag_equal :: proc(lhs, rhs: Type) -> bool {
+    switch t in lhs {
+    case TypeId:
+        _, ok := rhs.(TypeId)
+        return ok
+    case Array:
+        _, ok := rhs.(Array)
+        return ok
+    case I8:
+        _, ok := rhs.(I8)
+        return ok
+    case I16:
+        _, ok := rhs.(I16)
+        return ok
+    case I32:
+        _, ok := rhs.(I32)
+        return ok
+    case I64:
+        _, ok := rhs.(I64)
+        return ok
+    case U8:
+        _, ok := rhs.(U8)
+        return ok
+    case U16:
+        _, ok := rhs.(U16)
+        return ok
+    case U32:
+        _, ok := rhs.(U32)
+        return ok
+    case U64:
+        _, ok := rhs.(U64)
+        return ok
+    case Untyped_Int:
+        _, ok := rhs.(Untyped_Int)
+        return ok
+    case Bool:
+        _, ok := rhs.(Bool)
+        return ok
+    case Void:
+        _, ok := rhs.(Void)
+        return ok
     }
 
-    for k, v in type_map {
-        if t == v {
-            return k
-        }
-    }
-    return ""
+    return false
 }
 
 Keyword :: enum {
@@ -69,9 +143,9 @@ keyword_map := map[string]Keyword{
 expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
     #partial switch k {
     case .True:
-        return True{type = .Bool, cursors_idx = cursors_idx}
+        return True{type = Bool{}, cursors_idx = cursors_idx}
     case .False:
-        return False{type = .Bool, cursors_idx = cursors_idx}
+        return False{type = Bool{}, cursors_idx = cursors_idx}
     case:
         elog(parser, cursors_idx, "expected an expression, got keyword %v", k)
     }
@@ -79,6 +153,11 @@ expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
 
 IntLit :: struct {
     literal: string,
+    type: Type,
+    cursors_idx: int,
+}
+Literal :: struct {
+    values: [dynamic]Expr,
     type: Type,
     cursors_idx: int,
 }
@@ -175,7 +254,20 @@ Grouping :: struct {
     cursors_idx: int,
 }
 Expr :: union {
+    // types are also expressions
+    Bool,
+    I8,
+    I16,
+    I32,
+    I64,
+
+    U8,
+    U16,
+    U32,
+    U64,
+
     IntLit,
+    Literal,
     Ident,
     Const,
     FnCall,
@@ -276,6 +368,26 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case Bool:
+            return expr.cursors_idx
+        case I8:
+            return expr.cursors_idx
+        case I16:
+            return expr.cursors_idx
+        case I32:
+            return expr.cursors_idx
+        case I64:
+            return expr.cursors_idx
+        case U8:
+            return expr.cursors_idx
+        case U16:
+            return expr.cursors_idx
+        case U32:
+            return expr.cursors_idx
+        case U64:
+            return expr.cursors_idx
+        case Literal:
+            return expr.cursors_idx
         case Grouping:
             return expr.cursors_idx
         case FnCall:
@@ -334,11 +446,41 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     }
 
+    debug("unreachable")
     unreachable()
 }
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case Bool:
+        fmt.printf("Bool")
+    case I8:
+        fmt.printf("I8")
+    case I16:
+        fmt.printf("I16")
+    case I32:
+        fmt.printf("I32")
+    case I64:
+        fmt.printf("I64")
+    case U8:
+        fmt.printf("U8")
+    case U16:
+        fmt.printf("U16")
+    case U32:
+        fmt.printf("U32")
+    case U64:
+        fmt.printf("U64")
+    case Literal:
+        fmt.printf("%v{{", expr.type)
+        for value, i in expr.values {
+            if i == 0 {
+                expr_print(value)
+            } else {
+                fmt.print(", ")
+                expr_print(value)
+            }
+        }
+        fmt.print("}")
     case Grouping:
         fmt.printf("(")
         expr_print(expr.value^)
@@ -671,7 +813,7 @@ parse_primary :: proc(self: ^Parser) -> Expr {
     case TokenIntLit:
         return IntLit{
             literal = tok.literal,
-            type = .Untyped_Int,
+            type = Untyped_Int{},
             cursors_idx = self.cursors_idx
         }
     case TokenLb:
@@ -688,7 +830,7 @@ parse_primary :: proc(self: ^Parser) -> Expr {
     }
 }
 
-parse_end_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
+parse_end_fn_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
     index := self.cursors_idx
     args := [dynamic]Expr{}
 
@@ -697,7 +839,7 @@ parse_end_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
         token_next(self)
 
         append(&args, parse_expr(self))
-        for after := token_peek(self); token_tag_equal(after, TokenSemiColon{}); after = token_peek(self) {
+        for after := token_peek(self); token_tag_equal(after, TokenComma{}); after = token_peek(self) {
             token_next(self)
             append(&args, parse_expr(self))
         }
@@ -712,6 +854,29 @@ parse_end_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
     }
 }
 
+parse_end_literal :: proc(self: ^Parser) -> Expr {
+    index := self.cursors_idx
+    values := [dynamic]Expr{}
+
+    token := token_peek(self)
+    if !token_tag_equal(token, TokenRc{}) {
+        token_next(self)
+
+        append(&values, parse_expr(self))
+        for after := token_peek(self); token_tag_equal(after, TokenComma{}); after = token_peek(self) {
+            token_next(self)
+            append(&values, parse_expr(self))
+        }
+    }
+
+    token_expect(self, TokenRc{})
+    return Literal{
+        type = nil,
+        values = values,
+        cursors_idx = index,
+    }
+}
+
 parse_fn_call :: proc(self: ^Parser, ident: Maybe(Ident) = nil) -> Expr {
     expr := parse_primary(self)
 
@@ -719,7 +884,7 @@ parse_fn_call :: proc(self: ^Parser, ident: Maybe(Ident) = nil) -> Expr {
         token := token_peek(self)
         if token_tag_equal(token, TokenLb{}) {
             token_next(self)
-            expr = parse_end_call(self, expr.(Ident))
+            expr = parse_end_fn_call(self, expr.(Ident))
         } else {
             break
         }
@@ -732,6 +897,9 @@ parse_unary :: proc(self: ^Parser) -> Expr {
     op := token_peek(self)
     index := self.cursors_idx
     if !token_tag_equal(op, TokenExclaim{}) && !token_tag_equal(op, TokenMinus{}) {
+        if token_tag_equal(op, TokenLc{}) {
+            return parse_end_literal(self)
+        }
         return parse_fn_call(self)
     }
 
@@ -893,6 +1061,71 @@ parse_var_decl :: proc(self: ^Parser, name: string, type: Type = nil, has_equals
     }
 }
 
+parse_set_array_type :: proc(self: ^Parser, arr: ^Type, type: Type) {
+    #partial switch &subtype in arr {
+    case Array:
+        if subtype.type^ == nil {
+            subtype.type^ = type
+        } else {
+            parse_set_array_type(self, subtype.type, type)
+        }
+    } 
+}
+
+parse_type_decl :: proc(self: ^Parser) -> Type {
+    type: Type = nil
+    token := token_peek(self)
+
+    #partial switch tok in token {
+    case TokenLs:
+        for leftsquare := token_peek(self); leftsquare != nil; leftsquare = token_peek(self) {
+            if !token_tag_equal(leftsquare, TokenLs{}) {
+                break
+            }
+            token_next(self)
+
+            after := token_peek(self)
+            if token_tag_equal(after, TokenIntLit{}) {
+                len := new(Expr); len^ = parse_expr(self)
+                token_expect(self, TokenRs{})
+
+                array_type := Array{
+                    type = new(Type),
+                    len = len,
+                }
+
+                #partial switch &t in type {
+                case nil:
+                    type = array_type
+                case Array:
+                    subtype := new(Type); subtype^ = array_type
+                    t.type = subtype
+               }
+            }
+        }
+    }
+
+    token = token_peek(self)
+    #partial switch tok in token {
+    case TokenIdent:
+        token_next(self)
+        converted_ident := convert_ident(tok)
+
+        if subtype, ok := converted_ident.(Type); ok {
+            #partial switch &t in type {
+            case nil:
+                t = subtype
+            case Array:
+                parse_set_array_type(self, &type, subtype)
+            }
+        } else {
+            elog(self, self.cursors_idx, "expected a type, got %v", tok.ident)
+        }
+    }
+
+    return type
+}
+
 parse_decl :: proc(self: ^Parser, ident: string) -> Stmnt {
     // <ident> :
 
@@ -906,43 +1139,71 @@ parse_decl :: proc(self: ^Parser, ident: string) -> Stmnt {
     case TokenEqual:
         token_next(self)
         return parse_var_decl(self, ident)
-    case TokenIdent:
-        token_next(self)
-        converted_ident := convert_ident(tok)
+    case TokenLs:
+        type := parse_type_decl(self)
 
-        if type, type_ok := converted_ident.(Type); type_ok {
-            token_after_type := token_peek(self)
-            if token_after_type == nil do return nil
+        token_after_type := token_peek(self)
+        if token_after_type == nil do return nil
 
-            #partial switch tat in token_after_type {
-            case TokenColon:
-                token_next(self)
-                return parse_const_decl(self, ident, type)
-            case TokenEqual:
-                token_next(self)
-                return parse_var_decl(self, ident, type)
-            case TokenSemiColon:
-                token_next(self)
-                if type == nil {
-                    elog(self, self.cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
-                }
-                return parse_var_decl(self, ident, type, false)
-            case TokenComma:
-                token_next(self)
-                if !self.in_func_decl_args {
-                    elog(self, self.cursors_idx, "unexpected comma during declaration")
-                }
-                return parse_const_decl(self, ident, type)
-            case TokenRb:
-                if !self.in_func_decl_args {
-                    elog(self, self.cursors_idx, "unexpected TokenRb during declaration")
-                }
-                return parse_const_decl(self, ident, type)
-            case:
-                elog(self, self.cursors_idx, "unexpected token %v", tok)
+        #partial switch tat in token_after_type {
+        case TokenColon:
+            token_next(self)
+            return parse_const_decl(self, ident, type)
+        case TokenEqual:
+            token_next(self)
+            return parse_var_decl(self, ident, type)
+        case TokenSemiColon:
+            token_next(self)
+            if type == nil {
+                elog(self, self.cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
             }
-        } else {
-            elog(self, self.cursors_idx, "expected a type during declaration, got %v", converted_ident)
+            return parse_var_decl(self, ident, type, false)
+        case TokenComma:
+            token_next(self)
+            if !self.in_func_decl_args {
+                elog(self, self.cursors_idx, "unexpected comma during declaration")
+            }
+            return parse_const_decl(self, ident, type)
+        case TokenRb:
+            if !self.in_func_decl_args {
+                elog(self, self.cursors_idx, "unexpected TokenRb during declaration")
+            }
+            return parse_const_decl(self, ident, type)
+        case:
+            elog(self, self.cursors_idx, "unexpected token %v", tok)
+        }
+    case TokenIdent:
+        type := parse_type_decl(self)
+
+        token_after_type := token_peek(self)
+        if token_after_type == nil do return nil
+
+        #partial switch tat in token_after_type {
+        case TokenColon:
+            token_next(self)
+            return parse_const_decl(self, ident, type)
+        case TokenEqual:
+            token_next(self)
+            return parse_var_decl(self, ident, type)
+        case TokenSemiColon:
+            token_next(self)
+            if type == nil {
+                elog(self, self.cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
+            }
+            return parse_var_decl(self, ident, type, false)
+        case TokenComma:
+            token_next(self)
+            if !self.in_func_decl_args {
+                elog(self, self.cursors_idx, "unexpected comma during declaration")
+            }
+            return parse_const_decl(self, ident, type)
+        case TokenRb:
+            if !self.in_func_decl_args {
+                elog(self, self.cursors_idx, "unexpected TokenRb during declaration")
+            }
+            return parse_const_decl(self, ident, type)
+        case:
+            elog(self, self.cursors_idx, "unexpected token %v", tok)
         }
     case:
         elog(self, self.cursors_idx, "unexpected token %v during declaration", tok)

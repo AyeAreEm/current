@@ -19,6 +19,43 @@ codegen_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab) -> Codegen {
     }
 }
 
+gen_array_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder) {
+    #partial switch subtype in array {
+    case Array:
+        length, length_alloced := gen_expr(self, subtype.len^)
+        defer if length_alloced do delete(length)
+
+        fmt.sbprintf(str, "[%v]", length)
+        gen_array_type(self, subtype.type^, str)
+    case:
+        t, t_alloc := gen_type(self, array)
+        defer if t_alloc do delete(t)
+
+        fmt.sbprintf(str, "%v", t)
+    }
+}
+
+gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
+    if type_tag_equal(t, Untyped_Int{}) {
+        panic("compiler error: should not be converting untyped_int to string")
+    }
+
+    #partial switch subtype in t {
+    case Array:
+        ret := strings.builder_make()
+        gen_array_type(self, t, &ret)
+        return strings.to_string(ret), true
+    }
+
+    for k, v in type_map {
+        if type_tag_equal(t, v) {
+            return k, false
+        }
+    }
+    return "", false
+}
+
+
 gen_indent :: proc(self: ^Codegen) {
     for i in 0..<self.indent_level {
         fmt.sbprint(&self.code, "    ")
@@ -78,14 +115,19 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
 
     for stmnt, i in fndecl.args {
         arg := stmnt.(ConstDecl)
+        arg_str, arg_str_alloced := gen_type(self, arg.type)
+        defer if arg_str_alloced do delete(arg_str)
 
         if i == 0 {
-            fmt.sbprintf(&self.code, "%v: %v", arg.name, string_from_type(arg.type))
+            fmt.sbprintf(&self.code, "%v: %v", arg.name, arg_str)
         } else {
-            fmt.sbprintf(&self.code, ", %v: %v", arg.name, string_from_type(arg.type))
+            fmt.sbprintf(&self.code, ", %v: %v", arg.name, arg_str)
         }
     }
-    fmt.sbprintfln(&self.code, ") %v {{", string_from_type(fndecl.type))
+    fntype_str, fntype_str_alloced := gen_type(self, fndecl.type)
+    defer if fntype_str_alloced do delete(fntype_str)
+
+    fmt.sbprintfln(&self.code, ") %v {{", fntype_str)
     defer fmt.sbprintln(&self.code, "}")
 
     self.indent_level += 1
@@ -121,6 +163,24 @@ gen_fn_call :: proc(self: ^Codegen, fncall: FnCall, with_indent: bool = false) -
 // returns string and true if string is allocated
 gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     switch expr in expression {
+    case Bool:
+        return "bool", false
+    case I8:
+        return "i8", false
+    case I16:
+        return "i16", false
+    case I32:
+        return "i32", false
+    case I64:
+        return "i64", false
+    case U8:
+        return "u8", false
+    case U16:
+        return "u16", false
+    case U32:
+        return "u32", false
+    case U64:
+        return "u64", false
     case Ident:
         return expr.literal, false
     case Const:
@@ -133,6 +193,24 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return "false", false
     case FnCall:
         return gen_fn_call(self, expr), true
+    case Literal:
+        literal := strings.builder_make()
+        expr_type_str, expr_type_str_alloced := gen_type(self, expr.type)
+        defer if expr_type_str_alloced do delete(expr_type_str)
+
+        fmt.sbprintf(&literal, "%v{{", expr_type_str)
+        for val, i in expr.values {
+            str_val, alloced := gen_expr(self, val)
+            defer if alloced do delete(str_val)
+
+            if i == 0 {
+                fmt.sbprintf(&literal, "%v", str_val)
+            } else {
+                fmt.sbprintf(&literal, ", %v", str_val)
+            }
+        }
+        fmt.sbprint(&literal, "}")
+        return strings.to_string(literal), true
     case Grouping:
         value, alloced := gen_expr(self, expr.value^)
         ret := fmt.aprintf("(%v)", value)
@@ -296,7 +374,10 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
 gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
     gen_indent(self)
-    fmt.sbprintf(&self.code, "var %v: %v = ", vardecl.name, string_from_type(vardecl.type))
+    var_type_str, var_type_str_alloced := gen_type(self, vardecl.type)
+    defer if var_type_str_alloced do delete(var_type_str)
+
+    fmt.sbprintf(&self.code, "var %v: %v = ", vardecl.name, var_type_str)
 
     if vardecl.value == nil {
         fmt.sbprintln(&self.code, "undefined;")
@@ -317,10 +398,13 @@ gen_var_reassign :: proc(self: ^Codegen, varre: VarReassign) {
 
 gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
     gen_indent(self)
+    const_type_str, const_type_str_alloced := gen_type(self, constdecl.type)
+    defer if const_type_str_alloced do delete(const_type_str)
+
     value, alloced := gen_expr(self, constdecl.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&self.code, "const %v: %v = %v;", constdecl.name, string_from_type(constdecl.type), value);
+    fmt.sbprintfln(&self.code, "const %v: %v = %v;", constdecl.name, const_type_str, value);
 }
 
 gen_return :: proc(self: ^Codegen, ret: Return) {

@@ -90,6 +90,26 @@ analyser_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab, filename: string, cur
 
 type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     switch ex in expr {
+    case Literal:
+        return ex.type
+    case Bool:
+        return TypeId{}
+    case I8:
+        return TypeId{}
+    case I16:
+        return TypeId{}
+    case I32:
+        return TypeId{}
+    case I64:
+        return TypeId{}
+    case U8:
+        return TypeId{}
+    case U16:
+        return TypeId{}
+    case U32:
+        return TypeId{}
+    case U64:
+        return TypeId{}
     case Negative:
         return ex.type
     case Grouping:
@@ -106,19 +126,19 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
         call := symtab_find(analyser, ex.name.literal, ex.cursors_idx).(FnDecl)
         return call.type
     case LessThan:
-        return .Bool
+        return Bool{}
     case LessOrEqual:
-        return .Bool
+        return Bool{}
     case GreaterThan:
-        return .Bool
+        return Bool{}
     case GreaterOrEqual:
-        return .Bool
+        return Bool{}
     case Equality:
-        return .Bool
+        return Bool{}
     case Inequality:
-        return .Bool
+        return Bool{}
     case Not:
-        return .Bool
+        return Bool{}
     case Plus:
         return ex.type
     case Minus:
@@ -134,7 +154,7 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     }
 
     if expr == nil {
-        return .Void
+        return Void{}
     }
 
     return nil
@@ -152,6 +172,19 @@ analyse_elog :: proc(self: ^Analyser, i: int, format: string, args: ..any) -> ! 
 
 analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     switch &ex in expr {
+    case I8, I16, I32, I64:
+        return
+    case U8, U16, U32, U64:
+        return
+    case Bool:
+        return
+    case Literal:
+        for &value in ex.values {
+            analyse_expr(self, &value)
+        }
+        // TODO: check if elems are the correct type.
+        // i.e. if elems are the subtype of the array type
+        // or if elems are the correct type in type declaration
     case FnCall:
         analyse_fn_call(self, &ex)
     case Ident:
@@ -198,7 +231,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         analyse_expr(self, ex.condition)
         t := type_of_expr(self, ex.condition^)
 
-        if !tc_equals(.Bool, t) {
+        if !tc_equals(Bool{}, t) {
             elog(self, ex.cursors_idx, "expected a boolean after '!' operator, got %v", t)
         }
     // you may be asking "hey... wtf... why don't you do `case Equality, Inequality:`"
@@ -354,6 +387,27 @@ analyse_return :: proc(self: ^Analyser, fn: FnDecl, ret: ^Return) {
 }
 
 analyse_var_decl :: proc(self: ^Analyser, vardecl: ^VarDecl) {
+     #partial switch &val in vardecl.value {
+     case Literal:
+         if val.type == nil {
+             if vardecl.type == nil {
+                 // <name> := {..}; can't do that
+                 elog(self, vardecl.cursors_idx, "missing type for literal")
+             } else {
+                 // <name>: <type> = {..};
+                 val.type = vardecl.type
+             }
+         } else if vardecl.type != nil {
+             // <name>: <type> = <type>{..};
+             if !tc_equals(vardecl.type, val.type) {
+                 elog(self, vardecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, val.type)
+             }
+         } else {
+             // <name> := <type>{..};
+             vardecl.type = val.type
+         }
+     }
+
     analyse_expr(self, &vardecl.value)
 
     tc_var_decl(self, vardecl)
@@ -418,7 +472,7 @@ analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
 analyse_if :: proc(self: ^Analyser, ifs: ^If) {
     analyse_expr(self, &ifs.condition)
     condition_type := type_of_expr(self, ifs.condition)
-    if !tc_equals(.Bool, condition_type) {
+    if !tc_equals(Bool{}, condition_type) {
         elog(self, ifs.cursors_idx, "condition must be bool, got %v", condition_type)
     }
 
@@ -464,7 +518,7 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: FnDecl) {
         symtab_push(self, arg.(ConstDecl).name, arg)
     }
 
-    if strings.compare(fn.name, "main") == 0 && fn.type != .Void {
+    if strings.compare(fn.name, "main") == 0 && !type_tag_equal(fn.type, Void{}) {
         elog(self, fn.cursors_idx, "illegal main function, expected return type to be void, got %v", fn.type)
     }
     self.current_fn = fn
