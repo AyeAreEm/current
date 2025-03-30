@@ -217,6 +217,24 @@ tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
     tc_number_within_bounds(analyser, constdecl.type, constdecl.value)
 }
 
+tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
+    // TODO: finish this
+
+    #partial switch array in literal.type {
+    case Array:
+        length, _ := evaluate_expr(analyser, array.len)
+        if len(literal.values) != cast(int)length {
+            elog(analyser, literal.cursors_idx, "array length {}, literal length {}", length, len(literal.values))
+        }
+    }
+}
+
+tc_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
+    if type_tag_equal(literal.type, Array{}) {
+        tc_array_literal(analyser, literal)
+    }
+}
+
 tc_can_compare_value :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
     #partial switch l in lhs {
     case Bool:

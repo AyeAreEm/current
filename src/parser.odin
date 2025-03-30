@@ -339,31 +339,6 @@ Stmnt :: union {
     If,
 }
 
-type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
-    switch stmnt in statement {
-    case FnDecl:
-        return stmnt.type
-    case FnCall:
-        return stmnt.type
-    case VarDecl:
-        return stmnt.type
-    case VarReassign:
-        return stmnt.type
-    case ConstDecl:
-        return stmnt.type
-    case Return:
-        return stmnt.type
-    case If:
-        elog(analyser, stmnt.cursors_idx, "unexpected if statement")
-    }
-
-    // if statement == nil {
-    //     return .Void
-    // }
-
-    return nil
-}
-
 get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:

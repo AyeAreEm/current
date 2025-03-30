@@ -160,6 +160,31 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     return nil
 }
 
+type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
+    switch stmnt in statement {
+    case FnDecl:
+        return stmnt.type
+    case FnCall:
+        return stmnt.type
+    case VarDecl:
+        return stmnt.type
+    case VarReassign:
+        return stmnt.type
+    case ConstDecl:
+        return stmnt.type
+    case Return:
+        return stmnt.type
+    case If:
+        elog(analyser, stmnt.cursors_idx, "unexpected if statement")
+    }
+
+    // if statement == nil {
+    //     return .Void
+    // }
+
+    return nil
+}
+
 analyse_elog :: proc(self: ^Analyser, i: int, format: string, args: ..any) -> ! {
     if DEBUG_MODE {
         debug("elog from analyser")
@@ -168,6 +193,18 @@ analyse_elog :: proc(self: ^Analyser, i: int, format: string, args: ..any) -> ! 
     fmt.eprintfln(format, ..args)
 
     os.exit(1)
+}
+
+analyse_literal :: proc(self: ^Analyser, literal: ^Literal) {
+    for &value in literal.values {
+        analyse_expr(self, &value)
+    }
+
+    tc_literal(self, literal)
+    
+    // TODO: check if elems are the correct type.
+    // i.e. if elems are the subtype of the array type
+    // or if elems are the correct type in type declaration
 }
 
 analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
@@ -179,12 +216,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     case Bool:
         return
     case Literal:
-        for &value in ex.values {
-            analyse_expr(self, &value)
-        }
-        // TODO: check if elems are the correct type.
-        // i.e. if elems are the subtype of the array type
-        // or if elems are the correct type in type declaration
+        analyse_literal(self, &ex)
     case FnCall:
         analyse_fn_call(self, &ex)
     case Ident:
@@ -387,26 +419,26 @@ analyse_return :: proc(self: ^Analyser, fn: FnDecl, ret: ^Return) {
 }
 
 analyse_var_decl :: proc(self: ^Analyser, vardecl: ^VarDecl) {
-     #partial switch &val in vardecl.value {
-     case Literal:
-         if val.type == nil {
-             if vardecl.type == nil {
-                 // <name> := {..}; can't do that
-                 elog(self, vardecl.cursors_idx, "missing type for literal")
-             } else {
-                 // <name>: <type> = {..};
-                 val.type = vardecl.type
-             }
-         } else if vardecl.type != nil {
-             // <name>: <type> = <type>{..};
-             if !tc_equals(vardecl.type, val.type) {
-                 elog(self, vardecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, val.type)
-             }
-         } else {
-             // <name> := <type>{..};
-             vardecl.type = val.type
-         }
-     }
+    #partial switch &val in vardecl.value {
+    case Literal:
+        if val.type == nil {
+            if vardecl.type == nil {
+                // <name> := {..}; can't do that
+                elog(self, vardecl.cursors_idx, "missing type for literal")
+            } else {
+                // <name>: <type> = {..};
+                val.type = vardecl.type
+            }
+        } else if vardecl.type != nil {
+            // <name>: <type> = <type>{..};
+            if !tc_equals(vardecl.type, val.type) {
+                elog(self, vardecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, val.type)
+            }
+        } else {
+            // <name> := <type>{..};
+            vardecl.type = val.type
+        }
+    }
 
     analyse_expr(self, &vardecl.value)
 
@@ -431,6 +463,27 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
 }
 
 analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {
+    #partial switch &val in constdecl.value {
+    case Literal:
+        if val.type == nil {
+            if constdecl.type == nil {
+                // <name> := {..}; can't do that
+                elog(self, constdecl.cursors_idx, "missing type for literal")
+            } else {
+                // <name>: <type> = {..};
+                val.type = constdecl.type
+            }
+        } else if constdecl.type != nil {
+            // <name>: <type> = <type>{..};
+            if !tc_equals(constdecl.type, val.type) {
+                elog(self, constdecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, val.type)
+            }
+        } else {
+            // <name> := <type>{..};
+            constdecl.type = val.type
+        }
+    }
+
     analyse_expr(self, &constdecl.value)
 
     tc_const_decl(self, constdecl)
