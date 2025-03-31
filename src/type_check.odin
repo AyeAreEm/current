@@ -21,13 +21,28 @@ U32_MIN :: min(u32)
 U64_MAX :: max(u64)
 U64_MIN :: min(u64)
 
-tc_equals :: proc(lhs: Type, rhs: Type) -> bool {
-    if type_tag_equal(lhs, rhs) {
-        return true
+tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
+    #partial switch l in lhs {
+    case Array:
+        l_len, _ := evaluate_expr(analyser, l.len)
+        #partial switch r in rhs {
+        case Array:
+            r_len, _ := evaluate_expr(analyser, r.len)
+            if l_len != r_len do return false
+            return tc_array_equals(analyser, l.type^, r.type^)
+        }
+    case:
+        return type_tag_equal(lhs, rhs)
     }
 
+    unreachable()
+}
+
+tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     // <ident>: <lhs> = <rhs>
     #partial switch l in lhs {
+    case Array:
+        return tc_array_equals(analyser, lhs, rhs)
     case Untyped_Int:
         #partial switch r in rhs {
         case Untyped_Int, I8, I16, I32, I64, U8, U16, U32, U64:
@@ -85,11 +100,11 @@ tc_return :: proc(analyser: ^Analyser, fn: FnDecl, ret: ^Return) {
 
     ret_expr_type := type_of_expr(analyser, ret.value)
 
-    if !tc_equals(ret.type, ret_expr_type) {
+    if !tc_equals(analyser, ret.type, ret_expr_type) {
         elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, return type %v, expression type %v", ret.type, ret_expr_type)
     }
 
-    if !tc_equals(fn.type, ret.type) {
+    if !tc_equals(analyser, fn.type, ret.type) {
         elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, function type %v, return type %v", fn.type, ret.type)
     }
 }
@@ -198,7 +213,7 @@ tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
 
     if vardecl.type == nil {
         tc_infer(analyser, &vardecl.type, vardecl.value)
-    } else if !tc_equals(vardecl.type, expr_type) {
+    } else if !tc_equals(analyser, vardecl.type, expr_type) {
         elog(analyser, vardecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, expr_type)
     }
 
@@ -210,7 +225,7 @@ tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
 
     if constdecl.type == nil {
         tc_infer(analyser, &constdecl.type, constdecl.value)
-    } else if !tc_equals(constdecl.type, expr_type) {
+    } else if !tc_equals(analyser, constdecl.type, expr_type) {
         elog(analyser, constdecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, expr_type)
     }
 

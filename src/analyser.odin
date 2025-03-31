@@ -263,7 +263,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         analyse_expr(self, ex.condition)
         t := type_of_expr(self, ex.condition^)
 
-        if !tc_equals(Bool{}, t) {
+        if !tc_equals(self, Bool{}, t) {
             elog(self, ex.cursors_idx, "expected a boolean after '!' operator, got %v", t)
         }
     // you may be asking "hey... wtf... why don't you do `case Equality, Inequality:`"
@@ -277,7 +277,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v == %v", lt, rt)
         }
 
@@ -290,7 +290,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v != %v", lt, rt)
         }
 
@@ -303,7 +303,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v < %v", lt, rt)
         }
 
@@ -316,7 +316,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v <= %v", lt, rt)
         }
 
@@ -329,7 +329,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v > %v", lt, rt)
         }
 
@@ -342,7 +342,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v >= %v", lt, rt)
         }
 
@@ -355,7 +355,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v + %v", lt, rt)
         }
 
@@ -370,7 +370,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v - %v", lt, rt)
         }
 
@@ -385,7 +385,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v * %v", lt, rt)
         }
 
@@ -400,7 +400,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         lt := type_of_expr(self, ex.left^)
         rt := type_of_expr(self, ex.right^)
-        if !tc_equals(lt, rt) {
+        if !tc_equals(self, lt, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v / %v", lt, rt)
         }
 
@@ -431,7 +431,7 @@ analyse_var_decl :: proc(self: ^Analyser, vardecl: ^VarDecl) {
             }
         } else if vardecl.type != nil {
             // <name>: <type> = <type>{..};
-            if !tc_equals(vardecl.type, val.type) {
+            if !tc_equals(self, vardecl.type, val.type) {
                 elog(self, vardecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, val.type)
             }
         } else {
@@ -459,7 +459,7 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
         elog(self, varre.cursors_idx, "expected \"%v\" to be a variable, got %v", varre.name, stmnt_vardecl)
     }
 
-    tc_equals(varre.type, type_of_expr(self, varre.value))
+    tc_equals(self, varre.type, type_of_expr(self, varre.value))
 }
 
 analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {
@@ -475,7 +475,7 @@ analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {
             }
         } else if constdecl.type != nil {
             // <name>: <type> = <type>{..};
-            if !tc_equals(constdecl.type, val.type) {
+            if !tc_equals(self, constdecl.type, val.type) {
                 elog(self, constdecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, val.type)
             }
         } else {
@@ -516,7 +516,7 @@ analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
         darg_type := type_of_stmnt(self, decl_arg)
         carg_type := type_of_expr(self, fncall.args[i])
 
-        if !tc_equals(darg_type, carg_type) {
+        if !tc_equals(self, darg_type, carg_type) {
             elog(self, fncall.cursors_idx, "mismatch types, argument %v is expected to be of type %v, got %v", i + 1, darg_type, carg_type)
         }
     }
@@ -525,7 +525,7 @@ analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
 analyse_if :: proc(self: ^Analyser, ifs: ^If) {
     analyse_expr(self, &ifs.condition)
     condition_type := type_of_expr(self, ifs.condition)
-    if !tc_equals(Bool{}, condition_type) {
+    if !tc_equals(self, Bool{}, condition_type) {
         elog(self, ifs.cursors_idx, "condition must be bool, got %v", condition_type)
     }
 
