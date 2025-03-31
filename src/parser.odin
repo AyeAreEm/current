@@ -769,10 +769,23 @@ parse_expr :: proc(self: ^Parser) -> Expr {
 }
 
 parse_primary :: proc(self: ^Parser) -> Expr {
-    token := token_next(self)
+    token := token_peek(self)
 
     #partial switch tok in token {
+    case TokenLc:
+        token_next(self)
+        return parse_end_literal(self, nil)
+    case TokenLs:
+        type := parse_type_decl(self)
+        token = token_peek(self)
+        if token_tag_equal(token, TokenLc{}) {
+            token_next(self)
+            return parse_end_literal(self, type)
+        } else {
+            elog(self, self.cursors_idx, "unexpected type %v", type)
+        }
     case TokenIdent:
+        token_next(self)
         converted_ident := convert_ident(tok)
         if name, ok := converted_ident.(string); ok {
             return Ident{
@@ -786,12 +799,14 @@ parse_primary :: proc(self: ^Parser) -> Expr {
             elog(self, self.cursors_idx, "expected identifier, got %v", converted_ident)
         }
     case TokenIntLit:
+        token_next(self)
         return IntLit{
             literal = tok.literal,
             type = Untyped_Int{},
             cursors_idx = self.cursors_idx
         }
     case TokenLb:
+        token_next(self)
         index := self.cursors_idx
         expr := new(Expr); expr^ = parse_expr(self)
         token_expect(self, TokenRb{})
@@ -829,14 +844,12 @@ parse_end_fn_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
     }
 }
 
-parse_end_literal :: proc(self: ^Parser) -> Expr {
+parse_end_literal :: proc(self: ^Parser, type: Type) -> Expr {
     index := self.cursors_idx
     values := [dynamic]Expr{}
 
     token := token_peek(self)
     if !token_tag_equal(token, TokenRc{}) {
-        token_next(self)
-
         append(&values, parse_expr(self))
         for after := token_peek(self); token_tag_equal(after, TokenComma{}); after = token_peek(self) {
             token_next(self)
@@ -846,7 +859,7 @@ parse_end_literal :: proc(self: ^Parser) -> Expr {
 
     token_expect(self, TokenRc{})
     return Literal{
-        type = nil,
+        type = type,
         values = values,
         cursors_idx = index,
     }
@@ -872,9 +885,6 @@ parse_unary :: proc(self: ^Parser) -> Expr {
     op := token_peek(self)
     index := self.cursors_idx
     if !token_tag_equal(op, TokenExclaim{}) && !token_tag_equal(op, TokenMinus{}) {
-        if token_tag_equal(op, TokenLc{}) {
-            return parse_end_literal(self)
-        }
         return parse_fn_call(self)
     }
 
