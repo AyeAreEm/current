@@ -1,20 +1,9 @@
 @echo off
-shift
-set option=%0
-shift
-set params=%0
-shift
-if "%option%"=="build" (
+if "%1"=="build" (
     odin build src -out:current.exe
-) else if "%option%"=="run" (
-    :loop
-    if "%0"=="" goto endloop
-    set params=%params% %0
-    shift
-    goto loop
-    :endloop
-    echo %params%
-    odin run src -out:current.exe -- %params%
+) else if "%1"=="run" (
+    rem i hate batch
+    odin run src -out:current.exe -- %2 %3 %4 %5 %6 %7 %8 %9
 ) else (
-    echo invalid option
+    echo invalid option %1
 )

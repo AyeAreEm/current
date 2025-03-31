@@ -7,5 +7,5 @@ if [ "$option" == "build" ]; then
 elif [ "$option" == "run" ]; then
     odin run src -out:current -- ${@:2}
 else
-    echo invalid option
+    echo invalid option $option
 fi
