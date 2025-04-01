@@ -43,6 +43,10 @@ Array :: struct {
     len: ^Expr,
 }
 
+Ptr :: struct {
+    type: ^Type,
+}
+
 Untyped_Int :: struct {}
 TypeId :: struct{}
 Type :: union {
@@ -60,7 +64,10 @@ Type :: union {
     U64,
 
     Untyped_Int,
+
     Array,
+    Ptr,
+
     TypeId,
 }
 type_map := map[string]Type{
@@ -80,6 +87,9 @@ type_map := map[string]Type{
 
 type_tag_equal :: proc(lhs, rhs: Type) -> bool {
     switch t in lhs {
+    case Ptr:
+        _, ok := rhs.(Ptr)
+        return ok
     case TypeId:
         _, ok := rhs.(TypeId)
         return ok
@@ -253,6 +263,11 @@ Grouping :: struct {
     type: Type,
     cursors_idx: int,
 }
+Address :: struct {
+    value: ^Expr,
+    type: Type,
+    cursors_idx: int,
+}
 Expr :: union {
     // types are also expressions
     Bool,
@@ -289,6 +304,8 @@ Expr :: union {
     True,
     False,
     Grouping,
+
+    Address,
 }
 
 FnDecl :: struct {
@@ -343,6 +360,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case Address:
+            return expr.cursors_idx
         case Bool:
             return expr.cursors_idx
         case I8:
@@ -427,24 +446,27 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case Address:
+        fmt.print("& ")
+        expr_print(expr.value^)
     case Bool:
-        fmt.printf("Bool")
+        fmt.print("Bool")
     case I8:
-        fmt.printf("I8")
+        fmt.print("I8")
     case I16:
-        fmt.printf("I16")
+        fmt.print("I16")
     case I32:
-        fmt.printf("I32")
+        fmt.print("I32")
     case I64:
-        fmt.printf("I64")
+        fmt.print("I64")
     case U8:
-        fmt.printf("U8")
+        fmt.print("U8")
     case U16:
-        fmt.printf("U16")
+        fmt.print("U16")
     case U32:
-        fmt.printf("U32")
+        fmt.print("U32")
     case U64:
-        fmt.printf("U64")
+        fmt.print("U64")
     case Literal:
         fmt.printf("%v{{", expr.type)
         for value, i in expr.values {
@@ -528,7 +550,7 @@ expr_print :: proc(expression: Expr) {
     case Const:
         fmt.printf("Const(%v) %v", expr.type, expr.name)
     case:
-        fmt.printf("")
+        fmt.print("")
     }
 }
 
@@ -776,7 +798,7 @@ parse_primary :: proc(self: ^Parser) -> Expr {
         token_next(self)
         return parse_end_literal(self, nil)
     case TokenLs:
-        type := parse_type_decl(self)
+        type := parse_type(self)
         token = token_peek(self)
         if token_tag_equal(token, TokenLc{}) {
             token_next(self)
@@ -884,7 +906,10 @@ parse_fn_call :: proc(self: ^Parser, ident: Maybe(Ident) = nil) -> Expr {
 parse_unary :: proc(self: ^Parser) -> Expr {
     op := token_peek(self)
     index := self.cursors_idx
-    if !token_tag_equal(op, TokenExclaim{}) && !token_tag_equal(op, TokenMinus{}) {
+    if !token_tag_equal(op, TokenExclaim{}) &&
+       !token_tag_equal(op, TokenMinus{}) &&
+       !token_tag_equal(op, TokenAmpersand{})
+    {
         return parse_fn_call(self)
     }
 
@@ -896,8 +921,14 @@ parse_unary :: proc(self: ^Parser) -> Expr {
             condition = right,
             cursors_idx = index,
         }
-    } else {
+    } else if token_tag_equal(op, TokenMinus{}) {
         return Negative{
+            value = right,
+            type = nil,
+            cursors_idx = index,
+        }
+    } else {
+        return Address{
             value = right,
             type = nil,
             cursors_idx = index,
@@ -1057,11 +1088,40 @@ parse_set_array_type :: proc(self: ^Parser, arr: ^Type, type: Type) {
     } 
 }
 
-parse_type_decl :: proc(self: ^Parser) -> Type {
+parse_set_ptr_type :: proc(self: ^Parser, ptr: ^Type, type: Type) {
+    #partial switch &subtype in ptr {
+    case Ptr:
+        if subtype.type^ == nil {
+            subtype.type^ = type
+        } else {
+            parse_set_ptr_type(self, subtype.type, type)
+        }
+    }
+}
+
+parse_type :: proc(self: ^Parser) -> Type {
     type: Type = nil
     token := token_peek(self)
 
     #partial switch tok in token {
+    case TokenStar:
+        type = Ptr{
+            type = new(Type),
+        }
+        token_next(self)
+
+        for token = token_peek(self); token != nil; token = token_peek(self) {
+            if !token_tag_equal(token, TokenStar{}) {
+                break
+            }
+
+            type = Ptr{
+                type = &type,
+            }
+        }
+
+        subtype := parse_type(self)
+        parse_set_ptr_type(self, &type, subtype)
     case TokenLs:
         for leftsquare := token_peek(self); leftsquare != nil; leftsquare = token_peek(self) {
             if !token_tag_equal(leftsquare, TokenLs{}) {
@@ -1088,21 +1148,15 @@ parse_type_decl :: proc(self: ^Parser) -> Type {
                }
             }
         }
-    }
 
-    token = token_peek(self)
-    #partial switch tok in token {
+        subtype := parse_type(self)
+        parse_set_array_type(self, &type, subtype)
     case TokenIdent:
         token_next(self)
         converted_ident := convert_ident(tok)
 
         if subtype, ok := converted_ident.(Type); ok {
-            #partial switch &t in type {
-            case nil:
-                t = subtype
-            case Array:
-                parse_set_array_type(self, &type, subtype)
-            }
+            type = subtype
         } else {
             elog(self, self.cursors_idx, "expected a type, got %v", tok.ident)
         }
@@ -1124,74 +1178,39 @@ parse_decl :: proc(self: ^Parser, ident: string) -> Stmnt {
     case TokenEqual:
         token_next(self)
         return parse_var_decl(self, ident)
-    case TokenLs:
-        type := parse_type_decl(self)
-
-        token_after_type := token_peek(self)
-        if token_after_type == nil do return nil
-
-        #partial switch tat in token_after_type {
-        case TokenColon:
-            token_next(self)
-            return parse_const_decl(self, ident, type)
-        case TokenEqual:
-            token_next(self)
-            return parse_var_decl(self, ident, type)
-        case TokenSemiColon:
-            token_next(self)
-            if type == nil {
-                elog(self, self.cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
-            }
-            return parse_var_decl(self, ident, type, false)
-        case TokenComma:
-            token_next(self)
-            if !self.in_func_decl_args {
-                elog(self, self.cursors_idx, "unexpected comma during declaration")
-            }
-            return parse_const_decl(self, ident, type)
-        case TokenRb:
-            if !self.in_func_decl_args {
-                elog(self, self.cursors_idx, "unexpected TokenRb during declaration")
-            }
-            return parse_const_decl(self, ident, type)
-        case:
-            elog(self, self.cursors_idx, "unexpected token %v", tok)
-        }
-    case TokenIdent:
-        type := parse_type_decl(self)
-
-        token_after_type := token_peek(self)
-        if token_after_type == nil do return nil
-
-        #partial switch tat in token_after_type {
-        case TokenColon:
-            token_next(self)
-            return parse_const_decl(self, ident, type)
-        case TokenEqual:
-            token_next(self)
-            return parse_var_decl(self, ident, type)
-        case TokenSemiColon:
-            token_next(self)
-            if type == nil {
-                elog(self, self.cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
-            }
-            return parse_var_decl(self, ident, type, false)
-        case TokenComma:
-            token_next(self)
-            if !self.in_func_decl_args {
-                elog(self, self.cursors_idx, "unexpected comma during declaration")
-            }
-            return parse_const_decl(self, ident, type)
-        case TokenRb:
-            if !self.in_func_decl_args {
-                elog(self, self.cursors_idx, "unexpected TokenRb during declaration")
-            }
-            return parse_const_decl(self, ident, type)
-        case:
-            elog(self, self.cursors_idx, "unexpected token %v", tok)
-        }
     case:
-        elog(self, self.cursors_idx, "unexpected token %v during declaration", tok)
+        type := parse_type(self)
+
+        token_after_type := token_peek(self)
+        if token_after_type == nil do return nil
+
+        #partial switch tat in token_after_type {
+        case TokenColon:
+            token_next(self)
+            return parse_const_decl(self, ident, type)
+        case TokenEqual:
+            token_next(self)
+            return parse_var_decl(self, ident, type)
+        case TokenSemiColon:
+            token_next(self)
+            if type == nil {
+                elog(self, self.cursors_idx, "expected type for variable \"%v\" declaration since it does not have a value", ident)
+            }
+            return parse_var_decl(self, ident, type, false)
+        case TokenComma:
+            token_next(self)
+            if !self.in_func_decl_args {
+                elog(self, self.cursors_idx, "unexpected comma during declaration")
+            }
+            return parse_const_decl(self, ident, type)
+        case TokenRb:
+            if !self.in_func_decl_args {
+                elog(self, self.cursors_idx, "unexpected TokenRb during declaration")
+            }
+            return parse_const_decl(self, ident, type)
+        case:
+            elog(self, self.cursors_idx, "unexpected token %v", tok)
+        }
     }
 
     return nil
@@ -1295,6 +1314,7 @@ parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
             cursors_idx = ident_index,
         }).(FnCall)
     case:
+        debug("here")
         elog(self, self.cursors_idx, "unexpected token %v", tok)
     }
 

@@ -38,9 +38,25 @@ tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     unreachable()
 }
 
+tc_ptr_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
+    #partial switch l in lhs {
+    case Ptr:
+        #partial switch r in rhs {
+        case Ptr:
+            return tc_ptr_equals(analyser, l.type^, r.type^)
+        }
+    case:
+        return type_tag_equal(lhs, rhs)
+    }
+
+    unreachable()
+}
+
 tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     // <ident>: <lhs> = <rhs>
     #partial switch l in lhs {
+    case Ptr:
+        return tc_ptr_equals(analyser, lhs, rhs)
     case Array:
         return tc_array_equals(analyser, lhs, rhs)
     case Untyped_Int:

@@ -90,6 +90,11 @@ analyser_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab, filename: string, cur
 
 type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     switch ex in expr {
+    case Address:
+        atype := new(Type); atype^ = ex.type
+        return Ptr{
+            type = atype
+        }
     case Literal:
         return ex.type
     case Bool:
@@ -215,6 +220,18 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case Bool:
         return
+    case Address:
+        analyse_expr(self, ex.value)
+
+        #partial switch &addr_expr in ex.value {
+        case Ident:
+            stmnt := symtab_find(self, addr_expr.literal, addr_expr.cursors_idx)
+            type := type_of_stmnt(self, stmnt)
+            ex.type = type
+        case:
+            elog(self, ex.cursors_idx, "can't take address of {}", ex.value^)
+
+        }
     case Literal:
         analyse_literal(self, &ex)
     case FnCall:

@@ -37,6 +37,8 @@ TokenStar :: struct {}
 TokenSlash :: struct {}
 TokenBackSlash :: struct {}
 
+TokenAmpersand :: struct {}
+
 Token :: union {
     TokenIdent,
     TokenIntLit,
@@ -65,6 +67,8 @@ Token :: union {
     TokenStar,
     TokenSlash,
     TokenBackSlash,
+
+    TokenAmpersand,
 }
 
 token_peek :: proc(self: ^Parser) -> Token {
@@ -85,6 +89,9 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenAmpersand:
+        _, ok := rhs.(TokenAmpersand)
+        return ok
     case TokenLs:
         _, ok := rhs.(TokenLs)
         return ok
@@ -238,6 +245,8 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             try_append(&cursor, &col, &row, &tokens, &buf, TokenMinus{})
         case '*':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenStar{})
+        case '&':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenAmpersand{})
         case '/':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenSlash{})
         case '\\':

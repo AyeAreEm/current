@@ -35,6 +35,16 @@ gen_array_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder) {
     }
 }
 
+gen_ptr_type :: proc(self: ^Codegen, ptr: Type) -> string {
+    #partial switch subtype in ptr {
+    case Ptr:
+        return fmt.aprintf("*{}", gen_ptr_type(self, subtype.type^))
+    case:
+        t, _ := gen_type(self, ptr)
+        return t
+    }
+}
+
 gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
     if type_tag_equal(t, Untyped_Int{}) {
         panic("compiler error: should not be converting untyped_int to string")
@@ -45,6 +55,8 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
         ret := strings.builder_make()
         gen_array_type(self, t, &ret)
         return strings.to_string(ret), true
+    case Ptr:
+        return gen_ptr_type(self, t), true
     }
 
     for k, v in type_map {
@@ -191,6 +203,15 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return "true", false
     case False:
         return "false", false
+    case Address:
+        value, alloced := gen_expr(self, expr.value^)
+        ret := fmt.aprintf("&%v", value)
+        
+        if alloced {
+            delete(value)
+        }
+
+        return ret, true
     case FnCall:
         return gen_fn_call(self, expr), true
     case Literal:
