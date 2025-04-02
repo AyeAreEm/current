@@ -173,14 +173,13 @@ Literal :: struct {
 }
 Ident :: struct {
     literal: string,
-    type: Type,
     cursors_idx: int,
 }
-Const :: struct {
-    name: string,
-    type: Type,
-    cursors_idx: int,
-}
+// Const :: struct {
+//     name: string,
+//     type: Type,
+//     cursors_idx: int,
+// }
 FnCall :: struct {
     name: Ident,
     type: Type,
@@ -284,7 +283,6 @@ Expr :: union {
     IntLit,
     Literal,
     Ident,
-    Const,
     FnCall,
 
     Plus,
@@ -309,26 +307,26 @@ Expr :: union {
 }
 
 FnDecl :: struct {
-    name: string, // allocated
+    name: Ident,
     type: Type,
     args: [dynamic]Stmnt,
     body: [dynamic]Stmnt,
     cursors_idx: int,
 }
 VarDecl :: struct {
-    name: string, // allocated
+    name: Ident,
     type: Type,
     value: Expr,
     cursors_idx: int,
 }
 VarReassign :: struct {
-    name: string,
+    name: Expr,
     type: Type,
     value: Expr,
     cursors_idx: int,
 }
 ConstDecl :: struct {
-    name: string, // allocated
+    name: Ident,
     type: Type,
     value: Expr,
     cursors_idx: int,
@@ -387,8 +385,6 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         case FnCall:
             return expr.cursors_idx
         case Ident:
-            return expr.cursors_idx
-        case Const:
             return expr.cursors_idx
         case IntLit:
             return expr.cursors_idx
@@ -546,9 +542,7 @@ expr_print :: proc(expression: Expr) {
         }
         fmt.print(")")
     case Ident:
-        fmt.printf("Ident(%v) %v", expr.type, expr.literal)
-    case Const:
-        fmt.printf("Const(%v) %v", expr.type, expr.name)
+        fmt.printf("Ident(\"%v\")", expr.literal)
     case:
         fmt.print("")
     }
@@ -652,7 +646,7 @@ parser_elog :: proc(self: ^Parser, i: int, format: string, args: ..any) -> ! {
     os.exit(1)
 }
 
-parse_fn_decl :: proc(self: ^Parser, name: string) -> Stmnt {
+parse_fn_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
     index := self.cursors_idx
 
     self.in_func_decl_args = true
@@ -812,7 +806,6 @@ parse_primary :: proc(self: ^Parser) -> Expr {
         if name, ok := converted_ident.(string); ok {
             return Ident{
                 literal = tok.ident,
-                type = nil,
                 cursors_idx = self.cursors_idx,
             }
         } else if keyword, ok := converted_ident.(Keyword); ok {
@@ -848,8 +841,6 @@ parse_end_fn_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
 
     token := token_peek(self)
     if !token_tag_equal(token, TokenRb{}) {
-        token_next(self)
-
         append(&args, parse_expr(self))
         for after := token_peek(self); token_tag_equal(after, TokenComma{}); after = token_peek(self) {
             token_next(self)
@@ -888,7 +879,7 @@ parse_end_literal :: proc(self: ^Parser, type: Type) -> Expr {
 }
 
 parse_fn_call :: proc(self: ^Parser, ident: Maybe(Ident) = nil) -> Expr {
-    expr := parse_primary(self)
+    expr: Expr = ident.? if ident != nil else parse_primary(self)
 
     for {
         token := token_peek(self)
@@ -1001,7 +992,7 @@ parse_term :: proc(self: ^Parser) -> Expr {
     return expr 
 }
 
-parse_const_decl :: proc(self: ^Parser, ident: string, type: Type = nil) -> Stmnt {
+parse_const_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil) -> Stmnt {
     // <ident> : <type?> :
 
     token := token_peek(self)
@@ -1049,7 +1040,7 @@ parse_const_decl :: proc(self: ^Parser, ident: string, type: Type = nil) -> Stmn
     }
 }
 
-parse_var_decl :: proc(self: ^Parser, name: string, type: Type = nil, has_equals: bool = true) -> Stmnt {
+parse_var_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil, has_equals: bool = true) -> Stmnt {
     index := self.cursors_idx
 
     // <ident>: <type?> = ;
@@ -1057,11 +1048,11 @@ parse_var_decl :: proc(self: ^Parser, name: string, type: Type = nil, has_equals
         expr := parse_expr(self)
         token_expect(self, TokenSemiColon{})
         if expr == nil {
-            elog(self, index, "expected expression after \"=\" in variable \"%v\" declaration", name)
+            elog(self, index, "expected expression after \"=\" in variable \"%v\" declaration", ident.literal)
         }
 
         return VarDecl{
-            name = name,
+            name = ident,
             type = type,
             value = expr,
             cursors_idx = index,
@@ -1070,7 +1061,7 @@ parse_var_decl :: proc(self: ^Parser, name: string, type: Type = nil, has_equals
 
     // <ident>: <type>;
     return VarDecl{
-        name = name,
+        name = ident,
         type = type,
         value = nil,
         cursors_idx = index,
@@ -1165,7 +1156,7 @@ parse_type :: proc(self: ^Parser) -> Type {
     return type
 }
 
-parse_decl :: proc(self: ^Parser, ident: string) -> Stmnt {
+parse_decl :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     // <ident> :
 
     token := token_peek(self)
@@ -1216,27 +1207,23 @@ parse_decl :: proc(self: ^Parser, ident: string) -> Stmnt {
     return nil
 }
 
-parse_var_reassign :: proc(self: ^Parser, name: string) -> Stmnt {
+parse_var_reassign :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     // <name> = 
     expr := parse_expr(self)
     token_expect(self, TokenSemiColon{})
 
     return VarReassign{
-        name = name,
+        name = ident,
         type = nil,
         value = expr,
         cursors_idx = self.cursors_idx,
     }
 }
 
-parse_var_operator_equal :: proc(self: ^Parser, ident: string, operator: Token) -> Stmnt {
+parse_var_operator_equal :: proc(self: ^Parser, ident: Ident, operator: Token) -> Stmnt {
     // <name> [+-*/]= 
     operator_index := self.cursors_idx
-    var := new(Expr); var^ = Ident{
-        literal = ident,
-        type = nil,
-        cursors_idx = self.cursors_idx
-    }
+    var := new(Expr); var^ = ident
     expr := new(Expr); expr^ = parse_expr(self)
     group := new(Expr); group^ = Grouping{
         value = expr,
@@ -1285,11 +1272,44 @@ parse_var_operator_equal :: proc(self: ^Parser, ident: string, operator: Token) 
     return reassign
 }
 
-parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
+parse_field_access :: proc(self: ^Parser, ident: Ident) -> Expr {
+    // already nexted "."
+    // <ident>.
+    assert(false, "not implemented")
+    return nil
+}
+
+parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     ident_index := self.cursors_idx
     
     token := token_peek(self)
     if token == nil do return nil
+
+    // NOTE: just for field access so
+    // <ident>.
+    #partial switch tok in token {
+    case TokenDot:
+        token_next(self)
+        reassigned := parse_field_access(self, ident)
+
+        token = token_peek(self)
+        if token == nil do return nil
+
+        #partial switch after in token {
+        case TokenPlus, TokenMinus, TokenStar, TokenSlash:
+            token_next(self) // no nil check, already checked when peeked
+            token_after := token_next(self)
+
+            if token_tag_equal(token_after, TokenEqual{}) {
+                return parse_var_operator_equal(self, ident, tok)
+            } else {
+                elog(self, self.cursors_idx, "unexpected token %v", tok)
+            }
+        case TokenEqual:
+            token_next(self) // no nil check, already checked when peeked
+            return parse_var_reassign(self, ident);
+        }
+    }
 
     #partial switch tok in token {
     case TokenColon:
@@ -1308,11 +1328,7 @@ parse_ident :: proc(self: ^Parser, ident: string) -> Stmnt {
         token_next(self) // no nil check, already checked when peeked
         return parse_var_reassign(self, ident);
     case TokenLb:
-        return parse_fn_call(self, Ident{
-            literal = ident,
-            type = nil,
-            cursors_idx = ident_index,
-        }).(FnCall)
+        return parse_fn_call(self, ident).(FnCall)
     case:
         debug("here")
         elog(self, self.cursors_idx, "unexpected token %v", tok)
@@ -1371,7 +1387,10 @@ parse :: proc(self: ^Parser) -> Stmnt {
         converted_ident := convert_ident(tok)
 
         if ident, ident_ok := converted_ident.(string); ident_ok {
-            return parse_ident(self, ident)
+            return parse_ident(self, Ident{
+                literal = ident,
+                cursors_idx = self.cursors_idx,
+            })
         } else if keyword, keyword_ok := converted_ident.(Keyword); keyword_ok {
             #partial switch keyword {
             case .Return:

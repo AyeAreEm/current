@@ -16,28 +16,28 @@ symtab_init :: proc() -> (symtab: SymTab) {
     return
 }
 
-symtab_find :: proc(analyser: ^Analyser, key: string, location: int) -> Stmnt {
+symtab_find :: proc(analyser: ^Analyser, key: Ident, location: int) -> Stmnt {
     using analyser.symtab
 
-    elem, ok := scopes[curr_scope][key]
+    elem, ok := scopes[curr_scope][key.literal]
     if !ok {
-        elog(analyser, location, "use of undefined \"%v\"", key)
+        elog(analyser, location, "use of undefined \"%v\"", key.literal)
     }
 
     return elem
 }
 
-symtab_push :: proc(analyser: ^Analyser, key: string, value: Stmnt) {
+symtab_push :: proc(analyser: ^Analyser, key: Ident, value: Stmnt) {
     using analyser.symtab
 
-    elem, ok := scopes[curr_scope][key]
+    elem, ok := scopes[curr_scope][key.literal]
     if !ok {
-        scopes[curr_scope][key] = value
+        scopes[curr_scope][key.literal] = value
         return
     }
     
     cur_index := get_cursor_index(elem)
-    elog(analyser, get_cursor_index(value), "redeclaration of \"%v\" from %v:%v", key, analyser.cursors[cur_index][0], analyser.cursors[cur_index][1])
+    elog(analyser, get_cursor_index(value), "redeclaration of \"%v\" from %v:%v", key.literal, analyser.cursors[cur_index][0], analyser.cursors[cur_index][1])
 }
 
 symtab_new_scope :: proc(analyser: ^Analyser) {
@@ -65,6 +65,50 @@ symtab_pop_scope :: proc(analyser: ^Analyser) {
 
     pop(&scopes)
     curr_scope -= 1
+}
+
+ident_from_expr :: proc(analyser: ^Analyser, expression: Expr) -> Ident {
+    switch expr in expression {
+    case FnCall:
+        return expr.name
+    case Ident:
+        return expr
+    case Address:
+        // NOTE: maybe this should just error
+        return ident_from_expr(analyser, expr.value^)
+    case Not:
+        // NOTE: maybe this should just error
+        return ident_from_expr(analyser, expr.condition^)
+    case Negative:
+        // NOTE: maybe this should just error
+        return ident_from_expr(analyser, expr.value^)
+    case True: elog(analyser, expr.cursors_idx, "unexpected keyword %v, expected an Identifier", expr)
+    case False: elog(analyser, expr.cursors_idx, "unexpected keyword %v, expected an Identifier", expr)
+    case IntLit: elog(analyser, expr.cursors_idx, "unexpected integer literal %v, expected an Identifier", expr)
+    case Literal: elog(analyser, expr.cursors_idx, "unexpected literal %v, expected an Identifier", expr)
+    case I8: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case I16: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case I32: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case I64: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case U8: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case U16: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case U32: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case U64: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case Bool: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
+    case Plus: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case Minus: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case Multiply: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case Divide: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case LessThan: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case LessOrEqual: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case GreaterThan: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case GreaterOrEqual: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case Equality: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case Inequality: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    case Grouping: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
+    }
+
+    unreachable()
 }
 
 Analyser :: struct {
@@ -122,13 +166,16 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     case IntLit:
         return ex.type
     case Ident:
-        var := symtab_find(analyser, ex.literal, ex.cursors_idx).(VarDecl)
-        return var.type
-    case Const:
-        const := symtab_find(analyser, ex.name, ex.cursors_idx).(ConstDecl)
-        return const.type
+        decl := symtab_find(analyser, ex, ex.cursors_idx)
+        if var, ok := decl.(VarDecl); ok {
+            return var.type
+        } else if var, ok := decl.(ConstDecl); ok {
+            return var.type
+        } else {
+            elog(analyser, ex.cursors_idx, "expected ident to be a variable or constant, got %v", decl)
+        }
     case FnCall:
-        call := symtab_find(analyser, ex.name.literal, ex.cursors_idx).(FnDecl)
+        call := symtab_find(analyser, ex.name, ex.cursors_idx).(FnDecl)
         return call.type
     case LessThan:
         return Bool{}
@@ -225,7 +272,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
 
         #partial switch &addr_expr in ex.value {
         case Ident:
-            stmnt := symtab_find(self, addr_expr.literal, addr_expr.cursors_idx)
+            stmnt := symtab_find(self, addr_expr, addr_expr.cursors_idx)
             type := type_of_stmnt(self, stmnt)
             ex.type = type
         case:
@@ -237,26 +284,11 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     case FnCall:
         analyse_fn_call(self, &ex)
     case Ident:
-        stmnt_vardecl := symtab_find(self, ex.literal, ex.cursors_idx)
-        if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
-            ex.type = vardecl.type
-        } else if constdecl, ok := stmnt_vardecl.(ConstDecl); ok {
-            expr^ = Const {
-                name = ex.literal,
-                type = constdecl.type,
-                cursors_idx = ex.cursors_idx,
-            }
+        stmnt_vardecl := symtab_find(self, ex, ex.cursors_idx)
+        if _, ok := stmnt_vardecl.(VarDecl); ok {
+        } else if _, ok := stmnt_vardecl.(ConstDecl); ok {
         } else {
             elog(self, ex.cursors_idx, "expected \"%v\" to be a variable, got %v", ex.literal, stmnt_vardecl)
-        }
-    case Const:
-        stmnt_constdecl := symtab_find(self, ex.name, ex.cursors_idx)
-        if constdecl, ok := stmnt_constdecl.(ConstDecl); ok {
-            ex.type = constdecl.type
-        } else if vardecl, ok := stmnt_constdecl.(VarDecl); ok {
-            ex.type = vardecl.type
-        } else {
-            elog(self, ex.cursors_idx, "expected \"%v\" to be a variable, got %v", ex.name, stmnt_constdecl)
         }
     case IntLit:
         return
@@ -467,7 +499,7 @@ analyse_var_decl :: proc(self: ^Analyser, vardecl: ^VarDecl) {
 analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
     analyse_expr(self, &varre.value)
 
-    stmnt_vardecl := symtab_find(self, varre.name, varre.cursors_idx)
+    stmnt_vardecl := symtab_find(self, ident_from_expr(self, varre.name), varre.cursors_idx)
     if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
         varre.type = vardecl.type
     } else if _, ok := stmnt_vardecl.(ConstDecl); ok {
@@ -509,7 +541,7 @@ analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {
 }
 
 analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
-    stmnt_fndecl := symtab_find(self, fncall.name.literal, fncall.cursors_idx)
+    stmnt_fndecl := symtab_find(self, fncall.name, fncall.cursors_idx)
     fndecl, fndecl_ok := stmnt_fndecl.(FnDecl)
     if !fndecl_ok {
         elog(self, fncall.cursors_idx, "expected \"%v\" to be a function, got %v", stmnt_fndecl)
@@ -588,7 +620,7 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: FnDecl) {
         symtab_push(self, arg.(ConstDecl).name, arg)
     }
 
-    if strings.compare(fn.name, "main") == 0 && !type_tag_equal(fn.type, Void{}) {
+    if strings.compare(fn.name.literal, "main") == 0 && !type_tag_equal(fn.type, Void{}) {
         elog(self, fn.cursors_idx, "illegal main function, expected return type to be void, got %v", fn.type)
     }
     self.current_fn = fn

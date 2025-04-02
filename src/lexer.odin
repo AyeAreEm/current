@@ -29,7 +29,7 @@ TokenLs :: struct {} // left square
 TokenRs :: struct {} // right square
 
 TokenComma :: struct {}
-TokenExclaim :: struct {}
+TokenDot :: struct {}
 
 TokenPlus :: struct {}
 TokenMinus :: struct {}
@@ -38,6 +38,7 @@ TokenSlash :: struct {}
 TokenBackSlash :: struct {}
 
 TokenAmpersand :: struct {}
+TokenExclaim :: struct {}
 
 Token :: union {
     TokenIdent,
@@ -60,7 +61,7 @@ Token :: union {
     TokenRs,
 
     TokenComma,
-    TokenExclaim,
+    TokenDot,
 
     TokenPlus,
     TokenMinus,
@@ -69,6 +70,7 @@ Token :: union {
     TokenBackSlash,
 
     TokenAmpersand,
+    TokenExclaim,
 }
 
 token_peek :: proc(self: ^Parser) -> Token {
@@ -89,6 +91,9 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenDot:
+        _, ok := rhs.(TokenDot)
+        return ok
     case TokenAmpersand:
         _, ok := rhs.(TokenAmpersand)
         return ok
@@ -213,6 +218,8 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             } else {
                 col += 1
             }
+        case '.':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenDot{})
         case ':':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenColon{})
         case '(':

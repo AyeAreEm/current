@@ -123,7 +123,7 @@ gen_if :: proc(self: ^Codegen, ifs: If) {
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
     gen_indent(self)
-    fmt.sbprintf(&self.code, "pub fn %v(", fndecl.name)
+    fmt.sbprintf(&self.code, "pub fn %v(", fndecl.name.literal)
 
     for stmnt, i in fndecl.args {
         arg := stmnt.(ConstDecl)
@@ -131,9 +131,9 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
         defer if arg_str_alloced do delete(arg_str)
 
         if i == 0 {
-            fmt.sbprintf(&self.code, "%v: %v", arg.name, arg_str)
+            fmt.sbprintf(&self.code, "%v: %v", arg.name.literal, arg_str)
         } else {
-            fmt.sbprintf(&self.code, ", %v: %v", arg.name, arg_str)
+            fmt.sbprintf(&self.code, ", %v: %v", arg.name.literal, arg_str)
         }
     }
     fntype_str, fntype_str_alloced := gen_type(self, fndecl.type)
@@ -195,8 +195,6 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return "u64", false
     case Ident:
         return expr.literal, false
-    case Const:
-        return expr.name, false
     case IntLit:
         return expr.literal, false
     case True:
@@ -398,7 +396,7 @@ gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
     var_type_str, var_type_str_alloced := gen_type(self, vardecl.type)
     defer if var_type_str_alloced do delete(var_type_str)
 
-    fmt.sbprintf(&self.code, "var %v: %v = ", vardecl.name, var_type_str)
+    fmt.sbprintf(&self.code, "var %v: %v = ", vardecl.name.literal, var_type_str)
 
     if vardecl.value == nil {
         fmt.sbprintln(&self.code, "undefined;")
@@ -411,10 +409,13 @@ gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
 
 gen_var_reassign :: proc(self: ^Codegen, varre: VarReassign) {
     gen_indent(self)
-    value, alloced := gen_expr(self, varre.value)
-    defer if alloced do delete(value)
+    reassigned, reassigned_alloced := gen_expr(self, varre.name)
+    defer if reassigned_alloced do delete(reassigned)
 
-    fmt.sbprintfln(&self.code, "%v = %v;", varre.name, value)
+    value, value_alloced := gen_expr(self, varre.value)
+    defer if value_alloced do delete(value)
+
+    fmt.sbprintfln(&self.code, "%v = %v;", reassigned, value)
 }
 
 gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
@@ -425,7 +426,7 @@ gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
     value, alloced := gen_expr(self, constdecl.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&self.code, "const %v: %v = %v;", constdecl.name, const_type_str, value);
+    fmt.sbprintfln(&self.code, "const %v: %v = %v;", constdecl.name.literal, const_type_str, value);
 }
 
 gen_return :: proc(self: ^Codegen, ret: Return) {
