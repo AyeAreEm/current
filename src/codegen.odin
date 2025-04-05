@@ -201,6 +201,21 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return "true", false
     case False:
         return "false", false
+    case Deref:
+        return "*", false
+    case FieldAccess:
+        subexpr, subexpr_alloced := gen_expr(self, expr.expr^)
+        field, field_alloced := gen_expr(self, expr.field^)
+        ret := fmt.aprintf("%v.%v", subexpr, field)
+
+        if subexpr_alloced {
+            delete(subexpr)
+        }
+        if field_alloced {
+            delete(field)
+        }
+
+        return ret, true
     case Address:
         value, alloced := gen_expr(self, expr.value^)
         ret := fmt.aprintf("&%v", value)

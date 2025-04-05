@@ -5,110 +5,127 @@ import "core:os"
 import "core:strings"
 
 SymTab :: struct {
-    scopes: [dynamic]map[string]Stmnt,
+    keys: [dynamic][dynamic]Expr,
+    values: [dynamic][dynamic]Stmnt,
     curr_scope: uint,
 }
 
 symtab_init :: proc() -> (symtab: SymTab) {
-    symtab.scopes = [dynamic]map[string]Stmnt{}
-    append(&symtab.scopes, map[string]Stmnt{})
+    symtab.keys = [dynamic][dynamic]Expr{}
+    symtab.values = [dynamic][dynamic]Stmnt{}
+
+    append(&symtab.keys, [dynamic]Expr{})
+    append(&symtab.values, [dynamic]Stmnt{})
     symtab.curr_scope = 0
     return
 }
 
-symtab_find :: proc(analyser: ^Analyser, key: Ident, location: int) -> Stmnt {
-    using analyser.symtab
-
-    elem, ok := scopes[curr_scope][key.literal]
-    if !ok {
-        elog(analyser, location, "use of undefined \"%v\"", key.literal)
+sym_equals :: proc(lhs: Expr, rhs: Expr) -> bool {
+    #partial switch el in lhs {
+    case Ident:
+        if k, ok := rhs.(Ident); ok {
+            return strings.compare(k.literal, el.literal) == 0
+        }
+    case Deref:
+        _, ok := rhs.(Deref)
+        return ok
+    case FieldAccess:
+        if k, ok := rhs.(FieldAccess); ok {
+            return sym_equals(k.expr^, el.expr^) && sym_equals(k.field^, el.field^)
+        }
     }
 
-    return elem
+    return false
 }
 
-symtab_push :: proc(analyser: ^Analyser, key: Ident, value: Stmnt) {
+symtab_find :: proc(analyser: ^Analyser, key: Expr, location: int) -> Stmnt {
     using analyser.symtab
 
-    elem, ok := scopes[curr_scope][key.literal]
-    if !ok {
-        scopes[curr_scope][key.literal] = value
-        return
+    index := -1
+    for elem, i in keys[curr_scope] {
+        if sym_equals(elem, key) {
+            index = i
+            break
+        }
     }
-    
-    cur_index := get_cursor_index(elem)
-    elog(analyser, get_cursor_index(value), "redeclaration of \"%v\" from %v:%v", key.literal, analyser.cursors[cur_index][0], analyser.cursors[cur_index][1])
+
+    if index == -1 {
+        elog(analyser, location, "use of undefined \"%v\"", key)
+    }
+
+    return values[curr_scope][index]
+}
+
+symtab_propogate :: proc(analyser: ^Analyser, key: Expr) {
+    using analyser.symtab
+
+    value := symtab_find(analyser, key, get_cursor_index(key))
+    #partial switch v in value {
+    case VarDecl:
+        if type_tag_equal(v.type, Ptr{}) {
+            expr := new(Expr); expr^ = v.name
+            field := new(Expr); field^ = Deref{
+                cursors_idx = get_cursor_index(key),
+            }
+            field_access := FieldAccess{
+                expr = expr,
+                field = field,
+                type = tc_deref_ptr(analyser, v.type),
+                cursors_idx = get_cursor_index(key),
+            }
+
+            append(&keys[curr_scope], field_access)
+            append(&values[curr_scope], nil)
+        }
+    }
+}
+
+symtab_push :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
+    using analyser.symtab
+
+    found := false
+    elem: Expr
+    for elem, i in keys[curr_scope] {
+        if sym_equals(elem, key) {
+            found = true
+            break
+        }
+    }
+
+    if found  {
+        cur_index := get_cursor_index(elem)
+        elog(analyser, get_cursor_index(value), "redeclaration of \"%v\" from %v:%v", key, analyser.cursors[cur_index][0], analyser.cursors[cur_index][1])
+    }
+
+    append(&keys[curr_scope], key)
+    append(&values[curr_scope], value)
+
+    symtab_propogate(analyser, key)
 }
 
 symtab_new_scope :: proc(analyser: ^Analyser) {
     using analyser.symtab
 
-    // maybe im dumb but i fully expected
-    // append(&scopes, scopes[curr_scope])
-    // to copy `scopes[curr_scope]` and append it but no, it's a reference
-    // so any mutation to the newly appended scope also mutates the previous scope
-    // idk how i feel about this, on one hand, no implicit copies is good.
-    // on the other hand, implicit pointer is bad.
-
-    scope := map[string]Stmnt{}
-
-    for key, value in scopes[curr_scope] {
-        scope[key] = value
+    scope_keys := [dynamic]Expr{}
+    scope_values := [dynamic]Stmnt{}
+    for key in keys[curr_scope] {
+        append(&scope_keys, key)
+    }
+    for value in values[curr_scope] {
+        append(&scope_values, value)
     }
 
-    append(&scopes, scope)
+    append(&keys, scope_keys)
+    append(&values, scope_values)
     curr_scope += 1
 }
 
 symtab_pop_scope :: proc(analyser: ^Analyser) {
     using analyser.symtab
 
-    pop(&scopes)
+    pop(&keys)
+    pop(&values)
     curr_scope -= 1
-}
-
-ident_from_expr :: proc(analyser: ^Analyser, expression: Expr) -> Ident {
-    switch expr in expression {
-    case FnCall:
-        return expr.name
-    case Ident:
-        return expr
-    case Address:
-        // NOTE: maybe this should just error
-        return ident_from_expr(analyser, expr.value^)
-    case Not:
-        // NOTE: maybe this should just error
-        return ident_from_expr(analyser, expr.condition^)
-    case Negative:
-        // NOTE: maybe this should just error
-        return ident_from_expr(analyser, expr.value^)
-    case True: elog(analyser, expr.cursors_idx, "unexpected keyword %v, expected an Identifier", expr)
-    case False: elog(analyser, expr.cursors_idx, "unexpected keyword %v, expected an Identifier", expr)
-    case IntLit: elog(analyser, expr.cursors_idx, "unexpected integer literal %v, expected an Identifier", expr)
-    case Literal: elog(analyser, expr.cursors_idx, "unexpected literal %v, expected an Identifier", expr)
-    case I8: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case I16: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case I32: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case I64: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case U8: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case U16: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case U32: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case U64: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case Bool: elog(analyser, expr.cursors_idx, "unexpected type %v, expected an Identifier", expr)
-    case Plus: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case Minus: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case Multiply: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case Divide: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case LessThan: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case LessOrEqual: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case GreaterThan: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case GreaterOrEqual: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case Equality: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case Inequality: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    case Grouping: elog(analyser, expr.cursors_idx, "unexpected operator %v, expected an Identifier", expr)
-    }
-
-    unreachable()
 }
 
 Analyser :: struct {
@@ -133,7 +150,9 @@ analyser_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab, filename: string, cur
 }
 
 type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
-    switch ex in expr {
+    expr := expr
+
+    switch &ex in expr {
     case Address:
         atype := new(Type); atype^ = ex.type
         return Ptr{
@@ -165,6 +184,18 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
         return ex.type
     case IntLit:
         return ex.type
+    case Deref:
+        // TODO: this should probably give an actual type
+        elog(analyser, ex.cursors_idx, "not implemented, can't return type from Deref right now")
+    case FieldAccess:
+        decl := symtab_find(analyser, ex.expr^, ex.cursors_idx)
+        if var, ok := decl.(VarDecl); ok {
+            return var.type
+        } else if var, ok := decl.(ConstDecl); ok {
+            return var.type
+        } else {
+            elog(analyser, ex.cursors_idx, "expected a variable or constant, got %v", decl)
+        }
     case Ident:
         decl := symtab_find(analyser, ex, ex.cursors_idx)
         if var, ok := decl.(VarDecl); ok {
@@ -261,6 +292,10 @@ analyse_literal :: proc(self: ^Analyser, literal: ^Literal) {
 
 analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     switch &ex in expr {
+    case Deref:
+        elog(self, ex.cursors_idx, "deref not implemented yet in analyse_expr")
+    case FieldAccess:
+        elog(self, ex.cursors_idx, "field access not implemented yet in analyse_expr")
     case I8, I16, I32, I64:
         return
     case U8, U16, U32, U64:
@@ -277,7 +312,6 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             ex.type = type
         case:
             elog(self, ex.cursors_idx, "can't take address of {}", ex.value^)
-
         }
     case Literal:
         analyse_literal(self, &ex)
@@ -499,15 +533,22 @@ analyse_var_decl :: proc(self: ^Analyser, vardecl: ^VarDecl) {
 analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
     analyse_expr(self, &varre.value)
 
-    stmnt_vardecl := symtab_find(self, ident_from_expr(self, varre.name), varre.cursors_idx)
+    stmnt_vardecl := symtab_find(self, varre.name, varre.cursors_idx)
     if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
         varre.type = vardecl.type
+    } else if stmnt_vardecl == nil {
+        // NOTE: this can happend when it's a propogated field or function argument (maybe)
+        // because something like `p := &n` would have a `p.&` that doesn't have a value or
+        // statement to declare it
+
+        tc_infer(self, &varre.type, varre.value)
     } else if _, ok := stmnt_vardecl.(ConstDecl); ok {
         elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
     } else {
         elog(self, varre.cursors_idx, "expected \"%v\" to be a variable, got %v", varre.name, stmnt_vardecl)
     }
 
+    // FIXME
     tc_equals(self, varre.type, type_of_expr(self, varre.value))
 }
 
@@ -611,12 +652,13 @@ analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
 }
 
 analyse_fn_decl :: proc(self: ^Analyser, fn: FnDecl) {
+    fn := fn
     symtab_push(self, fn.name, fn)
 
     symtab_new_scope(self)
     defer symtab_pop_scope(self)
 
-    for arg in fn.args {
+    for &arg in fn.args {
         symtab_push(self, arg.(ConstDecl).name, arg)
     }
 

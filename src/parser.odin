@@ -129,6 +129,8 @@ type_tag_equal :: proc(lhs, rhs: Type) -> bool {
     case Void:
         _, ok := rhs.(Void)
         return ok
+    case nil:
+        return rhs == nil
     }
 
     return false
@@ -173,13 +175,15 @@ Literal :: struct {
 }
 Ident :: struct {
     literal: string,
+    type: Type,
     cursors_idx: int,
 }
-// Const :: struct {
-//     name: string,
-//     type: Type,
-//     cursors_idx: int,
-// }
+FieldAccess :: struct {
+    expr: ^Expr,
+    field: ^Expr,
+    type: Type,
+    cursors_idx: int,
+}
 FnCall :: struct {
     name: Ident,
     type: Type,
@@ -267,6 +271,9 @@ Address :: struct {
     type: Type,
     cursors_idx: int,
 }
+Deref :: struct {
+    cursors_idx: int,
+}
 Expr :: union {
     // types are also expressions
     Bool,
@@ -304,6 +311,8 @@ Expr :: union {
     Grouping,
 
     Address,
+    FieldAccess,
+    Deref,
 }
 
 FnDecl :: struct {
@@ -358,6 +367,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case Deref:
+            return expr.cursors_idx
+        case FieldAccess:
+            return expr.cursors_idx
         case Address:
             return expr.cursors_idx
         case Bool:
@@ -442,6 +455,12 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case Deref:
+        fmt.print("&")
+    case FieldAccess:
+        expr_print(expression)
+        fmt.print(".")
+        expr_print(expression)
     case Address:
         fmt.print("& ")
         expr_print(expr.value^)
@@ -1207,7 +1226,7 @@ parse_decl :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     return nil
 }
 
-parse_var_reassign :: proc(self: ^Parser, ident: Ident) -> Stmnt {
+parse_var_reassign :: proc(self: ^Parser, ident: Expr) -> Stmnt {
     // <name> = 
     expr := parse_expr(self)
     token_expect(self, TokenSemiColon{})
@@ -1220,7 +1239,7 @@ parse_var_reassign :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     }
 }
 
-parse_var_operator_equal :: proc(self: ^Parser, ident: Ident, operator: Token) -> Stmnt {
+parse_var_operator_equal :: proc(self: ^Parser, ident: Expr, operator: Token) -> Stmnt {
     // <name> [+-*/]= 
     operator_index := self.cursors_idx
     var := new(Expr); var^ = ident
@@ -1272,11 +1291,29 @@ parse_var_operator_equal :: proc(self: ^Parser, ident: Ident, operator: Token) -
     return reassign
 }
 
-parse_field_access :: proc(self: ^Parser, ident: Ident) -> Expr {
+parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
     // already nexted "."
     // <ident>.
-    assert(false, "not implemented")
-    return nil
+
+    index := self.cursors_idx
+    front := new(Expr); front^ = ident
+
+    // <ident>.&
+    token := token_next(self)
+    if token_tag_equal(token, TokenAmpersand{}) {
+        field := new(Expr); field^ = Deref{
+            cursors_idx = self.cursors_idx
+        }
+
+        return FieldAccess{
+            expr = front,
+            field = field,
+            type = nil,
+            cursors_idx = index,
+        }
+    } else {
+        elog(self, self.cursors_idx, "unexpected token %v after field access", token)
+    }
 }
 
 parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
@@ -1285,7 +1322,7 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     token := token_peek(self)
     if token == nil do return nil
 
-    // NOTE: just for field access so
+    // NOTE: just for field access
     // <ident>.
     #partial switch tok in token {
     case TokenDot:
@@ -1301,13 +1338,13 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
             token_after := token_next(self)
 
             if token_tag_equal(token_after, TokenEqual{}) {
-                return parse_var_operator_equal(self, ident, tok)
+                return parse_var_operator_equal(self, reassigned, tok)
             } else {
                 elog(self, self.cursors_idx, "unexpected token %v", tok)
             }
         case TokenEqual:
             token_next(self) // no nil check, already checked when peeked
-            return parse_var_reassign(self, ident);
+            return parse_var_reassign(self, reassigned);
         }
     }
 

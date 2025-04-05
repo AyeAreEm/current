@@ -21,6 +21,15 @@ U32_MIN :: min(u32)
 U64_MAX :: max(u64)
 U64_MIN :: min(u64)
 
+tc_deref_ptr :: proc(analyser: ^Analyser, type: Type) -> Type {
+    #partial switch t in type {
+    case Ptr:
+        return t.type^
+    case:
+        return t
+    }
+}
+
 tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     #partial switch l in lhs {
     case Array:
