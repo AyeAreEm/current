@@ -27,7 +27,7 @@ vec2 :: struct[T] {
     y: T,
 }
 
-vec2[T].add :: fn(^self, other: vec2[T]) void {
+vec2[T].add :: fn(*self, other: vec2[T]) void {
     self.x += other.x;
     self.y += other.y;
 }
@@ -93,7 +93,7 @@ Also Zig is just a pain at times. Unused variables errors, Variable that isn't m
 1. Receiever methods
     - Lets the developer add onto types for more functionality rather than being locked into what's available by the developer of the type
 1. Two pointer symbols
-    - `^` is a pointer to a variable. `*` is a pointer to a constant. More on why <a href="#why-two-pointer-symbols">here</a>
+    - `*` is a pointer to a variable. `^` is a pointer to a constant. More on why <a href="#why-two-pointer-symbols">here</a>
 1. Global constants are compile time constants
     - Constants in global scope are known at compile time and are similar to `#define` or `constexpr`
 1. No operator overloading
@@ -108,9 +108,5 @@ Similarly in Golang, constant may or may not be addressable at runtime so you ca
 <br>
 I thought about just changing "::" to be constant variables instead of something like `#define` but some problems arise. If you want to pass a large constant structure, you'd be forced to pass by value and copy that large amount of data. Usually you'd pass a pointer that way not performing a copy and still not allowing the function to mutate it.<br>
 In that case, pointers to constant are neccessary but there isn't a proper syntactic way to do this in languages like this because there is no `const` keyword. Hence, two pointer symbols.<br>
-`^` is a pointer to a variable / mutable data.<br>
-`*` is a pointer to a constant / immutable data.<br>
-<br>
-The reason why the usual pointer symbol `*` is being used specifically for pointers to constants is because it may be unclear that there is another pointer symbol otherwise.<br>
-Also because I think there's a better association between `=` <-> `^`, `:` <-> `*` than `=` <-> `*`, `:`, `^` but that's a nothing burger
-
+`*` is a pointer to a variable / mutable data.<br>
+`^` is a pointer to a constant / immutable data.<br>
