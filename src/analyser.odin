@@ -38,6 +38,18 @@ sym_equals :: proc(lhs: Expr, rhs: Expr) -> bool {
     return false
 }
 
+symtab_find_key :: proc(analyser: ^Analyser, key: Expr, location: int) -> Expr {
+    using analyser.symtab
+
+    for elem, i in keys[curr_scope] {
+        if sym_equals(elem, key) {
+            return elem
+        }
+    }
+
+    elog(analyser, location, "use of undefined \"%v\"", key)
+}
+
 symtab_find :: proc(analyser: ^Analyser, key: Expr, location: int) -> Stmnt {
     using analyser.symtab
 
@@ -71,6 +83,7 @@ symtab_propogate :: proc(analyser: ^Analyser, key: Expr) {
                 expr = expr,
                 field = field,
                 type = tc_deref_ptr(analyser, v.type),
+                constant = v.type.(Ptr).constant,
                 cursors_idx = get_cursor_index(key),
             }
 
@@ -87,6 +100,7 @@ symtab_propogate :: proc(analyser: ^Analyser, key: Expr) {
                 expr = expr,
                 field = field,
                 type = tc_deref_ptr(analyser, v.type),
+                constant = v.type.(Ptr).constant,
                 cursors_idx = get_cursor_index(key),
             }
 
@@ -174,7 +188,7 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
         decl := symtab_find(analyser, ex.value^, get_cursor_index(ex.value^))
         return Ptr{
             type = atype,
-            constant = is_stmnt_constant(analyser, decl)
+            constant = stmnt_is_constant(analyser, decl)
         }
     case Literal:
         return ex.type
@@ -261,7 +275,7 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     return nil
 }
 
-is_stmnt_constant :: proc(analyser: ^Analyser, statement: Stmnt) -> bool {
+stmnt_is_constant :: proc(analyser: ^Analyser, statement: Stmnt) -> bool {
     #partial switch stmnt in statement {
     case ConstDecl:
         return true
@@ -324,7 +338,8 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     case Deref:
         elog(self, ex.cursors_idx, "deref not implemented yet in analyse_expr")
     case FieldAccess:
-        elog(self, ex.cursors_idx, "field access not implemented yet in analyse_expr")
+        fa := symtab_find_key(self, expr^, ex.cursors_idx).(FieldAccess)
+        ex = fa
     case I8, I16, I32, I64:
         return
     case U8, U16, U32, U64:
@@ -339,7 +354,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             stmnt := symtab_find(self, addr_expr, addr_expr.cursors_idx)
             type := type_of_stmnt(self, stmnt)
             ex.type = type
-            ex.to_constant = is_stmnt_constant(self, stmnt)
+            ex.to_constant = stmnt_is_constant(self, stmnt)
         case:
             elog(self, ex.cursors_idx, "can't take address of {}", ex.value^)
         }
@@ -561,12 +576,19 @@ analyse_var_decl :: proc(self: ^Analyser, vardecl: ^VarDecl) {
 }
 
 analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
+    analyse_expr(self, &varre.name)
     analyse_expr(self, &varre.value)
 
     stmnt_vardecl := symtab_find(self, varre.name, varre.cursors_idx)
     if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
         varre.type = vardecl.type
     } else if stmnt_vardecl == nil {
+        if field_access, ok := varre.name.(FieldAccess); ok {
+            if field_access.constant {
+                elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
+            }
+        }
+
         // NOTE: this can happend when it's a propogated field or function argument (maybe)
         // because something like `p := &n` would have a `p.&` that doesn't have a value or
         // statement to declare it
@@ -578,7 +600,6 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
         elog(self, varre.cursors_idx, "expected \"%v\" to be a variable, got %v", varre.name, stmnt_vardecl)
     }
 
-    // FIXME
     tc_equals(self, varre.type, type_of_expr(self, varre.value))
 }
 

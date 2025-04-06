@@ -183,6 +183,7 @@ FieldAccess :: struct {
     expr: ^Expr,
     field: ^Expr,
     type: Type,
+    constant: bool,
     cursors_idx: int,
 }
 FnCall :: struct {
@@ -1343,6 +1344,7 @@ parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
             expr = front,
             field = field,
             type = nil,
+            constant = false,
             cursors_idx = index,
         }
     } else {
