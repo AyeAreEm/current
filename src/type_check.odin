@@ -52,7 +52,9 @@ tc_ptr_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     case Ptr:
         #partial switch r in rhs {
         case Ptr:
-            return tc_ptr_equals(analyser, l.type^, r.type^)
+            if !l.constant && r.constant do return false
+            if !l.constant && !r.constant do return tc_ptr_equals(analyser, l.type^, r.type^)
+            if l.constant do return tc_ptr_equals(analyser, l.type^, r.type^)
         }
     case:
         return type_tag_equal(lhs, rhs)

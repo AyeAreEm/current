@@ -30,6 +30,7 @@ TokenRs :: struct {} // right square
 
 TokenComma :: struct {}
 TokenDot :: struct {}
+TokenCaret :: struct {}
 
 TokenPlus :: struct {}
 TokenMinus :: struct {}
@@ -62,6 +63,7 @@ Token :: union {
 
     TokenComma,
     TokenDot,
+    TokenCaret,
 
     TokenPlus,
     TokenMinus,
@@ -91,6 +93,9 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenCaret:
+        _, ok := rhs.(TokenCaret)
+        return ok
     case TokenDot:
         _, ok := rhs.(TokenDot)
         return ok
@@ -252,6 +257,8 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             try_append(&cursor, &col, &row, &tokens, &buf, TokenMinus{})
         case '*':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenStar{})
+        case '^':
+            try_append(&cursor, &col, &row, &tokens, &buf, TokenCaret{})
         case '&':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenAmpersand{})
         case '/':

@@ -77,6 +77,22 @@ symtab_propogate :: proc(analyser: ^Analyser, key: Expr) {
             append(&keys[curr_scope], field_access)
             append(&values[curr_scope], nil)
         }
+    case ConstDecl:
+        if type_tag_equal(v.type, Ptr{}) {
+            expr := new(Expr); expr^ = v.name
+            field := new(Expr); field^ = Deref{
+                cursors_idx = get_cursor_index(key),
+            }
+            field_access := FieldAccess{
+                expr = expr,
+                field = field,
+                type = tc_deref_ptr(analyser, v.type),
+                cursors_idx = get_cursor_index(key),
+            }
+
+            append(&keys[curr_scope], field_access)
+            append(&values[curr_scope], nil)
+        }
     }
 }
 
@@ -155,8 +171,10 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     switch &ex in expr {
     case Address:
         atype := new(Type); atype^ = ex.type
+        decl := symtab_find(analyser, ex.value^, get_cursor_index(ex.value^))
         return Ptr{
-            type = atype
+            type = atype,
+            constant = is_stmnt_constant(analyser, decl)
         }
     case Literal:
         return ex.type
@@ -243,6 +261,17 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     return nil
 }
 
+is_stmnt_constant :: proc(analyser: ^Analyser, statement: Stmnt) -> bool {
+    #partial switch stmnt in statement {
+    case ConstDecl:
+        return true
+    case VarDecl:
+        return false
+    case:
+        elog(analyser, get_cursor_index(statement), "should not be checking constness of %v", statement)
+    }
+}
+
 type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
     switch stmnt in statement {
     case FnDecl:
@@ -310,6 +339,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             stmnt := symtab_find(self, addr_expr, addr_expr.cursors_idx)
             type := type_of_stmnt(self, stmnt)
             ex.type = type
+            ex.to_constant = is_stmnt_constant(self, stmnt)
         case:
             elog(self, ex.cursors_idx, "can't take address of {}", ex.value^)
         }

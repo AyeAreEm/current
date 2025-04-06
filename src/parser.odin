@@ -45,6 +45,7 @@ Array :: struct {
 
 Ptr :: struct {
     type: ^Type,
+    constant: bool,
 }
 
 Untyped_Int :: struct {}
@@ -269,6 +270,7 @@ Grouping :: struct {
 Address :: struct {
     value: ^Expr,
     type: Type,
+    to_constant: bool,
     cursors_idx: int,
 }
 Deref :: struct {
@@ -1114,19 +1116,51 @@ parse_type :: proc(self: ^Parser) -> Type {
     token := token_peek(self)
 
     #partial switch tok in token {
-    case TokenStar:
+    case TokenCaret:
         type = Ptr{
             type = new(Type),
+            constant = true,
         }
         token_next(self)
 
         for token = token_peek(self); token != nil; token = token_peek(self) {
-            if !token_tag_equal(token, TokenStar{}) {
+            if token_tag_equal(token, TokenStar{}) {
+                type = Ptr{
+                    type = &type,
+                    constant = false,
+                }
+            } else if token_tag_equal(token, TokenCaret{}) {
+                type = Ptr{
+                    type = &type,
+                    constant = true,
+                }
+            } else {
                 break
             }
+        }
 
-            type = Ptr{
-                type = &type,
+        subtype := parse_type(self)
+        parse_set_ptr_type(self, &type, subtype)
+    case TokenStar:
+        type = Ptr{
+            type = new(Type),
+            constant = false,
+        }
+        token_next(self)
+
+        for token = token_peek(self); token != nil; token = token_peek(self) {
+            if token_tag_equal(token, TokenStar{}) {
+                type = Ptr{
+                    type = &type,
+                    constant = false,
+                }
+            } else if token_tag_equal(token, TokenCaret{}) {
+                type = Ptr{
+                    type = &type,
+                    constant = true,
+                }
+            } else {
+                break
             }
         }
 

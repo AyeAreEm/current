@@ -38,7 +38,7 @@ gen_array_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder) {
 gen_ptr_type :: proc(self: ^Codegen, ptr: Type) -> string {
     #partial switch subtype in ptr {
     case Ptr:
-        return fmt.aprintf("*{}", gen_ptr_type(self, subtype.type^))
+        return fmt.aprintf("*%v%v", "const " if subtype.constant else "", gen_ptr_type(self, subtype.type^))
     case:
         t, _ := gen_type(self, ptr)
         return t
