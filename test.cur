@@ -1,5 +1,8 @@
 main :: fn() void {
-    // comments added
-    x := 10; // only double slash comments rn
-    // will add block comments
+    /*
+        in a comment so this shouldn't be compiled
+        num := 10;
+    */
+
+    num := 15;
 }

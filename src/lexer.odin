@@ -208,8 +208,10 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
     defer delete(buf.buf)
 
     row, col: u32 = 1, 1
+
     ignore_index := -1
-    in_double_slash_comment := false
+    in_single_line_comment := false
+    in_block_comment := false
 
     for ch, i in source {
         if ignore_index != -1 && i == ignore_index {
@@ -217,12 +219,18 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             continue
         }
 
-        if ch == '\n' && in_double_slash_comment {
-            in_double_slash_comment = false
+        if ch == '\n' && in_single_line_comment {
+            in_single_line_comment = false
+            continue
+        } else if in_single_line_comment {
             continue
         }
 
-        if in_double_slash_comment {
+        if ch == '*' && source[i + 1] == '/' && in_block_comment {
+            ignore_index = i + 1
+            in_block_comment = false
+            continue
+        } else if in_block_comment {
             continue
         }
 
@@ -272,7 +280,12 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
         case '-':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenMinus{})
         case '*':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenStar{})
+            if '/' == source[i + 1] {
+                ignore_index = i + 1
+                in_block_comment = false
+            } else {
+                try_append(&cursor, &col, &row, &tokens, &buf, TokenStar{})
+            }
         case '^':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenCaret{})
         case '&':
@@ -280,7 +293,10 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
         case '/':
             if '/' == source[i + 1] {
                 ignore_index = i + 1
-                in_double_slash_comment = true
+                in_single_line_comment = true
+            } else if '*' == source[i + 1] {
+                ignore_index = i + 1
+                in_block_comment = true
             } else {
                 try_append(&cursor, &col, &row, &tokens, &buf, TokenSlash{})
             }
