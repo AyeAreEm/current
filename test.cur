@@ -1,8 +1,7 @@
 main :: fn() void {
-    /*
-        in a comment so this shouldn't be compiled
-        num := 10;
-    */
+    {
+        num := 15;
+    }
 
-    num := 15;
+    num = 10; // this will error
 }

@@ -19,7 +19,6 @@
 - Type Casting
 
 # In Progress
-- Scopes
 
 # Completed
 - Function Declarations
@@ -37,3 +36,4 @@
 - Math expressions
 - Variables
 - Constants
+- Scopes

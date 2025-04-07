@@ -300,6 +300,8 @@ type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
         return stmnt.type
     case Return:
         return stmnt.type
+    case Block:
+        elog(analyser, stmnt.cursors_idx, "unexpected scope block")
     case If:
         elog(analyser, stmnt.cursors_idx, "unexpected if statement")
     }
@@ -701,6 +703,10 @@ analyse_if :: proc(self: ^Analyser, ifs: ^If) {
 analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
     for &statement in block {
         switch &stmnt in statement {
+        case Block:
+            symtab_new_scope(self)
+            analyse_block(self, stmnt.body)
+            symtab_pop_scope(self)
         case Return:
             if fn, ok := self.current_fn.?; ok {
                 analyse_return(self, fn, &stmnt)
@@ -753,6 +759,8 @@ analyse :: proc(self: ^Analyser) {
             analyse_var_reassign(self, &stmnt)
         case ConstDecl:
             analyse_const_decl(self, &stmnt)
+        case Block:
+            elog(self, stmnt.cursors_idx, "illegal use of scope block, not inside a function")
         case Return:
             elog(self, stmnt.cursors_idx, "illegal use of return, not inside a function")
         case FnCall:

@@ -75,8 +75,15 @@ gen_indent :: proc(self: ^Codegen) {
 }
 
 gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
+    fmt.sbprintln(&self.code, "{")
+    self.indent_level += 1
+
     for statement in block {
         switch stmnt in statement {
+        case Block:
+            gen_indent(self)
+            gen_block(self, stmnt.body)
+            fmt.sbprint(&self.code, "\n")
         case FnDecl:
             gen_fn_decl(self, stmnt)
         case VarDecl:
@@ -95,6 +102,10 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             gen_if(self, stmnt)
         }
     }
+
+    self.indent_level -= 1
+    gen_indent(self)
+    fmt.sbprint(&self.code, "}")
 }
 
 gen_if :: proc(self: ^Codegen, ifs: If) {
@@ -104,21 +115,11 @@ gen_if :: proc(self: ^Codegen, ifs: If) {
     condition, alloced := gen_expr(self, ifs.condition)
     defer if alloced do delete(condition)
 
-    fmt.sbprintfln(&self.code, "%v) {{", condition)
-    self.indent_level += 1
+    fmt.sbprintf(&self.code, "%v) ", condition)
     gen_block(self, ifs.body)
 
-    self.indent_level -= 1
-    gen_indent(self)
-    fmt.sbprint(&self.code, "}")
-
-    self.indent_level += 1
-    fmt.sbprintln(&self.code, " else {")
+    fmt.sbprint(&self.code, " else ")
     gen_block(self, ifs.els)
-
-    self.indent_level -= 1
-    gen_indent(self)
-    fmt.sbprintln(&self.code, "}")
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
@@ -139,13 +140,15 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
     fntype_str, fntype_str_alloced := gen_type(self, fndecl.type)
     defer if fntype_str_alloced do delete(fntype_str)
 
-    fmt.sbprintfln(&self.code, ") %v {{", fntype_str)
-    defer fmt.sbprintln(&self.code, "}")
-
-    self.indent_level += 1
-    defer self.indent_level -= 1
+    fmt.sbprintf(&self.code, ") %v ", fntype_str)
 
     gen_block(self, fndecl.body)
+
+    // NOTE: this is a hacky solution to make the formating
+    // of the output code prettier.
+    // NOTE: should i just make it so the output isn't readable?
+    strings.pop_byte(&self.code)
+    fmt.sbprint(&self.code, "\n}")
 }
 
 // returns allocated string, needs to be freed

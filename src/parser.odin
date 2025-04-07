@@ -356,6 +356,10 @@ If :: struct {
     els: [dynamic]Stmnt,
     cursors_idx: int,
 }
+Block :: struct {
+    body: [dynamic]Stmnt,
+    cursors_idx: int,
+}
 Stmnt :: union {
     FnDecl,
     VarDecl,
@@ -364,6 +368,7 @@ Stmnt :: union {
     FnCall,
     ConstDecl,
     If,
+    Block,
 }
 
 get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
@@ -435,6 +440,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     case Stmnt:
         switch stmnt in it {
+        case Block:
+            return stmnt.cursors_idx
         case VarDecl:
             return stmnt.cursors_idx
         case VarReassign:
@@ -576,6 +583,12 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
     }
 
     switch stmnt in statement {
+    case Block:
+        fmt.print("{")
+        for s in stmnt.body {
+            stmnt_print(s, indent + 1)
+        }
+        fmt.print("}")
     case If:
         fmt.printf("If (")
         expr_print(stmnt.condition)
@@ -1471,6 +1484,12 @@ parse :: proc(self: ^Parser) -> Stmnt {
             case .If:
                 return parse_if(self)
             }
+        }
+    case TokenLc:
+        index := self.cursors_idx
+        return Block{
+            body = parse_block(self),
+            cursors_idx = index,
         }
     case:
         elog(self, self.cursors_idx, "unexpected token %v", tok)
