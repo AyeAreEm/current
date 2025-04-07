@@ -1,4 +1,5 @@
 main :: fn() void {
-    x: u8 = 10 * 10;
-    y: i8 = x + 5;
+    // comments added
+    x := 10; // only double slash comments rn
+    // will add block comments
 }

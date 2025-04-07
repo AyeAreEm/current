@@ -208,8 +208,24 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
     defer delete(buf.buf)
 
     row, col: u32 = 1, 1
+    ignore_index := -1
+    in_double_slash_comment := false
 
-    for ch in source {
+    for ch, i in source {
+        if ignore_index != -1 && i == ignore_index {
+            ignore_index = -1
+            continue
+        }
+
+        if ch == '\n' && in_double_slash_comment {
+            in_double_slash_comment = false
+            continue
+        }
+
+        if in_double_slash_comment {
+            continue
+        }
+
         switch ch {
         case ' ', '\r', '\n', '\t':
             if ch == '\r' {
@@ -262,7 +278,12 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
         case '&':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenAmpersand{})
         case '/':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenSlash{})
+            if '/' == source[i + 1] {
+                ignore_index = i + 1
+                in_double_slash_comment = true
+            } else {
+                try_append(&cursor, &col, &row, &tokens, &buf, TokenSlash{})
+            }
         case '\\':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenBackSlash{})
         case:
