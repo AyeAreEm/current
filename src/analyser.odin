@@ -487,11 +487,17 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             elog(self, ex.cursors_idx, "mismatch types, %v + %v", lt, rt)
         }
 
-        if t := tc_default_untyped_type(lt); t != nil {
-            ex.type = t
-        } else {
+        _, lt_ok := lt.(Untyped_Int)
+        _, rt_ok := rt.(Untyped_Int)
+
+        if lt_ok && rt_ok {
             ex.type = lt
+        } else if rt_ok {
+            ex.type = lt
+        } else {
+            ex.type = rt
         }
+
     case Minus:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
@@ -502,10 +508,15 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             elog(self, ex.cursors_idx, "mismatch types, %v - %v", lt, rt)
         }
 
-        if t := tc_default_untyped_type(lt); t != nil {
-            ex.type = t
-        } else {
+        _, lt_ok := lt.(Untyped_Int)
+        _, rt_ok := rt.(Untyped_Int)
+
+        if lt_ok && rt_ok {
             ex.type = lt
+        } else if rt_ok {
+            ex.type = lt
+        } else {
+            ex.type = rt
         }
     case Multiply:
         analyse_expr(self, ex.left)
@@ -517,10 +528,15 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             elog(self, ex.cursors_idx, "mismatch types, %v * %v", lt, rt)
         }
 
-        if t := tc_default_untyped_type(lt); t != nil {
-            ex.type = t
-        } else {
+        _, lt_ok := lt.(Untyped_Int)
+        _, rt_ok := rt.(Untyped_Int)
+
+        if lt_ok && rt_ok {
             ex.type = lt
+        } else if rt_ok {
+            ex.type = lt
+        } else {
+            ex.type = rt
         }
     case Divide:
         analyse_expr(self, ex.left)
@@ -532,10 +548,15 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             elog(self, ex.cursors_idx, "mismatch types, %v / %v", lt, rt)
         }
 
-        if t := tc_default_untyped_type(lt); t != nil {
-            ex.type = t
-        } else {
+        _, lt_ok := lt.(Untyped_Int)
+        _, rt_ok := rt.(Untyped_Int)
+
+        if lt_ok && rt_ok {
             ex.type = lt
+        } else if rt_ok {
+            ex.type = lt
+        } else {
+            ex.type = rt
         }
     }
 }
