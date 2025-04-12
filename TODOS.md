@@ -5,6 +5,10 @@
 - Importing External Libraries
 - External Function Calls
 - Float Types
+- Character Type
+- Character Literal
+- String Type
+- String Literal
 - Struct Definitions
 - Struct Literals
 - Enum Definitions
