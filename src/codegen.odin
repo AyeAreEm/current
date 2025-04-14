@@ -196,9 +196,15 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return "u32", false
     case U64:
         return "u64", false
+    case F32:
+        return "f32", false
+    case F64:
+        return "f64", false
     case Ident:
         return expr.literal, false
     case IntLit:
+        return expr.literal, false
+    case FloatLit:
         return expr.literal, false
     case True:
         return "true", false

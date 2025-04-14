@@ -210,11 +210,17 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
         return TypeId{}
     case U64:
         return TypeId{}
+    case F32:
+        return TypeId{}
+    case F64:
+        return TypeId{}
     case Negative:
         return ex.type
     case Grouping:
         return ex.type
     case IntLit:
+        return ex.type
+    case FloatLit:
         return ex.type
     case Deref:
         // TODO: this should probably give an actual type
@@ -346,6 +352,8 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case U8, U16, U32, U64:
         return
+    case F32, F64:
+        return
     case Bool:
         return
     case Address:
@@ -372,6 +380,8 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             elog(self, ex.cursors_idx, "expected \"%v\" to be a variable, got %v", ex.literal, stmnt_vardecl)
         }
     case IntLit:
+        return
+    case FloatLit:
         return
     case True, False:
         return

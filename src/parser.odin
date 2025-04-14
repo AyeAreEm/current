@@ -38,6 +38,13 @@ U64 :: struct {
     cursors_idx: int,
 }
 
+F32 :: struct {
+    cursors_idx: int,
+}
+F64 :: struct {
+    cursors_idx: int,
+}
+
 Array :: struct {
     type: ^Type,
     len: ^Expr,
@@ -49,6 +56,7 @@ Ptr :: struct {
 }
 
 Untyped_Int :: struct {}
+Untyped_Float :: struct {}
 TypeId :: struct{}
 Type :: union {
     Void,
@@ -64,7 +72,11 @@ Type :: union {
     U32,
     U64,
 
+    F32,
+    F64,
+
     Untyped_Int,
+    Untyped_Float,
 
     Array,
     Ptr,
@@ -84,6 +96,9 @@ type_map := map[string]Type{
     "u16" = U16{},
     "u32" = U32{},
     "u64" = U64{},
+
+    "f32" = F32{},
+    "f64" = F64{},
 }
 
 type_tag_equal :: proc(lhs, rhs: Type) -> bool {
@@ -121,8 +136,17 @@ type_tag_equal :: proc(lhs, rhs: Type) -> bool {
     case U64:
         _, ok := rhs.(U64)
         return ok
+    case F32:
+        _, ok := rhs.(F32)
+        return ok
+    case F64:
+        _, ok := rhs.(F64)
+        return ok
     case Untyped_Int:
         _, ok := rhs.(Untyped_Int)
+        return ok
+    case Untyped_Float:
+        _, ok := rhs.(Untyped_Float)
         return ok
     case Bool:
         _, ok := rhs.(Bool)
@@ -165,6 +189,11 @@ expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
 }
 
 IntLit :: struct {
+    literal: string,
+    type: Type,
+    cursors_idx: int,
+}
+FloatLit :: struct {
     literal: string,
     type: Type,
     cursors_idx: int,
@@ -290,7 +319,11 @@ Expr :: union {
     U32,
     U64,
 
+    F32,
+    F64,
+
     IntLit,
+    FloatLit,
     Literal,
     Ident,
     FnCall,
@@ -399,6 +432,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return expr.cursors_idx
         case U64:
             return expr.cursors_idx
+        case F32:
+            return expr.cursors_idx
+        case F64:
+            return expr.cursors_idx
         case Literal:
             return expr.cursors_idx
         case Grouping:
@@ -408,6 +445,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         case Ident:
             return expr.cursors_idx
         case IntLit:
+            return expr.cursors_idx
+        case FloatLit:
             return expr.cursors_idx
         case Plus:
             return expr.cursors_idx
@@ -492,6 +531,10 @@ expr_print :: proc(expression: Expr) {
         fmt.print("U32")
     case U64:
         fmt.print("U64")
+    case F32:
+        fmt.print("F32")
+    case F64:
+        fmt.print("F64")
     case Literal:
         fmt.printf("%v{{", expr.type)
         for value, i in expr.values {
@@ -559,6 +602,8 @@ expr_print :: proc(expression: Expr) {
         expr_print(expr.right^)
     case IntLit:
         fmt.printf("IntLit(%v) %v", expr.type, expr.literal)
+    case FloatLit:
+        fmt.printf("FloatLit(%v) %v", expr.type, expr.literal)
     case FnCall:
         fmt.printf("FnCall(%v) %v(", expr.type, expr.name)
         for arg, i in expr.args {
@@ -855,6 +900,13 @@ parse_primary :: proc(self: ^Parser) -> Expr {
             type = Untyped_Int{},
             cursors_idx = self.cursors_idx
         }
+    case TokenFloatLit:
+    token_next(self)
+    return FloatLit{
+        literal = tok.literal,
+        type = Untyped_Float{},
+        cursors_idx = self.cursors_idx
+    }
     case TokenLb:
         token_next(self)
         index := self.cursors_idx

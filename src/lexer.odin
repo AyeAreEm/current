@@ -11,6 +11,9 @@ TokenIdent :: struct {
 TokenIntLit :: struct {
     literal: string,
 }
+TokenFloatLit :: struct {
+    literal: string,
+}
 
 TokenColon :: struct {}
 TokenSemiColon :: struct {}
@@ -44,6 +47,7 @@ TokenExclaim :: struct {}
 Token :: union {
     TokenIdent,
     TokenIntLit,
+    TokenFloatLit,
 
     TokenColon,
     TokenSemiColon,
@@ -93,6 +97,9 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenFloatLit:
+        _, ok := rhs.(TokenFloatLit)
+        return ok
     case TokenCaret:
         _, ok := rhs.(TokenCaret)
         return ok
@@ -186,6 +193,8 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             string_buf := strings.to_string(buf^)
             if _, ok := strconv.parse_u64(string_buf); ok {
                 append(tokens, TokenIntLit{strings.clone(string_buf)})
+            } if _, ok := strconv.parse_f64(string_buf); ok {
+                append(tokens, TokenFloatLit{strings.clone(string_buf)})
             } else {
                 append(tokens, TokenIdent{strings.clone(string_buf)})
             }
@@ -248,7 +257,13 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
                 col += 1
             }
         case '.':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenDot{})
+            string_buf := strings.to_string(buf)
+            if _, ok := strconv.parse_u64(string_buf); ok {
+                append(&buf.buf, cast(u8)ch)
+                col += 1
+            } else {
+                try_append(&cursor, &col, &row, &tokens, &buf, TokenDot{})
+            }
         case ':':
             try_append(&cursor, &col, &row, &tokens, &buf, TokenColon{})
         case '(':

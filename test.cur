@@ -1,7 +1,5 @@
 main :: fn() void {
-    {
-        num := 15;
-    }
-
-    num = 10; // this will error
+    num1 := 10.5;
+    num2: f32 = 1.23;
+    num3: f64 = 3.1415;
 }
