@@ -57,6 +57,8 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
         return strings.to_string(ret), true
     case Ptr:
         return gen_ptr_type(self, t), true
+    case Char:
+        return "u8", false
     }
 
     for k, v in type_map {
@@ -178,6 +180,10 @@ gen_fn_call :: proc(self: ^Codegen, fncall: FnCall, with_indent: bool = false) -
 // returns string and true if string is allocated
 gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     switch expr in expression {
+    case Char:
+        // NOTE: for now char -> u8 even tho it's checked as if it were a "rune"
+        // TODO: find a way to represent utf8 char in zig
+        return "u8", false
     case Bool:
         return "bool", false
     case I8:
@@ -206,6 +212,9 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return expr.literal, false
     case FloatLit:
         return expr.literal, false
+    case CharLit:
+        literal := fmt.aprintf("'%v'", expr.literal)
+        return literal, true
     case True:
         return "true", false
     case False:

@@ -1,5 +1,3 @@
 main :: fn() void {
-    num1 := 10.5;
-    num2: f32 = 1.23;
-    num3: f64 = 3.1415;
+    letter := 'a';
 }

@@ -12,6 +12,9 @@ Void :: struct {
 Bool :: struct {
     cursors_idx: int,
 }
+Char :: struct {
+    cursors_idx: int,
+}
 I8 :: struct {
     cursors_idx: int,
 }
@@ -62,6 +65,8 @@ Type :: union {
     Void,
     Bool,
 
+    Char,
+
     I8,
     I16,
     I32,
@@ -86,6 +91,7 @@ Type :: union {
 type_map := map[string]Type{
     "void" = Void{},
     "bool" = Bool{},
+    "char" = Char{},
 
     "i8" = I8{},
     "i16" = I16{},
@@ -103,6 +109,9 @@ type_map := map[string]Type{
 
 type_tag_equal :: proc(lhs, rhs: Type) -> bool {
     switch t in lhs {
+    case Char:
+        _, ok := rhs.(Char)
+        return ok
     case Ptr:
         _, ok := rhs.(Ptr)
         return ok
@@ -194,6 +203,11 @@ IntLit :: struct {
     cursors_idx: int,
 }
 FloatLit :: struct {
+    literal: string,
+    type: Type,
+    cursors_idx: int,
+}
+CharLit :: struct {
     literal: string,
     type: Type,
     cursors_idx: int,
@@ -309,6 +323,8 @@ Deref :: struct {
 Expr :: union {
     // types are also expressions
     Bool,
+    Char,
+
     I8,
     I16,
     I32,
@@ -324,7 +340,9 @@ Expr :: union {
 
     IntLit,
     FloatLit,
+    CharLit,
     Literal,
+
     Ident,
     FnCall,
 
@@ -408,6 +426,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case CharLit:
+            return expr.cursors_idx
         case Deref:
             return expr.cursors_idx
         case FieldAccess:
@@ -415,6 +435,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         case Address:
             return expr.cursors_idx
         case Bool:
+            return expr.cursors_idx
+        case Char:
             return expr.cursors_idx
         case I8:
             return expr.cursors_idx
@@ -504,6 +526,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case CharLit:
+        fmt.printf("'%v'", expr.literal)
     case Deref:
         fmt.print("&")
     case FieldAccess:
@@ -515,6 +539,8 @@ expr_print :: proc(expression: Expr) {
         expr_print(expr.value^)
     case Bool:
         fmt.print("Bool")
+    case Char:
+        fmt.print("Char")
     case I8:
         fmt.print("I8")
     case I16:
@@ -901,12 +927,19 @@ parse_primary :: proc(self: ^Parser) -> Expr {
             cursors_idx = self.cursors_idx
         }
     case TokenFloatLit:
-    token_next(self)
-    return FloatLit{
-        literal = tok.literal,
-        type = Untyped_Float{},
-        cursors_idx = self.cursors_idx
-    }
+        token_next(self)
+        return FloatLit{
+            literal = tok.literal,
+            type = Untyped_Float{},
+            cursors_idx = self.cursors_idx
+        }
+    case TokenCharLit:
+        token_next(self)
+        return CharLit{
+            literal = tok.literal,
+            type = Char{},
+            cursors_idx = self.cursors_idx
+        }
     case TokenLb:
         token_next(self)
         index := self.cursors_idx

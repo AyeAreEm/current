@@ -14,6 +14,9 @@ TokenIntLit :: struct {
 TokenFloatLit :: struct {
     literal: string,
 }
+TokenCharLit :: struct {
+    literal: string,
+}
 
 TokenColon :: struct {}
 TokenSemiColon :: struct {}
@@ -30,6 +33,8 @@ TokenRc :: struct {} // right curl
 
 TokenLs :: struct {} // left square
 TokenRs :: struct {} // right square
+
+// TokenQuote :: struct {}
 
 TokenComma :: struct {}
 TokenDot :: struct {}
@@ -48,6 +53,7 @@ Token :: union {
     TokenIdent,
     TokenIntLit,
     TokenFloatLit,
+    TokenCharLit,
 
     TokenColon,
     TokenSemiColon,
@@ -97,6 +103,9 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenCharLit:
+        _, ok := rhs.(TokenCharLit)
+        return ok
     case TokenFloatLit:
         _, ok := rhs.(TokenFloatLit)
         return ok
@@ -221,25 +230,58 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
     ignore_index := -1
     in_single_line_comment := false
     in_block_comment := false
+    in_quotes := false
 
     for ch, i in source {
         if ignore_index != -1 && i == ignore_index {
             ignore_index = -1
+            if ch == '\n' {
+                row += 1
+                col = 1
+            } else {
+                col += 1
+            }
             continue
         }
 
         if ch == '\n' && in_single_line_comment {
             in_single_line_comment = false
+            row += 1
+            col = 1
             continue
         } else if in_single_line_comment {
+            if ch == '\n' {
+                row += 1
+                col = 1
+            } else {
+                col += 1
+            }
             continue
         }
 
         if ch == '*' && source[i + 1] == '/' && in_block_comment {
             ignore_index = i + 1
             in_block_comment = false
+            col += 1
             continue
         } else if in_block_comment {
+            if ch == '\n' {
+                row += 1
+                col = 1
+            } else {
+                col += 1
+            }
+            continue
+        }
+
+        if in_quotes && ch != '\''{
+            append(&buf.buf, cast(u8)ch)
+            if ch == '\n' {
+                row += 1
+                col = 1
+            } else {
+                col += 1
+            }
             continue
         }
 
@@ -255,6 +297,19 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
                 col = 1
             } else {
                 col += 1
+            }
+        case '\'':
+            if in_quotes {
+                in_quotes = false
+                string_buf := strings.to_string(buf)
+
+                append(&cursor, [2]u32{row, col})
+                append(&tokens, TokenCharLit{
+                    literal = strings.clone(string_buf),
+                })
+                clear(&buf.buf)
+            } else {
+                in_quotes = true
             }
         case '.':
             string_buf := strings.to_string(buf)

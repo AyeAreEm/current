@@ -4,8 +4,6 @@
 - Continue Statement
 - Importing External Libraries
 - External Function Calls
-- Character Type
-- Character Literal
 - String Type
 - String Literal
 - Struct Definitions

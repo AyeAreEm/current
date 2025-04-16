@@ -183,6 +183,8 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     expr := expr
 
     switch &ex in expr {
+    case CharLit:
+        return ex.type
     case Address:
         atype := new(Type); atype^ = ex.type
         decl := symtab_find(analyser, ex.value^, get_cursor_index(ex.value^))
@@ -193,6 +195,8 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     case Literal:
         return ex.type
     case Bool:
+        return TypeId{}
+    case Char:
         return TypeId{}
     case I8:
         return TypeId{}
@@ -356,6 +360,8 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case Bool:
         return
+    case Char:
+        return
     case Address:
         analyse_expr(self, ex.value)
 
@@ -383,6 +389,15 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case FloatLit:
         return
+    case CharLit:
+        length := 0
+        for elem in ex.literal {
+            length += 1
+        }
+
+        if length > 1 {
+            elog(self, ex.cursors_idx, "character literal cannot be more than one character")
+        }
     case True, False:
         return
     case Grouping:
