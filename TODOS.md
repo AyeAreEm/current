@@ -38,3 +38,7 @@
 - Variables
 - Constants
 - Scopes
+- Float Types
+- Float Literal
+- Character Type
+- Character Literal
