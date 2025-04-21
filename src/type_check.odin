@@ -321,6 +321,8 @@ tc_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
 
 tc_can_compare_value :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
     #partial switch l in lhs {
+    case Char:
+        return type_tag_equal(rhs, Char{})
     case Bool:
         return type_tag_equal(rhs, Bool{})
     case I8, I16, I32, I64:

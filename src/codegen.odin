@@ -120,6 +120,7 @@ gen_if :: proc(self: ^Codegen, ifs: If) {
 
     fmt.sbprintf(&self.code, "%v) ", condition)
     gen_block(self, ifs.body)
+    strings.pop_byte(&self.code)
 
     fmt.sbprint(&self.code, " else ")
     gen_block(self, ifs.els)

@@ -1,7 +1,6 @@
-gimme_letter :: fn(l: char) void {
-    ch := l;
-}
-
 main :: fn() void {
-    gimme_letter('a');
+    ch := 'a';
+    if (ch == 'a') {
+        ch = 'b';
+    }
 }
