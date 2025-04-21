@@ -177,6 +177,7 @@ Keyword :: enum {
     False,
     If,
     Else,
+    Extern,
 }
 keyword_map := map[string]Keyword{
     "fn" = .Fn,
@@ -185,6 +186,7 @@ keyword_map := map[string]Keyword{
     "false" = .False,
     "if" = .If,
     "else" = .Else,
+    "extern" = .Extern,
 }
 expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
     #partial switch k {
@@ -374,6 +376,7 @@ FnDecl :: struct {
     type: Type,
     args: [dynamic]Stmnt,
     body: [dynamic]Stmnt,
+    has_body: bool,
     cursors_idx: int,
 }
 VarDecl :: struct {
@@ -411,6 +414,10 @@ Block :: struct {
     body: [dynamic]Stmnt,
     cursors_idx: int,
 }
+Extern :: struct {
+    body: [dynamic]Stmnt,
+    cursors_idx: int,
+}
 Stmnt :: union {
     FnDecl,
     VarDecl,
@@ -420,6 +427,7 @@ Stmnt :: union {
     ConstDecl,
     If,
     Block,
+    Extern,
 }
 
 get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
@@ -501,6 +509,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     case Stmnt:
         switch stmnt in it {
+        case Extern:
+            return stmnt.cursors_idx
         case Block:
             return stmnt.cursors_idx
         case VarDecl:
@@ -654,6 +664,13 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
     }
 
     switch stmnt in statement {
+    case Extern:
+        fmt.println("Extern {")
+        for s in stmnt.body {
+            stmnt_print(s, indent + 1)
+        }
+        fmt.println()
+        fmt.println("}")
     case Block:
         fmt.print("{")
         for s in stmnt.body {
@@ -762,14 +779,30 @@ parse_fn_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
     type_ident := token_expect(self, TokenIdent{})
     type := convert_ident(type_ident.(TokenIdent)).(Type)
 
-    body := parse_block(self)
+    token := token_peek(self)
+    if token_tag_equal(token, TokenLc{}) {
+        body := parse_block(self)
 
-    return FnDecl{
-        name = name,
-        type = type,
-        args = args,
-        body = body,
-        cursors_idx = index,
+        return FnDecl{
+            name = name,
+            type = type,
+            args = args,
+            body = body,
+            has_body = true,
+            cursors_idx = index,
+        }
+    } else if token_tag_equal(token, TokenSemiColon{}) {
+        token_next(self)
+        return FnDecl{
+            name = name,
+            type = type,
+            args = args,
+            body = [dynamic]Stmnt{},
+            has_body = false,
+            cursors_idx = index,
+        }
+    } else {
+        elog(self, self.cursors_idx, "expected ';' or '{', got %v", token)
     }
 }
 
@@ -1550,6 +1583,15 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
     }
 }
 
+parse_extern :: proc(self: ^Parser) -> Stmnt {
+    index := self.cursors_idx
+    stmnt := parse(self)
+    return Extern{
+        body = [dynamic]Stmnt{stmnt},
+        cursors_idx = index,
+    }
+}
+
 parse :: proc(self: ^Parser) -> Stmnt {
     token := token_peek(self)
     if token == nil do return nil
@@ -1570,6 +1612,8 @@ parse :: proc(self: ^Parser) -> Stmnt {
                 return parse_return(self)
             case .If:
                 return parse_if(self)
+            case .Extern:
+                return parse_extern(self)
             }
         }
     case TokenLc:

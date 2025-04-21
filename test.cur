@@ -1,6 +1,6 @@
+extern putchar :: fn(c: i32) i32;
+
 main :: fn() void {
-    ch := 'a';
-    if (ch == 'a') {
-        ch = 'b';
-    }
+    r := putchar(65);
+    r = r;
 }

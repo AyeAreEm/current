@@ -3,7 +3,6 @@
 - Break Statement
 - Continue Statement
 - Importing External Libraries
-- External Function Calls
 - String Type
 - String Literal
 - Struct Definitions
@@ -42,3 +41,4 @@
 - Float Literal
 - Character Type
 - Character Literal
+- External Function Calls

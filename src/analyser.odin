@@ -314,11 +314,9 @@ type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
         elog(analyser, stmnt.cursors_idx, "unexpected scope block")
     case If:
         elog(analyser, stmnt.cursors_idx, "unexpected if statement")
+    case Extern:
+        elog(analyser, stmnt.cursors_idx, "unexpected extern statement")
     }
-
-    // if statement == nil {
-    //     return .Void
-    // }
 
     return nil
 }
@@ -728,6 +726,8 @@ analyse_if :: proc(self: ^Analyser, ifs: ^If) {
 analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
     for &statement in block {
         switch &stmnt in statement {
+        case Extern:
+            analyse_extern(self, &stmnt)
         case Block:
             symtab_new_scope(self)
             analyse_block(self, stmnt.body)
@@ -773,9 +773,36 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: FnDecl) {
     analyse_block(self, fn.body)
 }
 
+analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
+    for statement in extern.body {
+        switch &stmnt in statement {
+        case FnDecl:
+            analyse_fn_decl(self, stmnt)
+        case VarDecl:
+            analyse_var_decl(self, &stmnt)
+        case VarReassign:
+            analyse_var_reassign(self, &stmnt)
+        case ConstDecl:
+            analyse_const_decl(self, &stmnt)
+        case Block:
+            elog(self, stmnt.cursors_idx, "illegal use of scope block, not inside a function")
+        case Return:
+            elog(self, stmnt.cursors_idx, "illegal use of return, not inside a function")
+        case FnCall:
+            elog(self, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
+        case If:
+            elog(self, stmnt.cursors_idx, "illegal use of if statement, not inside a function")
+        case Extern:
+            elog(self, stmnt.cursors_idx, "illegal use of extern, already inside extern")
+        }
+    }
+}
+
 analyse :: proc(self: ^Analyser) {
     for statement in self.ast {
         switch &stmnt in statement {
+        case Extern:
+            analyse_extern(self, &stmnt)
         case FnDecl:
             analyse_fn_decl(self, stmnt)
         case VarDecl:

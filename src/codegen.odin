@@ -69,6 +69,20 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
     return "", false
 }
 
+gen_extern :: proc(self: ^Codegen, extern: Extern) {
+    for statement in extern.body {
+        #partial switch stmnt in statement {
+        case FnDecl:
+            gen_fn_decl(self, stmnt, true)
+        case VarDecl:
+            gen_var_decl(self, stmnt)
+        case ConstDecl:
+            gen_const_decl(self, stmnt)
+        case VarReassign:
+            gen_var_reassign(self, stmnt)
+        }
+    }
+}
 
 gen_indent :: proc(self: ^Codegen) {
     for i in 0..<self.indent_level {
@@ -82,6 +96,8 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
 
     for statement in block {
         switch stmnt in statement {
+        case Extern:
+            gen_extern(self, stmnt)
         case Block:
             gen_indent(self)
             gen_block(self, stmnt.body)
@@ -126,9 +142,14 @@ gen_if :: proc(self: ^Codegen, ifs: If) {
     gen_block(self, ifs.els)
 }
 
-gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
+gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
     gen_indent(self)
-    fmt.sbprintf(&self.code, "pub fn %v(", fndecl.name.literal)
+
+    if is_extern {
+        fmt.sbprintf(&self.code, "pub extern fn %v(", fndecl.name.literal)
+    } else {
+        fmt.sbprintf(&self.code, "pub fn %v(", fndecl.name.literal)
+    }
 
     for stmnt, i in fndecl.args {
         arg := stmnt.(ConstDecl)
@@ -144,9 +165,14 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
     fntype_str, fntype_str_alloced := gen_type(self, fndecl.type)
     defer if fntype_str_alloced do delete(fntype_str)
 
-    fmt.sbprintf(&self.code, ") %v ", fntype_str)
+    fmt.sbprintf(&self.code, ") %v", fntype_str)
 
-    gen_block(self, fndecl.body)
+    if fndecl.has_body {
+        fmt.sbprint(&self.code, " ")
+        gen_block(self, fndecl.body)
+    } else {
+        fmt.sbprintln(&self.code, ";")
+    }
 }
 
 // returns allocated string, needs to be freed
@@ -469,6 +495,8 @@ gen_return :: proc(self: ^Codegen, ret: Return) {
 gen :: proc(self: ^Codegen) {
     for statement in self.ast {
         #partial switch stmnt in statement {
+        case Extern:
+            gen_extern(self, stmnt)
         case FnDecl:
             gen_fn_decl(self, stmnt)
         case VarDecl:
