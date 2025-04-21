@@ -70,7 +70,11 @@ tc_ptr_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
 
 tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     // <ident>: <lhs> = <rhs>
-    #partial switch l in lhs {
+    switch l in lhs {
+    case TypeId:
+        debug("warning: unexpected comparison between TypeId and %v", rhs)
+    case Void:
+        debug("warning: unexpected comparison between Void and %v", rhs)
     case Ptr:
         return tc_ptr_equals(analyser, lhs, rhs)
     case Array:
@@ -80,8 +84,16 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
         case Untyped_Int, I8, I16, I32, I64, U8, U16, U32, U64:
             return true
         }
+    case Untyped_Float:
+        #partial switch r in rhs {
+        case Untyped_Float, F32, F64:
+            return true
+        }
     case Bool:
         _, ok := rhs.(Bool)
+        return ok
+    case Char:
+        _, ok := rhs.(Char)
         return ok
     case I8:
         #partial switch r in rhs {

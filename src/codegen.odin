@@ -85,7 +85,7 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
         case Block:
             gen_indent(self)
             gen_block(self, stmnt.body)
-            fmt.sbprint(&self.code, "\n")
+            fmt.sbprintln(&self.code)
         case FnDecl:
             gen_fn_decl(self, stmnt)
         case VarDecl:
@@ -100,6 +100,7 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             call := gen_fn_call(self, stmnt, true)
             defer delete(call)
             fmt.sbprint(&self.code, call)
+            fmt.sbprintln(&self.code, ';')
         case If:
             gen_if(self, stmnt)
         }
@@ -107,7 +108,7 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
 
     self.indent_level -= 1
     gen_indent(self)
-    fmt.sbprint(&self.code, "}")
+    fmt.sbprintln(&self.code, "}")
 }
 
 gen_if :: proc(self: ^Codegen, ifs: If) {
@@ -145,12 +146,6 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl) {
     fmt.sbprintf(&self.code, ") %v ", fntype_str)
 
     gen_block(self, fndecl.body)
-
-    // NOTE: this is a hacky solution to make the formating
-    // of the output code prettier.
-    // NOTE: should i just make it so the output isn't readable?
-    strings.pop_byte(&self.code)
-    fmt.sbprint(&self.code, "\n}")
 }
 
 // returns allocated string, needs to be freed

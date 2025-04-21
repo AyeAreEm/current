@@ -1499,7 +1499,9 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
         token_next(self) // no nil check, already checked when peeked
         return parse_var_reassign(self, ident);
     case TokenLb:
-        return parse_fn_call(self, ident).(FnCall)
+        stmnt := parse_fn_call(self, ident).(FnCall)
+        token_expect(self, TokenSemiColon{})
+        return stmnt
     case:
         debug("here")
         elog(self, self.cursors_idx, "unexpected token %v", tok)

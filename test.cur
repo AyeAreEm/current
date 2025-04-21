@@ -1,3 +1,7 @@
+gimme_letter :: fn(l: char) void {
+    ch := l;
+}
+
 main :: fn() void {
-    letter := 'a';
+    gimme_letter('a');
 }
