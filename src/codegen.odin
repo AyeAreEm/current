@@ -115,6 +115,10 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
         case FnCall:
             call := gen_fn_call(self, stmnt, true)
             defer delete(call)
+
+            if !type_tag_equal(stmnt.type, Void{}) {
+                fmt.sbprint(&self.code, "_ = ")
+            }
             fmt.sbprint(&self.code, call)
             fmt.sbprintln(&self.code, ';')
         case If:
