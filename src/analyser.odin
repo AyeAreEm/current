@@ -68,44 +68,127 @@ symtab_find :: proc(analyser: ^Analyser, key: Expr, location: int) -> Stmnt {
     return values[curr_scope][index]
 }
 
+symtab_propogate_ptr :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
+    using analyser.symtab
+
+    #partial switch v in value {
+    case VarDecl:
+        expr := new(Expr); expr^ = v.name
+        field := new(Expr); field^ = Deref{
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access := FieldAccess{
+            expr = expr,
+            field = field,
+            type = tc_deref_ptr(analyser, v.type),
+            constant = v.type.(Ptr).constant,
+            cursors_idx = get_cursor_index(key),
+        }
+
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+    case ConstDecl:
+        expr := new(Expr); expr^ = v.name
+        field := new(Expr); field^ = Deref{
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access := FieldAccess{
+            expr = expr,
+            field = field,
+            type = tc_deref_ptr(analyser, v.type),
+            constant = v.type.(Ptr).constant,
+            cursors_idx = get_cursor_index(key),
+        }
+
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+    }
+}
+
+symtab_propogate_string :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
+    using analyser.symtab
+
+    #partial switch v in value {
+    case VarDecl:
+        expr := new(Expr); expr^ = v.name
+        field := new(Expr); field^ = Ident{
+            literal = "len",
+            type = U64{}, // TODO: change to usize
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access := FieldAccess{
+            expr = expr,
+            field = field,
+            type = U64{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+
+        field = new(Expr); field^ = Ident{
+            literal = "ptr",
+            type = Cstring{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access = FieldAccess{
+            expr = expr,
+            field = field,
+            type = Cstring{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+    case ConstDecl:
+        expr := new(Expr); expr^ = v.name
+        field := new(Expr); field^ = Ident{
+            literal = "len",
+            type = U64{}, // TODO: change to usize
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access := FieldAccess{
+            expr = expr,
+            field = field,
+            type = U64{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+
+        field = new(Expr); field^ = Ident{
+            literal = "ptr",
+            type = Cstring{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access = FieldAccess{
+            expr = expr,
+            field = field,
+            type = Cstring{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+    }
+}
+
 symtab_propogate :: proc(analyser: ^Analyser, key: Expr) {
     using analyser.symtab
 
     value := symtab_find(analyser, key, get_cursor_index(key))
-    #partial switch v in value {
-    case VarDecl:
+    if v, ok := value.(VarDecl); ok {
         if type_tag_equal(v.type, Ptr{}) {
-            expr := new(Expr); expr^ = v.name
-            field := new(Expr); field^ = Deref{
-                cursors_idx = get_cursor_index(key),
-            }
-            field_access := FieldAccess{
-                expr = expr,
-                field = field,
-                type = tc_deref_ptr(analyser, v.type),
-                constant = v.type.(Ptr).constant,
-                cursors_idx = get_cursor_index(key),
-            }
-
-            append(&keys[curr_scope], field_access)
-            append(&values[curr_scope], nil)
+            symtab_propogate_ptr(analyser, key, value)
+        } else if type_tag_equal(v.type, String{}) {
+            symtab_propogate_string(analyser, key, value)
         }
-    case ConstDecl:
+    } else if v, ok := value.(ConstDecl); ok {
         if type_tag_equal(v.type, Ptr{}) {
-            expr := new(Expr); expr^ = v.name
-            field := new(Expr); field^ = Deref{
-                cursors_idx = get_cursor_index(key),
-            }
-            field_access := FieldAccess{
-                expr = expr,
-                field = field,
-                type = tc_deref_ptr(analyser, v.type),
-                constant = v.type.(Ptr).constant,
-                cursors_idx = get_cursor_index(key),
-            }
-
-            append(&keys[curr_scope], field_access)
-            append(&values[curr_scope], nil)
+            symtab_propogate_ptr(analyser, key, value)
+        } else if type_tag_equal(v.type, String{}) {
+            symtab_propogate_string(analyser, key, value)
         }
     }
 }
@@ -183,6 +266,8 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     expr := expr
 
     switch &ex in expr {
+    case StrLit:
+        return ex.type
     case CharLit:
         return ex.type
     case Address:
@@ -197,6 +282,10 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     case Bool:
         return TypeId{}
     case Char:
+        return TypeId{}
+    case String:
+        return TypeId{}
+    case Cstring:
         return TypeId{}
     case I8:
         return TypeId{}
@@ -230,6 +319,10 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
         // TODO: this should probably give an actual type
         elog(analyser, ex.cursors_idx, "not implemented, can't return type from Deref right now")
     case FieldAccess:
+        if ex.type != nil {
+            return ex.type
+        }
+
         decl := symtab_find(analyser, ex.expr^, ex.cursors_idx)
         if var, ok := decl.(VarDecl); ok {
             return var.type
@@ -316,6 +409,8 @@ type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
         elog(analyser, stmnt.cursors_idx, "unexpected if statement")
     case Extern:
         elog(analyser, stmnt.cursors_idx, "unexpected extern statement")
+    case Directive:
+        elog(analyser, get_cursor_index(cast(Stmnt)stmnt), "unexpected directive")
     }
 
     return nil
@@ -360,6 +455,10 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case Char:
         return
+    case String:
+        return
+    case Cstring:
+        return
     case Address:
         analyse_expr(self, ex.value)
 
@@ -396,6 +495,8 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         if length > 1 {
             elog(self, ex.cursors_idx, "character literal cannot be more than one character")
         }
+    case StrLit:
+        ex.len = len(ex.literal)
     case True, False:
         return
     case Grouping:
@@ -726,6 +827,8 @@ analyse_if :: proc(self: ^Analyser, ifs: ^If) {
 analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
     for &statement in block {
         switch &stmnt in statement {
+        case Directive:
+            continue
         case Extern:
             analyse_extern(self, &stmnt)
         case Block:
@@ -794,6 +897,8 @@ analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
             elog(self, stmnt.cursors_idx, "illegal use of if statement, not inside a function")
         case Extern:
             elog(self, stmnt.cursors_idx, "illegal use of extern, already inside extern")
+        case Directive:
+            elog(self, get_cursor_index(cast(Stmnt)stmnt), "illegal use of directive, can't be inside extern")
         }
     }
 }
@@ -801,6 +906,8 @@ analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
 analyse :: proc(self: ^Analyser) {
     for statement in self.ast {
         switch &stmnt in statement {
+        case Directive:
+            continue
         case Extern:
             analyse_extern(self, &stmnt)
         case FnDecl:

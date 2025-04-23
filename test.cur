@@ -1,6 +1,14 @@
-extern putchar :: fn(c: i32) i32;
+#link "libc";
+
+extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    putchar(65); // A
-    putchar(10); // newline
+    word: string: "hello world";
+    ptr: cstring: word.ptr;
+    puts(ptr);
+
+/*
+    word :: "hello world";
+    puts(word.ptr);
+*/
 }

@@ -7,6 +7,8 @@ Codegen :: struct {
     ast: [dynamic]Stmnt,
     symtab: SymTab,
     code: strings.Builder,
+
+    linking: [dynamic]string,
     indent_level: u8,
 }
 
@@ -15,6 +17,8 @@ codegen_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab) -> Codegen {
         ast = ast,
         symtab = symtab,
         code = strings.builder_make(),
+
+        linking = make([dynamic]string),
         indent_level = 0,
     }
 }
@@ -57,6 +61,10 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
         return strings.to_string(ret), true
     case Ptr:
         return gen_ptr_type(self, t), true
+    case Cstring:
+        return "[*:0]const u8", false
+    case String:
+        return "[:0]const u8", false
     case Char:
         return "u8", false
     }
@@ -96,6 +104,8 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
 
     for statement in block {
         switch stmnt in statement {
+        case Directive:
+            gen_directive(self, stmnt)
         case Extern:
             gen_extern(self, stmnt)
         case Block:
@@ -206,32 +216,34 @@ gen_fn_call :: proc(self: ^Codegen, fncall: FnCall, with_indent: bool = false) -
 // returns string and true if string is allocated
 gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     switch expr in expression {
+    case Cstring:
+        return gen_type(self, expr)
+    case String:
+        return gen_type(self, expr)
     case Char:
-        // NOTE: for now char -> u8 even tho it's checked as if it were a "rune"
-        // TODO: find a way to represent utf8 char in zig
-        return "u8", false
+        return gen_type(self, expr)
     case Bool:
-        return "bool", false
+        return gen_type(self, expr)
     case I8:
-        return "i8", false
+        return gen_type(self, expr)
     case I16:
-        return "i16", false
+        return gen_type(self, expr)
     case I32:
-        return "i32", false
+        return gen_type(self, expr)
     case I64:
-        return "i64", false
+        return gen_type(self, expr)
     case U8:
-        return "u8", false
+        return gen_type(self, expr)
     case U16:
-        return "u16", false
+        return gen_type(self, expr)
     case U32:
-        return "u32", false
+        return gen_type(self, expr)
     case U64:
-        return "u64", false
+        return gen_type(self, expr)
     case F32:
-        return "f32", false
+        return gen_type(self, expr)
     case F64:
-        return "f64", false
+        return gen_type(self, expr)
     case Ident:
         return expr.literal, false
     case IntLit:
@@ -240,6 +252,9 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return expr.literal, false
     case CharLit:
         literal := fmt.aprintf("'%v'", expr.literal)
+        return literal, true
+    case StrLit:
+        literal := fmt.aprintf("\"%v\"", expr.literal)
         return literal, true
     case True:
         return "true", false
@@ -496,9 +511,22 @@ gen_return :: proc(self: ^Codegen, ret: Return) {
     fmt.sbprintfln(&self.code, "return %v;", value)
 }
 
+gen_directive :: proc(self: ^Codegen, directive: Directive) {
+    switch d in directive {
+    case DirectiveLink:
+        if strings.compare(d.link, "libc") == 0 {
+            append(&self.linking, "-lc")
+        } else {
+            append(&self.linking, d.link)
+        }
+    }
+}
+
 gen :: proc(self: ^Codegen) {
     for statement in self.ast {
         #partial switch stmnt in statement {
+        case Directive:
+            gen_directive(self, stmnt)
         case Extern:
             gen_extern(self, stmnt)
         case FnDecl:

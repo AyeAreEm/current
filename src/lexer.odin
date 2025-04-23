@@ -17,6 +17,14 @@ TokenFloatLit :: struct {
 TokenCharLit :: struct {
     literal: string,
 }
+TokenStrLit :: struct {
+    literal: string,
+}
+
+// #<literal>
+TokenDirective :: struct {
+    literal: string,
+}
 
 TokenColon :: struct {}
 TokenSemiColon :: struct {}
@@ -33,8 +41,6 @@ TokenRc :: struct {} // right curl
 
 TokenLs :: struct {} // left square
 TokenRs :: struct {} // right square
-
-// TokenQuote :: struct {}
 
 TokenComma :: struct {}
 TokenDot :: struct {}
@@ -54,6 +60,9 @@ Token :: union {
     TokenIntLit,
     TokenFloatLit,
     TokenCharLit,
+    TokenStrLit,
+
+    TokenDirective,
 
     TokenColon,
     TokenSemiColon,
@@ -103,6 +112,12 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenStrLit:
+        _, ok := rhs.(TokenStrLit)
+        return ok
+    case TokenDirective:
+        _, ok := rhs.(TokenDirective)
+        return ok
     case TokenCharLit:
         _, ok := rhs.(TokenCharLit)
         return ok
@@ -196,16 +211,22 @@ token_expect :: proc(self: ^Parser, expected: Token) -> Token {
 }
 
 lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u32) {
-    try_append :: proc(cursor: ^[dynamic][2]u32, col, row: ^u32, tokens: ^[dynamic]Token, buf: ^strings.Builder, extra_token: Token = nil) {
+    try_append :: proc(cursor: ^[dynamic][2]u32, col, row: ^u32, tokens: ^[dynamic]Token, buf: ^strings.Builder, is_directive: ^bool, extra_token: Token = nil) {
         if len(buf.buf) > 0 {
             append(cursor, [2]u32{row^, col^})
             string_buf := strings.to_string(buf^)
+
             if _, ok := strconv.parse_u64(string_buf); ok {
                 append(tokens, TokenIntLit{strings.clone(string_buf)})
             } else if _, ok := strconv.parse_f64(string_buf); ok {
                 append(tokens, TokenFloatLit{strings.clone(string_buf)})
             } else {
-                append(tokens, TokenIdent{strings.clone(string_buf)})
+                if is_directive^ {
+                    append(tokens, TokenDirective{strings.clone(string_buf)})
+                    is_directive^ = false
+                } else {
+                    append(tokens, TokenIdent{strings.clone(string_buf)})
+                }
             }
         }
 
@@ -231,6 +252,8 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
     in_single_line_comment := false
     in_block_comment := false
     in_quotes := false
+    in_double_quotes := false
+    is_directive := false
 
     for ch, i in source {
         if ignore_index != -1 && i == ignore_index {
@@ -285,20 +308,35 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             continue
         }
 
-        switch ch {
-        case ' ', '\r', '\n', '\t':
-            if ch == '\r' {
-                continue
-            }
-
-            try_append(&cursor, &col, &row, &tokens, &buf)
+        if in_double_quotes && ch != '"' {
+            append(&buf.buf, cast(u8)ch)
             if ch == '\n' {
                 row += 1
                 col = 1
             } else {
                 col += 1
             }
+            continue
+        }
+
+        switch ch {
+        case ' ', '\r', '\n', '\t':
+            if ch == '\r' {
+                continue
+            }
+
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive)
+            if ch == '\n' {
+                row += 1
+                col = 1
+            } else {
+                col += 1
+            }
+        case '#':
+            is_directive = true
+            col += 1
         case '\'':
+            // TODO: handle escaped '
             if in_quotes {
                 in_quotes = false
                 string_buf := strings.to_string(buf)
@@ -310,6 +348,22 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
                 clear(&buf.buf)
             } else {
                 in_quotes = true
+                col += 1
+            }
+        case '"':
+            // TODO: handle escaped "
+            if in_double_quotes {
+                in_double_quotes = false
+                string_buf := strings.to_string(buf)
+
+                append(&cursor, [2]u32{row, col})
+                append(&tokens, TokenStrLit{
+                    literal = strings.clone(string_buf),
+                })
+                clear(&buf.buf)
+            } else {
+                in_double_quotes = true
+                col += 1
             }
         case '.':
             string_buf := strings.to_string(buf)
@@ -317,61 +371,63 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
                 append(&buf.buf, cast(u8)ch)
                 col += 1
             } else {
-                try_append(&cursor, &col, &row, &tokens, &buf, TokenDot{})
+                try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenDot{})
             }
         case ':':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenColon{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenColon{})
         case '(':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenLb{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenLb{})
         case ')':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenRb{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenRb{})
         case '{':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenLc{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenLc{})
         case '}':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenRc{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenRc{})
         case '<':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenLa{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenLa{})
         case '>':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenRa{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenRa{})
         case '[':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenLs{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenLs{})
         case ']':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenRs{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenRs{})
         case '=':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenEqual{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenEqual{})
         case '!':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenExclaim{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenExclaim{})
         case ';':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenSemiColon{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenSemiColon{})
         case ',':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenComma{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenComma{})
         case '+':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenPlus{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenPlus{})
         case '-':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenMinus{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenMinus{})
         case '*':
             if '/' == source[i + 1] {
                 ignore_index = i + 1
                 in_block_comment = false
+                col += 1
             } else {
-                try_append(&cursor, &col, &row, &tokens, &buf, TokenStar{})
+                try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenStar{})
             }
         case '^':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenCaret{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenCaret{})
         case '&':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenAmpersand{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenAmpersand{})
         case '/':
             if '/' == source[i + 1] {
                 ignore_index = i + 1
                 in_single_line_comment = true
+                col += 1
             } else if '*' == source[i + 1] {
                 ignore_index = i + 1
                 in_block_comment = true
             } else {
-                try_append(&cursor, &col, &row, &tokens, &buf, TokenSlash{})
+                try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenSlash{})
             }
         case '\\':
-            try_append(&cursor, &col, &row, &tokens, &buf, TokenBackSlash{})
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenBackSlash{})
         case:
             append(&buf.buf, cast(u8)ch)
             col += 1

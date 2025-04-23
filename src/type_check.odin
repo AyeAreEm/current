@@ -95,6 +95,12 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     case Char:
         _, ok := rhs.(Char)
         return ok
+    case Cstring:
+        _, ok := rhs.(Cstring)
+        return ok
+    case String:
+        _, ok := rhs.(String)
+        return ok
     case I8:
         #partial switch r in rhs {
         case I8, Untyped_Int:

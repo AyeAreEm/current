@@ -15,6 +15,14 @@ Bool :: struct {
 Char :: struct {
     cursors_idx: int,
 }
+String :: struct {
+    // len: uint,
+    cursors_idx: int,
+}
+Cstring :: struct {
+    cursors_idx: int,
+}
+
 I8 :: struct {
     cursors_idx: int,
 }
@@ -66,6 +74,8 @@ Type :: union {
     Bool,
 
     Char,
+    String,
+    Cstring,
 
     I8,
     I16,
@@ -92,6 +102,8 @@ type_map := map[string]Type{
     "void" = Void{},
     "bool" = Bool{},
     "char" = Char{},
+    "string" = String{},
+    "cstring" = Cstring{},
 
     "i8" = I8{},
     "i16" = I16{},
@@ -109,6 +121,12 @@ type_map := map[string]Type{
 
 type_tag_equal :: proc(lhs, rhs: Type) -> bool {
     switch t in lhs {
+    case Cstring:
+        _, ok := rhs.(Cstring)
+        return ok
+    case String:
+        _, ok := rhs.(String)
+        return ok
     case Char:
         _, ok := rhs.(Char)
         return ok
@@ -199,6 +217,26 @@ expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
     }
 }
 
+DirectiveLink :: struct {
+    link: string,
+    cursors_idx: int,
+}
+Directive :: union {
+    DirectiveLink,
+}
+directive_map := map[string]Directive{
+    "link" = DirectiveLink{}
+}
+
+parser_get_directive :: proc(self: ^Parser, word: string) -> Directive {
+    d, ok := directive_map[word]
+    if !ok {
+        elog(self, self.cursors_idx, "\"#%v\" is not a directive", word)
+    }
+
+    return d
+}
+
 IntLit :: struct {
     literal: string,
     type: Type,
@@ -212,6 +250,12 @@ FloatLit :: struct {
 CharLit :: struct {
     literal: string,
     type: Type,
+    cursors_idx: int,
+}
+StrLit :: struct {
+    literal: string,
+    type: Type,
+    len: uint,
     cursors_idx: int,
 }
 Literal :: struct {
@@ -326,6 +370,8 @@ Expr :: union {
     // types are also expressions
     Bool,
     Char,
+    String,
+    Cstring,
 
     I8,
     I16,
@@ -343,6 +389,7 @@ Expr :: union {
     IntLit,
     FloatLit,
     CharLit,
+    StrLit,
     Literal,
 
     Ident,
@@ -428,12 +475,25 @@ Stmnt :: union {
     If,
     Block,
     Extern,
+    Directive,
+}
+
+get_directive_cursor_index :: proc(item: Directive) -> int {
+    switch it in item {
+    case DirectiveLink:
+        return it.cursors_idx
+    }
+
+    debug("unreachable in get_directive_cursor_index")
+    unreachable()
 }
 
 get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case StrLit:
+            return expr.cursors_idx
         case CharLit:
             return expr.cursors_idx
         case Deref:
@@ -445,6 +505,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         case Bool:
             return expr.cursors_idx
         case Char:
+            return expr.cursors_idx
+        case String:
+            return expr.cursors_idx
+        case Cstring:
             return expr.cursors_idx
         case I8:
             return expr.cursors_idx
@@ -509,6 +573,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     case Stmnt:
         switch stmnt in it {
+        case Directive:
+            return get_directive_cursor_index(stmnt)
         case Extern:
             return stmnt.cursors_idx
         case Block:
@@ -530,12 +596,14 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     }
 
-    debug("unreachable")
+    debug("unreachable in get_cursor_index")
     unreachable()
 }
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case StrLit:
+        fmt.printf("\"%v\"", expr.literal)
     case CharLit:
         fmt.printf("'%v'", expr.literal)
     case Deref:
@@ -551,6 +619,10 @@ expr_print :: proc(expression: Expr) {
         fmt.print("Bool")
     case Char:
         fmt.print("Char")
+    case String:
+        fmt.print("String")
+    case Cstring:
+        fmt.print("Cstring")
     case I8:
         fmt.print("I8")
     case I16:
@@ -664,6 +736,8 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
     }
 
     switch stmnt in statement {
+    case Directive:
+        fmt.println("Directive (%v)", stmnt)
     case Extern:
         fmt.println("Extern {")
         for s in stmnt.body {
@@ -728,13 +802,16 @@ stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
     }
 }
 
-convert_ident :: proc(using token: TokenIdent) -> union {Type, Keyword, string} {
+convert_ident :: proc(self: ^Parser, using token: TokenIdent) -> union {Type, Keyword, Ident} {
     if ident in keyword_map {
         return keyword_map[ident]
     } else if ident in type_map {
         return type_map[ident]
     } else {
-        return ident
+        return Ident{
+            literal = ident,
+            cursors_idx = self.cursors_idx
+        }
     }
 }
 Parser :: struct {
@@ -777,7 +854,7 @@ parse_fn_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
     self.in_func_decl_args = false
 
     type_ident := token_expect(self, TokenIdent{})
-    type := convert_ident(type_ident.(TokenIdent)).(Type)
+    type := convert_ident(self, type_ident.(TokenIdent)).(Type)
 
     token := token_peek(self)
     if token_tag_equal(token, TokenLc{}) {
@@ -941,12 +1018,20 @@ parse_primary :: proc(self: ^Parser) -> Expr {
         }
     case TokenIdent:
         token_next(self)
-        converted_ident := convert_ident(tok)
-        if name, ok := converted_ident.(string); ok {
-            return Ident{
+        converted_ident := convert_ident(self, tok)
+        if name, ok := converted_ident.(Ident); ok {
+            ident := Ident{
                 literal = tok.ident,
                 cursors_idx = self.cursors_idx,
             }
+
+            token = token_peek(self)
+            if token_tag_equal(token, TokenDot{}) {
+                token_next(self)
+                return parse_field_access(self, ident)
+            }
+
+            return ident
         } else if keyword, ok := converted_ident.(Keyword); ok {
             return expr_from_keyword(self, keyword)
         } else {
@@ -971,6 +1056,13 @@ parse_primary :: proc(self: ^Parser) -> Expr {
         return CharLit{
             literal = tok.literal,
             type = Char{},
+            cursors_idx = self.cursors_idx
+        }
+    case TokenStrLit:
+        token_next(self)
+        return StrLit{
+            literal = tok.literal,
+            type = String{},
             cursors_idx = self.cursors_idx
         }
     case TokenLb:
@@ -1155,7 +1247,7 @@ parse_const_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil) -> Stmnt
 
     #partial switch tok in token {
     case TokenIdent:
-        converted_ident := convert_ident(tok)
+        converted_ident := convert_ident(self, tok)
         if keyword, keyword_ok := converted_ident.(Keyword); keyword_ok {
             #partial switch keyword {
             case .Fn:
@@ -1329,7 +1421,7 @@ parse_type :: proc(self: ^Parser) -> Type {
         parse_set_array_type(self, &type, subtype)
     case TokenIdent:
         token_next(self)
-        converted_ident := convert_ident(tok)
+        converted_ident := convert_ident(self, tok)
 
         if subtype, ok := converted_ident.(Type); ok {
             type = subtype
@@ -1458,7 +1550,7 @@ parse_var_operator_equal :: proc(self: ^Parser, ident: Expr, operator: Token) ->
 }
 
 parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
-    // already nexted "."
+    // expects "." already nexted
     // <ident>.
 
     index := self.cursors_idx
@@ -1478,9 +1570,27 @@ parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
             constant = false,
             cursors_idx = index,
         }
-    } else {
-        elog(self, self.cursors_idx, "unexpected token %v after field access", token)
     }
+
+    //<ident>.<ident>
+    if token_tag_equal(token, TokenIdent{}) {
+        converted_ident := convert_ident(self, token.(TokenIdent))
+        if id, ok := converted_ident.(Ident); ok {
+            field := new(Expr); field^ = id
+
+            return FieldAccess{
+                expr = front,
+                field = field,
+                type = nil,
+                constant = false,
+                cursors_idx = index,
+            }
+        } else {
+            elog(self, self.cursors_idx, "unexpected token %v after field access", token)
+        }
+    }
+
+    elog(self, self.cursors_idx, "unexpected token %v after field access", token)
 }
 
 parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
@@ -1566,7 +1676,7 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
     else_block: [dynamic]Stmnt
     
     if token := token_peek(self); token_tag_equal(token, TokenIdent{}) {
-        converted := convert_ident(token.(TokenIdent))
+        converted := convert_ident(self, token.(TokenIdent))
         if keyword, ok := converted.(Keyword); ok {
             if keyword == .Else {
                 token_next(self)
@@ -1592,6 +1702,23 @@ parse_extern :: proc(self: ^Parser) -> Stmnt {
     }
 }
 
+parse_directive :: proc(self: ^Parser) -> Stmnt {
+    token := token_next(self)
+    directive := parser_get_directive(self, token.(TokenDirective).literal)
+
+    switch &d in directive {
+    case DirectiveLink:
+        d.cursors_idx = self.cursors_idx
+
+        token = token_expect(self, TokenStrLit{})
+        token_expect(self, TokenSemiColon{});
+
+        d.link = token.(TokenStrLit).literal
+    }
+
+    return directive
+}
+
 parse :: proc(self: ^Parser) -> Stmnt {
     token := token_peek(self)
     if token == nil do return nil
@@ -1599,13 +1726,10 @@ parse :: proc(self: ^Parser) -> Stmnt {
     #partial switch tok in token {
     case TokenIdent:
         token_next(self) // no nil check, already checked when peeked
-        converted_ident := convert_ident(tok)
+        converted_ident := convert_ident(self, tok)
 
-        if ident, ident_ok := converted_ident.(string); ident_ok {
-            return parse_ident(self, Ident{
-                literal = ident,
-                cursors_idx = self.cursors_idx,
-            })
+        if ident, ident_ok := converted_ident.(Ident); ident_ok {
+            return parse_ident(self, ident)
         } else if keyword, keyword_ok := converted_ident.(Keyword); keyword_ok {
             #partial switch keyword {
             case .Return:
@@ -1622,7 +1746,10 @@ parse :: proc(self: ^Parser) -> Stmnt {
             body = parse_block(self),
             cursors_idx = index,
         }
+    case TokenDirective:
+        return parse_directive(self)
     case:
+        token_next(self)
         elog(self, self.cursors_idx, "unexpected token %v", tok)
     }
     return nil

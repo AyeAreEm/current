@@ -3,7 +3,7 @@ package main
 import "core:fmt"
 import "core:os"
 import "core:strings"
-import "core:testing"
+import "core:os/os2"
 
 DEBUG_MODE :: false
 
@@ -37,7 +37,57 @@ current_elog :: proc(format: string, args: ..any) -> ! {
 
 elog :: proc{current_elog, parser_elog, analyse_elog}
 
-build :: proc(filename: string) {
+get_filename :: proc(path: string) -> string {
+    filename: string
+    path_parts: []string
+    defer delete(path_parts)
+
+    if strings.contains(path[0:2], "./") {
+        path_parts = strings.split(path[2:], ".")
+    } else if strings.contains(path[0:2], ".\\") {
+        path_parts = strings.split(path[3:], ".")
+    } else {
+        path_parts = strings.split(path, ".")
+    }
+
+    filename = strings.clone(path_parts[0])
+    return filename
+}
+
+compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
+    filename := get_filename(filepath)
+
+    compile_com := make([dynamic]string)
+    append(&compile_com, "zig")
+    append(&compile_com, "build-exe" if !run else "run")
+    append(&compile_com, "--name")
+    append(&compile_com, filename)
+    append(&compile_com, "output.zig")
+
+    for link in linking {
+        append(&compile_com, link)
+    }
+
+    if DEBUG_MODE {
+        for com in compile_com {
+            fmt.printf("%v ", com)
+        }
+        fmt.println("")
+    }
+
+    state, stdout, stderr, process_err := os2.process_exec(os2.Process_Desc{
+        command = compile_com[:],
+    }, context.temp_allocator)
+    defer if process_err != nil {
+        delete(stdout)
+        delete(stderr)
+    }
+
+    fmt.print(cast(string)stdout)
+    fmt.print(cast(string)stderr)
+}
+
+build :: proc(filename: string) -> [dynamic]string {
     content_bytes, content_bytes_ok := os.read_entire_file(filename)
     if !content_bytes_ok {
         elog("failed to read %v", filename)
@@ -68,6 +118,7 @@ build :: proc(filename: string) {
     gen(&codegen);
 
     os.write_entire_file("output.zig", codegen.code.buf[:])
+    return codegen.linking
 }
 
 main :: proc() {
@@ -79,10 +130,14 @@ main :: proc() {
 
     arg0 := args_next(&args, "")
     command := args_next(&args, arg0)
+    filename := args_next(&args, command)
 
     if strings.compare(command, "build") == 0 {
-        filename := args_next(&args, command)
-        build(filename)
+        linking := build(filename)
+        compile(filename, linking)
+    } else if strings.compare(command, "run") == 0 {
+        linking := build(filename)
+        compile(filename, linking, true)
     } else {
         elog("unexpected command %v", command)
     }
