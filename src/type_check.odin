@@ -1,6 +1,7 @@
 package main
 
 import "core:strconv"
+import "core:fmt"
 import "core:math"
 
 I8_MAX  :: max(i8)
@@ -42,14 +43,24 @@ tc_deref_ptr :: proc(analyser: ^Analyser, type: Type) -> Type {
 }
 
 tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
-    #partial switch l in lhs {
+    #partial switch &l in lhs {
     case Array:
-        l_len, _ := evaluate_expr(analyser, l.len)
-        #partial switch r in rhs {
-        case Array:
-            r_len, _ := evaluate_expr(analyser, r.len)
-            if l_len != r_len do return false
-            return tc_array_equals(analyser, l.type^, r.type^)
+        if lhs_len, ok := l.len.?; ok {
+            #partial switch r in rhs {
+            case Array:
+                l_len, _ := evaluate_expr(analyser, lhs_len)
+                r_len, _ := evaluate_expr(analyser, r.len.?)
+                if l_len != r_len do return false
+                return tc_array_equals(analyser, l.type^, r.type^)
+            }
+        } else {
+            #partial switch r in rhs {
+            case Array:
+                r_len, _ := evaluate_expr(analyser, r.len.?)
+                l.len = new(Expr);
+                l.len = r.len.?
+                return tc_array_equals(analyser, l.type^, r.type^)
+            }
         }
     case:
         return type_tag_equal(lhs, rhs)
@@ -313,6 +324,7 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
 tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
     expr_type := type_of_expr(analyser, vardecl.value)
 
+    // debug("here, %v", vardecl^)
     if type_tag_equal(expr_type, Void{}) {
         return
     }
@@ -341,11 +353,23 @@ tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
 tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
     // TODO: finish this
 
-    #partial switch array in literal.type {
+    #partial switch &array in literal.type {
     case Array:
-        length, _ := evaluate_expr(analyser, array.len)
-        if len(literal.values) != cast(int)length {
-            elog(analyser, literal.cursors_idx, "array length {}, literal length {}", length, len(literal.values))
+        if array_len, ok := array.len.?; ok {
+            length, _ := evaluate_expr(analyser, array_len)
+
+            if len(literal.values) != cast(int)length {
+                elog(analyser, literal.cursors_idx, "array length {}, literal length {}", length, len(literal.values))
+            }
+        } else {
+            length := fmt.aprintf("%v", len(literal.values))
+
+            array.len = new(Expr)
+            array.len.?^ = IntLit{
+                literal = length,
+                type = Usize{},
+                cursors_idx = 0,
+            }
         }
     }
 }

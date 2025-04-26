@@ -26,7 +26,7 @@ codegen_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab) -> Codegen {
 gen_array_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder) {
     #partial switch subtype in array {
     case Array:
-        length, length_alloced := gen_expr(self, subtype.len^)
+        length, length_alloced := gen_expr(self, subtype.len.?^)
         defer if length_alloced do delete(length)
 
         fmt.sbprintf(str, "[%v]", length)

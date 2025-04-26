@@ -65,7 +65,7 @@ Isize :: struct {
 
 Array :: struct {
     type: ^Type,
-    len: ^Expr,
+    len: Maybe(^Expr), // if nil, infer lne
 }
 
 Ptr :: struct {
@@ -1454,6 +1454,22 @@ parse_type :: proc(self: ^Parser) -> Type {
                 array_type := Array{
                     type = new(Type),
                     len = len,
+                }
+
+                #partial switch &t in type {
+                case nil:
+                    type = array_type
+                case Array:
+                    subtype := new(Type); subtype^ = array_type
+                    t.type = subtype
+               }
+            } else if token_tag_equal(after, TokenUnderscore{}) {
+                token_next(self)
+                token_expect(self, TokenRs{})
+
+                array_type := Array{
+                    type = new(Type),
+                    len = nil,
                 }
 
                 #partial switch &t in type {

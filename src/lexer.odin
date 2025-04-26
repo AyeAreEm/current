@@ -55,6 +55,8 @@ TokenBackSlash :: struct {}
 TokenAmpersand :: struct {}
 TokenExclaim :: struct {}
 
+TokenUnderscore :: struct {}
+
 Token :: union {
     TokenIdent,
     TokenIntLit,
@@ -92,6 +94,8 @@ Token :: union {
 
     TokenAmpersand,
     TokenExclaim,
+
+    TokenUnderscore,
 }
 
 token_peek :: proc(self: ^Parser) -> Token {
@@ -112,6 +116,9 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenUnderscore:
+        _, ok := rhs.(TokenUnderscore)
+        return ok
     case TokenStrLit:
         _, ok := rhs.(TokenStrLit)
         return ok
@@ -216,7 +223,9 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             append(cursor, [2]u32{row^, col^})
             string_buf := strings.to_string(buf^)
 
-            if _, ok := strconv.parse_u64(string_buf); ok {
+            if strings.compare(string_buf, "_") == 0 {
+                append(tokens, TokenUnderscore{})
+            } else if _, ok := strconv.parse_u64(string_buf); ok {
                 append(tokens, TokenIntLit{strings.clone(string_buf)})
             } else if _, ok := strconv.parse_f64(string_buf); ok {
                 append(tokens, TokenFloatLit{strings.clone(string_buf)})
