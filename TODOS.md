@@ -14,6 +14,7 @@
 - Compile Time Expressions
 - Compile Time Execution
 - Type Casting
+- Better Error Messages
 
 # In Progress
 - Importing External Libraries
