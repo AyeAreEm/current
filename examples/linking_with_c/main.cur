@@ -1,0 +1,8 @@
+#link "libc"; #link "greet.o";
+
+extern greet :: fn(name: cstring) void;
+
+// `current run main.cur`
+main :: fn() void {
+    greet(c"world");
+}
