@@ -21,6 +21,7 @@
 # Completed
 - Function Declarations
 - Function Calls
+- Return statement
 - Variable Declarations
 - Variable Expressions
 - Integer Types
@@ -40,6 +41,7 @@
 - Character Type
 - Character Literal
 - External Function Calls
-- C string type
 - String Type
 - String Literal
+- C string type
+- Cstring Literal

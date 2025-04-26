@@ -277,6 +277,12 @@ StrLit :: struct {
     len: uint,
     cursors_idx: int,
 }
+CstrLit :: struct {
+    literal: string,
+    type: Type,
+    len: uint,
+    cursors_idx: int,
+}
 Literal :: struct {
     values: [dynamic]Expr,
     type: Type,
@@ -412,6 +418,7 @@ Expr :: union {
     FloatLit,
     CharLit,
     StrLit,
+    CstrLit,
     Literal,
 
     Ident,
@@ -514,6 +521,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case CstrLit:
+            return expr.cursors_idx
         case StrLit:
             return expr.cursors_idx
         case CharLit:
@@ -628,6 +637,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case CstrLit:
+        fmt.printf("c\"%v\"", expr.literal)
     case StrLit:
         fmt.printf("\"%v\"", expr.literal)
     case CharLit:
@@ -1050,18 +1061,26 @@ parse_primary :: proc(self: ^Parser) -> Expr {
         token_next(self)
         converted_ident := convert_ident(self, tok)
         if name, ok := converted_ident.(Ident); ok {
-            ident := Ident{
-                literal = tok.ident,
-                cursors_idx = self.cursors_idx,
-            }
-
             token = token_peek(self)
+
+            // <ident>.
             if token_tag_equal(token, TokenDot{}) {
                 token_next(self)
-                return parse_field_access(self, ident)
+                return parse_field_access(self, name)
+            } else if strings.compare(name.literal, "c") == 0 {
+            // c""
+                if token_tag_equal(token, TokenStrLit{}) {
+                    token_next(self)
+                    return CstrLit{
+                        literal = token.(TokenStrLit).literal,
+                        type = Cstring{},
+                        cursors_idx = self.cursors_idx
+                    }
+                }
             }
 
-            return ident
+            // <ident>
+            return name
         } else if keyword, ok := converted_ident.(Keyword); ok {
             return expr_from_keyword(self, keyword)
         } else {

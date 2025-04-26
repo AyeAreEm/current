@@ -266,6 +266,8 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     expr := expr
 
     switch &ex in expr {
+    case CstrLit:
+        return ex.type
     case StrLit:
         return ex.type
     case CharLit:
@@ -500,6 +502,8 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             elog(self, ex.cursors_idx, "character literal cannot be more than one character")
         }
     case StrLit:
+        ex.len = len(ex.literal)
+    case CstrLit:
         ex.len = len(ex.literal)
     case True, False:
         return

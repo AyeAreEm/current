@@ -260,6 +260,9 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     case StrLit:
         literal := fmt.aprintf("\"%v\"", expr.literal)
         return literal, true
+    case CstrLit:
+        literal := fmt.aprintf("\"%v\"", expr.literal)
+        return literal, true
     case True:
         return "true", false
     case False:

@@ -333,6 +333,7 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
                 col += 1
             }
         case '#':
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive)
             is_directive = true
             col += 1
         case '\'':
@@ -347,6 +348,7 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
                 })
                 clear(&buf.buf)
             } else {
+                try_append(&cursor, &col, &row, &tokens, &buf, &is_directive)
                 in_quotes = true
                 col += 1
             }
@@ -362,6 +364,7 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
                 })
                 clear(&buf.buf)
             } else {
+                try_append(&cursor, &col, &row, &tokens, &buf, &is_directive)
                 in_double_quotes = true
                 col += 1
             }
