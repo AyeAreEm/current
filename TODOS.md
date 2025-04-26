@@ -2,9 +2,6 @@
 - Loops
 - Break Statement
 - Continue Statement
-- Importing External Libraries
-- String Type
-- String Literal
 - Struct Definitions
 - Struct Literals
 - Enum Definitions
@@ -19,6 +16,7 @@
 - Type Casting
 
 # In Progress
+- Importing External Libraries
 
 # Completed
 - Function Declarations
@@ -42,3 +40,6 @@
 - Character Type
 - Character Literal
 - External Function Calls
+- C string type
+- String Type
+- String Literal

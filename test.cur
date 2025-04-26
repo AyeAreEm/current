@@ -1,14 +1,6 @@
-#link "libc";
-
-extern puts :: fn(s: cstring) i32;
-
 main :: fn() void {
-    word: string: "hello world";
-    ptr: cstring: word.ptr;
-    puts(ptr);
-
-/*
-    word :: "hello world";
-    puts(word.ptr);
-*/
+    num: usize = 10;
+    if (num == 10) {
+        num = 11;
+    }
 }

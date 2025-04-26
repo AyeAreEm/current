@@ -21,6 +21,12 @@ U32_MIN :: min(u32)
 U64_MAX :: max(u64)
 U64_MIN :: min(u64)
 
+USIZE_MAX :: max(int)
+USIZE_MIN :: min(int)
+
+ISIZE_MAX :: max(uint)
+ISIZE_MIN :: min(uint)
+
 F32_MIN :: min(f32)
 F32_MAX :: min(f32)
 F64_MIN :: min(f64)
@@ -81,7 +87,7 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
         return tc_array_equals(analyser, lhs, rhs)
     case Untyped_Int:
         #partial switch r in rhs {
-        case Untyped_Int, I8, I16, I32, I64, U8, U16, U32, U64:
+        case Untyped_Int, I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize:
             return true
         }
     case Untyped_Float:
@@ -121,6 +127,11 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
         case I64, I32, I16, I8, Untyped_Int:
             return true
         }
+    case Isize:
+        #partial switch r in rhs {
+        case Isize, I64, I32, I16, I8, Untyped_Int:
+            return true
+        }
     case U8:
         #partial switch r in rhs {
         case U8, Untyped_Int:
@@ -139,6 +150,11 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     case U64:
         #partial switch r in rhs {
         case U64, U32, U16, U8, Untyped_Int:
+            return true
+        }
+    case Usize:
+        #partial switch r in rhs {
+        case Usize, I64, I32, I16, I8, Untyped_Int:
             return true
         }
     case F32:
@@ -229,6 +245,11 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
             if value > auto_cast U64_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in u64", value)
             }
+        case Usize:
+            value, _ := strconv.parse_u64(expr.literal)
+            if value > auto_cast U64_MAX {
+                elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in usize", value)
+            }
         case I8:
             value, _ := strconv.parse_i64(expr.literal)
             if value > auto_cast I8_MAX {
@@ -248,6 +269,11 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
             value, _ := strconv.parse_i64(expr.literal)
             if value > auto_cast I64_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in i64", value)
+            }
+        case Isize:
+            value, _ := strconv.parse_u64(expr.literal)
+            if value > auto_cast U64_MAX {
+                elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in isize", value)
             }
         }
     case Negative:
@@ -273,6 +299,11 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
                 value, _ := strconv.parse_i64(ex.literal)
                 if -value < auto_cast I64_MIN {
                     elog(analyser, get_cursor_index(expression), "literal \"-%v\" cannot be represented in i64", value)
+                }
+            case Isize:
+                value, _ := strconv.parse_i64(ex.literal)
+                if -value < auto_cast ISIZE_MIN {
+                    elog(analyser, get_cursor_index(expression), "literal \"-%v\" cannot be represented in isize", value)
                 }
             }
         }
@@ -331,23 +362,23 @@ tc_can_compare_value :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
         return type_tag_equal(rhs, Char{})
     case Bool:
         return type_tag_equal(rhs, Bool{})
-    case I8, I16, I32, I64:
+    case I8, I16, I32, I64, Isize:
         #partial switch r in rhs {
-        case I8, I16, I32, I64:
+        case I8, I16, I32, I64, Isize, Untyped_Int:
             return true
         case:
             return false
         }
-    case U8, U16, U32, U64:
+    case U8, U16, U32, U64, Usize:
         #partial switch r in rhs {
-        case U8, U16, U32, U64:
+        case U8, U16, U32, U64, Usize, Untyped_Int:
             return true
         case:
             return false
         }
     case Untyped_Int:
         #partial switch r in rhs {
-        case Untyped_Int, I8, I16, I32, I64, U8, U16, U32, U64:
+        case Untyped_Int, I8, I16, I32, I64, U8, U16, U32, U64, Isize, Usize:
             return true
         case:
             return false
@@ -366,23 +397,23 @@ tc_can_compare_value :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
 
 tc_can_compare_order :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
     #partial switch l in lhs {
-    case I8, I16, I32, I64:
+    case I8, I16, I32, I64, Isize:
         #partial switch r in rhs {
-        case I8, I16, I32, I64:
+        case I8, I16, I32, I64, Isize:
             return true
         case:
             return false
         }
-    case U8, U16, U32, U64:
+    case U8, U16, U32, U64, Usize:
         #partial switch r in rhs {
-        case U8, U16, U32, U64:
+        case U8, U16, U32, U64, Usize:
             return true
         case:
             return false
         }
     case Untyped_Int:
         #partial switch r in rhs {
-        case Untyped_Int, I8, I16, I32, I64, U8, U16, U32, U64:
+        case Untyped_Int, I8, I16, I32, I64, U8, U16, U32, U64, Isize, Usize:
             return true
         case:
             return false
@@ -396,5 +427,18 @@ tc_can_compare_order :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
         }
     case:
         return false
+    }
+}
+
+tc_is_unsigned :: proc(analyser: ^Analyser, expr: Expr) -> bool {
+    type := type_of_expr(analyser, expr)
+
+    #partial switch t in type {
+    case U8, U16, U32, U64, Usize:
+        return true
+    case I8, I16, I32, I64, Isize:
+        return false
+    case:
+        elog(analyser, get_cursor_index(expr), "expected an integer type, got %v", type)
     }
 }

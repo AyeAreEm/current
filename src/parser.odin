@@ -56,6 +56,13 @@ F64 :: struct {
     cursors_idx: int,
 }
 
+Usize :: struct {
+    cursors_idx: int,
+}
+Isize :: struct {
+    cursors_idx: int,
+}
+
 Array :: struct {
     type: ^Type,
     len: ^Expr,
@@ -90,6 +97,9 @@ Type :: union {
     F32,
     F64,
 
+    Usize,
+    Isize,
+
     Untyped_Int,
     Untyped_Float,
 
@@ -117,6 +127,9 @@ type_map := map[string]Type{
 
     "f32" = F32{},
     "f64" = F64{},
+
+    "usize" = Usize{},
+    "isize" = Isize{},
 }
 
 type_tag_equal :: proc(lhs, rhs: Type) -> bool {
@@ -168,6 +181,12 @@ type_tag_equal :: proc(lhs, rhs: Type) -> bool {
         return ok
     case F64:
         _, ok := rhs.(F64)
+        return ok
+    case Usize:
+        _, ok := rhs.(Usize)
+        return ok
+    case Isize:
+        _, ok := rhs.(Isize)
         return ok
     case Untyped_Int:
         _, ok := rhs.(Untyped_Int)
@@ -386,6 +405,9 @@ Expr :: union {
     F32,
     F64,
 
+    Usize,
+    Isize,
+
     IntLit,
     FloatLit,
     CharLit,
@@ -530,6 +552,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return expr.cursors_idx
         case F64:
             return expr.cursors_idx
+        case Usize:
+            return expr.cursors_idx
+        case Isize:
+            return expr.cursors_idx
         case Literal:
             return expr.cursors_idx
         case Grouping:
@@ -643,6 +669,10 @@ expr_print :: proc(expression: Expr) {
         fmt.print("F32")
     case F64:
         fmt.print("F64")
+    case Usize:
+        fmt.print("Usize")
+    case Isize:
+        fmt.print("Isize")
     case Literal:
         fmt.printf("%v{{", expr.type)
         for value, i in expr.values {

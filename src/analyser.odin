@@ -307,6 +307,10 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
         return TypeId{}
     case F64:
         return TypeId{}
+    case Usize:
+        return TypeId{}
+    case Isize:
+        return TypeId{}
     case Negative:
         return ex.type
     case Grouping:
@@ -445,9 +449,9 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     case FieldAccess:
         fa := symtab_find_key(self, expr^, ex.cursors_idx).(FieldAccess)
         ex = fa
-    case I8, I16, I32, I64:
+    case I8, I16, I32, I64, Isize:
         return
-    case U8, U16, U32, U64:
+    case U8, U16, U32, U64, Usize:
         return
     case F32, F64:
         return
@@ -510,8 +514,12 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         }
     case Negative:
         analyse_expr(self, ex.value)
-        value_type := type_of_expr(self, ex.value^)
 
+        if tc_is_unsigned(self, ex.value^) {
+            elog(self, ex.cursors_idx, "cannot negate unsigned integers")
+        }
+
+        value_type := type_of_expr(self, ex.value^)
         ex.type = value_type
     case Not:
         analyse_expr(self, ex.condition)

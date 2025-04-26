@@ -232,6 +232,8 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return gen_type(self, expr)
     case I64:
         return gen_type(self, expr)
+    case Isize:
+        return gen_type(self, expr)
     case U8:
         return gen_type(self, expr)
     case U16:
@@ -239,6 +241,8 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     case U32:
         return gen_type(self, expr)
     case U64:
+        return gen_type(self, expr)
+    case Usize:
         return gen_type(self, expr)
     case F32:
         return gen_type(self, expr)
