@@ -44,5 +44,5 @@
 - External Function Calls
 - String Type
 - String Literal
-- C string type
+- Cstring type
 - Cstring Literal
