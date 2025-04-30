@@ -1,0 +1,4 @@
+main :: fn() void {
+    word: ?i32 = null;
+    word = 10;
+}

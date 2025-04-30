@@ -73,6 +73,12 @@ Ptr :: struct {
     constant: bool,
 }
 
+Option :: struct {
+    type: ^Type,
+    is_null: bool,
+    cursors_idx: int,
+}
+
 Untyped_Int :: struct {}
 Untyped_Float :: struct {}
 TypeId :: struct{}
@@ -105,6 +111,7 @@ Type :: union {
 
     Array,
     Ptr,
+    Option,
 
     TypeId,
 }
@@ -134,6 +141,9 @@ type_map := map[string]Type{
 
 type_tag_equal :: proc(lhs, rhs: Type) -> bool {
     switch t in lhs {
+    case Option:
+        _, ok := rhs.(Option)
+        return ok
     case Cstring:
         _, ok := rhs.(Cstring)
         return ok
@@ -212,6 +222,7 @@ Keyword :: enum {
     Return,
     True,
     False,
+    Null,
     If,
     Else,
     Extern,
@@ -221,6 +232,7 @@ keyword_map := map[string]Keyword{
     "return" = .Return,
     "true" = .True,
     "false" = .False,
+    "null" = .Null,
     "if" = .If,
     "else" = .Else,
     "extern" = .Extern,
@@ -231,6 +243,8 @@ expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
         return True{type = Bool{}, cursors_idx = cursors_idx}
     case .False:
         return False{type = Bool{}, cursors_idx = cursors_idx}
+    case .Null:
+        return Null{type = Option{is_null = true}}
     case:
         elog(parser, cursors_idx, "expected an expression, got keyword %v", k)
     }
@@ -391,6 +405,10 @@ Address :: struct {
 Deref :: struct {
     cursors_idx: int,
 }
+Null :: struct {
+    type: Type,
+    cursors_idx: int,
+}
 Expr :: union {
     // types are also expressions
     Bool,
@@ -445,6 +463,8 @@ Expr :: union {
     Address,
     FieldAccess,
     Deref,
+
+    Null,
 }
 
 FnDecl :: struct {
@@ -521,6 +541,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
     switch it in item {
     case Expr:
         switch expr in it {
+        case Null:
+            return expr.cursors_idx
         case CstrLit:
             return expr.cursors_idx
         case StrLit:
@@ -637,6 +659,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
 
 expr_print :: proc(expression: Expr) {
     switch expr in expression {
+    case Null:
+        fmt.printf("null")
     case CstrLit:
         fmt.printf("c\"%v\"", expr.literal)
     case StrLit:
@@ -1389,6 +1413,16 @@ parse_type :: proc(self: ^Parser) -> Type {
     token := token_peek(self)
 
     #partial switch tok in token {
+    case TokenQm:
+        index := self.cursors_idx
+
+        token_next(self)
+        subtype := new(Type); subtype^ = parse_type(self)
+
+        type = Option{
+            type = subtype,
+            cursors_idx = index
+        }
     case TokenCaret:
         type = Ptr{
             type = new(Type),

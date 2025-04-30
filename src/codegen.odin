@@ -52,6 +52,8 @@ gen_ptr_type :: proc(self: ^Codegen, ptr: Type) -> string {
 gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
     if type_tag_equal(t, Untyped_Int{}) {
         panic("compiler error: should not be converting untyped_int to string")
+    } else if type_tag_equal(t, Untyped_Float{}) {
+        panic("compiler error: should not be converting untyped_float to string")
     }
 
     #partial switch subtype in t {
@@ -61,6 +63,12 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
         return strings.to_string(ret), true
     case Ptr:
         return gen_ptr_type(self, t), true
+    case Option:
+        ret := strings.builder_make()
+        option_type, alloced := gen_type(self, subtype.type^)
+        defer if alloced do delete(option_type)
+
+        return fmt.sbprintf(&ret, "?%v", option_type), true
     case Cstring:
         return "[*:0]const u8", false
     case String:
@@ -267,6 +275,8 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         return "true", false
     case False:
         return "false", false
+    case Null:
+        return "null", false
     case Deref:
         return "*", false
     case FieldAccess:

@@ -92,6 +92,16 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
         debug("warning: unexpected comparison between TypeId and %v", rhs)
     case Void:
         debug("warning: unexpected comparison between Void and %v", rhs)
+    case Option:
+        #partial switch r in rhs {
+        case Option:
+            if r.is_null {
+                return true
+            }
+            return tc_equals(analyser, l.type^, r.type^)
+        case:
+            return tc_equals(analyser, l.type^, rhs)
+        }
     case Ptr:
         return tc_ptr_equals(analyser, lhs, rhs)
     case Array:
@@ -324,7 +334,6 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
 tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
     expr_type := type_of_expr(analyser, vardecl.value)
 
-    // debug("here, %v", vardecl^)
     if type_tag_equal(expr_type, Void{}) {
         return
     }

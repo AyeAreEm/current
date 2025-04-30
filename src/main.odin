@@ -86,7 +86,9 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
     fmt.print(cast(string)stdout)
     fmt.print(cast(string)stderr)
 
-    os2.remove("output.zig")
+    if !DEBUG_MODE {
+        os2.remove("output.zig")
+    }
 }
 
 build :: proc(filename: string) -> [dynamic]string {

@@ -57,6 +57,8 @@ TokenExclaim :: struct {}
 
 TokenUnderscore :: struct {}
 
+TokenQm :: struct {} // Question Mark
+
 Token :: union {
     TokenIdent,
     TokenIntLit,
@@ -96,6 +98,7 @@ Token :: union {
     TokenExclaim,
 
     TokenUnderscore,
+    TokenQm,
 }
 
 token_peek :: proc(self: ^Parser) -> Token {
@@ -116,6 +119,9 @@ token_next :: proc(self: ^Parser) -> Token {
 
 token_tag_equal :: proc(lhs, rhs: Token) -> bool {
     switch _ in lhs {
+    case TokenQm:
+        _, ok := rhs.(TokenQm)
+        return ok
     case TokenUnderscore:
         _, ok := rhs.(TokenUnderscore)
         return ok
@@ -385,6 +391,8 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             } else {
                 try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenDot{})
             }
+        case '?':
+            try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenQm{})
         case ':':
             try_append(&cursor, &col, &row, &tokens, &buf, &is_directive, TokenColon{})
         case '(':

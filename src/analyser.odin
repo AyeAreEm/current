@@ -266,6 +266,8 @@ type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
     expr := expr
 
     switch &ex in expr {
+    case Null:
+        return ex.type
     case CstrLit:
         return ex.type
     case StrLit:
@@ -505,7 +507,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         ex.len = len(ex.literal)
     case CstrLit:
         ex.len = len(ex.literal)
-    case True, False:
+    case True, False, Null:
         return
     case Grouping:
         analyse_expr(self, ex.value)
@@ -738,6 +740,7 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
     analyse_expr(self, &varre.name)
     analyse_expr(self, &varre.value)
 
+
     stmnt_vardecl := symtab_find(self, varre.name, varre.cursors_idx)
     if vardecl, ok := stmnt_vardecl.(VarDecl); ok {
         varre.type = vardecl.type
@@ -759,7 +762,10 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
         elog(self, varre.cursors_idx, "expected \"%v\" to be a variable, got %v", varre.name, stmnt_vardecl)
     }
 
-    tc_equals(self, varre.type, type_of_expr(self, varre.value))
+    value_type := type_of_expr(self, varre.value)
+    if !tc_equals(self, varre.type, value_type) {
+        elog(self, varre.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", varre.name, varre.type, value_type)
+    }
 }
 
 analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {

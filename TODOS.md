@@ -15,9 +15,11 @@
 - Compile Time Execution
 - Type Casting
 - Better Error Messages
+- Result Type (!)
 
 # In Progress
 - Importing External Libraries
+- If Statement Capture (Option)
 
 # Completed
 - Function Declarations
@@ -46,3 +48,4 @@
 - String Literal
 - Cstring type
 - Cstring Literal
+- Option Type (?)
