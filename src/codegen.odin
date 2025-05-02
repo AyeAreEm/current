@@ -157,6 +157,11 @@ gen_if :: proc(self: ^Codegen, ifs: If) {
     defer if alloced do delete(condition)
 
     fmt.sbprintf(&self.code, "%v) ", condition)
+
+    if capture, ok := ifs.capture.?; ok {
+        fmt.sbprintf(&self.code, "|%v| ", capture.literal)
+    }
+
     gen_block(self, ifs.body)
     strings.pop_byte(&self.code)
 

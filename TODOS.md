@@ -19,7 +19,6 @@
 
 # In Progress
 - Importing External Libraries
-- If Statement Capture (Option)
 
 # Completed
 - Function Declarations
@@ -49,3 +48,4 @@
 - Cstring type
 - Cstring Literal
 - Option Type (?)
+- If Statement Capture (Option)

@@ -501,7 +501,7 @@ Return :: struct {
 If :: struct {
     // type: Type,
     condition: Expr,
-    // capture: Const,
+    capture: Maybe(Ident),
     body: [dynamic]Stmnt,
     els: [dynamic]Stmnt,
     cursors_idx: int,
@@ -1326,7 +1326,7 @@ parse_const_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil) -> Stmnt
             case .Fn:
                 token_next(self) // no nil check, checked when peeked
                 return parse_fn_decl(self, ident)
-            case .True, .False:
+            case .True, .False, .Null:
             case:
                 elog(self, index, "unexpected token %v", tok)
             }
@@ -1770,6 +1770,22 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
     expr := parse_expr(self)
     _ = token_expect(self, TokenRb{})
 
+    capture_tok := token_peek(self)
+    capture: Maybe(Ident) = nil
+    // if (<condition>) <[capture]>
+    if token_tag_equal(capture_tok, TokenLs{}) {
+        token_next(self)
+
+        capture_tok = token_expect(self, TokenIdent{})
+        converted := convert_ident(self, capture_tok.(TokenIdent))
+        if _, ok := converted.(Ident); ok {
+            capture = converted.(Ident)
+        } else {
+            elog(self, self.cursors_idx, "capture must be a unique identifier")
+        }
+        token_expect(self, TokenRs{})
+    }
+
     body := parse_block(self)
 
     else_block: [dynamic]Stmnt
@@ -1787,6 +1803,7 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
     return If{
         condition = expr,
         body = body,
+        capture = capture,
         els = else_block,
         cursors_idx = index,
     }

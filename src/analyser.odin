@@ -831,15 +831,32 @@ analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
 analyse_if :: proc(self: ^Analyser, ifs: ^If) {
     analyse_expr(self, &ifs.condition)
     condition_type := type_of_expr(self, ifs.condition)
-    if !tc_equals(self, Bool{}, condition_type) {
-        elog(self, ifs.cursors_idx, "condition must be bool, got %v", condition_type)
+    if !tc_equals(self, Bool{}, condition_type) && !type_tag_equal(Option{}, condition_type) {
+        elog(self, ifs.cursors_idx, "condition must be bool or option, got %v", condition_type)
+    }
+
+    captured: Maybe(ConstDecl) = nil
+    if capture, ok := ifs.capture.?; ok {
+        subtype := condition_type.(Option).type^
+        captured = ConstDecl{
+            name = capture,
+            type = subtype,
+            value = Null{},
+            cursors_idx = capture.cursors_idx,
+        }
     }
 
     symtab_new_scope(self)
-    defer symtab_pop_scope(self)
+    if c, ok := captured.?; ok {
+        symtab_push(self, c.name, c)
+    }
 
     analyse_block(self, ifs.body)
+    symtab_pop_scope(self)
+
+    symtab_new_scope(self)
     analyse_block(self, ifs.els)
+    symtab_pop_scope(self)
 }
 
 analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
