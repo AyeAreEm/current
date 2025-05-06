@@ -318,7 +318,6 @@ ArrayIndex :: struct {
     ident: ^Expr, // maybe should be Ident?
     index: ^Expr,
     type: Type,
-    // constant: bool,
     cursors_idx: int,
 }
 FnCall :: struct {

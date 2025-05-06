@@ -557,7 +557,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             } else {
                 elog(self, ex.cursors_idx, "cannot index into types that aren't arrays")
             }
-        } else if var, var_ok := arr_index.(VarDecl); var_ok {
+        } else if var, var_ok := arr_index.(ConstDecl); var_ok {
             if arr, arr_ok := var.type.(Array); arr_ok {
                 ex.type = arr.type^
             } else {
@@ -860,11 +860,16 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
                 elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
             }
         } else if arr_index, ok := varre.name.(ArrayIndex); ok {
-            debug("%v vs %v vs %v", varre.type, arr_index.type, varre.value)
-        } else {
-            // NOTE: this can happend when it's a propogated field or function argument (maybe)
-            // because something like `p := &n` would have a `p.&` that doesn't have a value or
-            // statement to declare it
+            decl := symtab_find(self, arr_index.ident^, arr_index.cursors_idx)
+            if _, decl_ok := decl.(ConstDecl); decl_ok {
+                elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
+            }
+        }
+
+        // NOTE: this can happend when it's a propogated field or function argument (maybe)
+        // because something like `p := &n` would have a `p.&` that doesn't have a value or
+        // statement to declare it
+        if varre.type == nil {
             tc_infer(self, &varre.type, varre.value)
         }
     } else if _, ok := stmnt_vardecl.(ConstDecl); ok {
