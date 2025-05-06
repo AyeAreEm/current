@@ -18,7 +18,6 @@
 - Result Type (!)
 
 # In Progress
-- Array Indexing
 - Importing External Libraries
 
 # Completed
@@ -50,3 +49,4 @@
 - Cstring Literal
 - Option Type (?)
 - If Statement Capture (Option)
+- Array Indexing
