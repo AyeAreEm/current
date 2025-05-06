@@ -859,11 +859,13 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
             if field_access.constant {
                 elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
             }
+            varre.type = field_access.type
         } else if arr_index, ok := varre.name.(ArrayIndex); ok {
             decl := symtab_find(self, arr_index.ident^, arr_index.cursors_idx)
             if _, decl_ok := decl.(ConstDecl); decl_ok {
                 elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
             }
+            varre.type = arr_index.type
         }
 
         // NOTE: this can happend when it's a propogated field or function argument (maybe)

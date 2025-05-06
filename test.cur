@@ -1,4 +1,4 @@
 main :: fn() void {
-    nums :: [5]i32{1, 2, 3, 4, 5};
-    nums[0] = 10; // error
+    nums := [5]i32{1, 2, 3, 4, 5};
+    nums[0] = "hello"; // error
 }
