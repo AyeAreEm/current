@@ -297,6 +297,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         }
 
         return ret, true
+    case ArrayIndex:
+        ident, ident_alloced := gen_expr(self, expr.ident^)
+        index, index_alloced := gen_expr(self, expr.index^)
+        ret := fmt.aprintf("%v[%v]", ident, index)
+
+        if ident_alloced {
+            delete(ident)
+        }
+        if index_alloced {
+            delete(index)
+        }
+        
+        return ret, true
     case Address:
         value, alloced := gen_expr(self, expr.value^)
         ret := fmt.aprintf("&%v", value)

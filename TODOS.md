@@ -18,6 +18,7 @@
 - Result Type (!)
 
 # In Progress
+- Array Indexing
 - Importing External Libraries
 
 # Completed

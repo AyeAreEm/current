@@ -1,12 +1,4 @@
-#link "libc";
-
-extern puts :: fn(s: cstring) i32;
-
 main :: fn() void {
-    word: ?cstring: null;
-    if (word) [w] {
-        puts(w);
-    } else {
-        puts(c"no word given");
-    }
+    nums :: [5]i32{1, 2, 3, 4, 5};
+    nums[0] = 10;
 }

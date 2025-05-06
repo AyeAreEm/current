@@ -65,7 +65,7 @@ Isize :: struct {
 
 Array :: struct {
     type: ^Type,
-    len: Maybe(^Expr), // if nil, infer lne
+    len: Maybe(^Expr), // if nil, infer len
 }
 
 Ptr :: struct {
@@ -314,6 +314,13 @@ FieldAccess :: struct {
     constant: bool,
     cursors_idx: int,
 }
+ArrayIndex :: struct {
+    ident: ^Expr, // maybe should be Ident?
+    index: ^Expr,
+    type: Type,
+    // constant: bool,
+    cursors_idx: int,
+}
 FnCall :: struct {
     name: Ident,
     type: Type,
@@ -462,6 +469,7 @@ Expr :: union {
 
     Address,
     FieldAccess,
+    ArrayIndex,
     Deref,
 
     Null,
@@ -552,6 +560,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         case Deref:
             return expr.cursors_idx
         case FieldAccess:
+            return expr.cursors_idx
+        case ArrayIndex:
             return expr.cursors_idx
         case Address:
             return expr.cursors_idx
@@ -670,9 +680,14 @@ expr_print :: proc(expression: Expr) {
     case Deref:
         fmt.print("&")
     case FieldAccess:
-        expr_print(expression)
+        expr_print(expr.expr^)
         fmt.print(".")
-        expr_print(expression)
+        expr_print(expr.field^)
+    case ArrayIndex:
+        expr_print(expr.ident^)
+        fmt.print("[")
+        expr_print(expr.index^)
+        fmt.print("]")
     case Address:
         fmt.print("& ")
         expr_print(expr.value^)
@@ -1087,12 +1102,15 @@ parse_primary :: proc(self: ^Parser) -> Expr {
         if name, ok := converted_ident.(Ident); ok {
             token = token_peek(self)
 
-            // <ident>.
             if token_tag_equal(token, TokenDot{}) {
+                // <ident>.
                 token_next(self)
                 return parse_field_access(self, name)
+            } else if token_tag_equal(token, TokenLs{}) {
+                token_next(self)
+                return parse_array_index(self, name)
             } else if strings.compare(name.literal, "c") == 0 {
-            // c""
+                // c""
                 if token_tag_equal(token, TokenStrLit{}) {
                     token_next(self)
                     return CstrLit{
@@ -1648,8 +1666,8 @@ parse_var_operator_equal :: proc(self: ^Parser, ident: Expr, operator: Token) ->
     return reassign
 }
 
+// expects "." already nexted
 parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
-    // expects "." already nexted
     // <ident>.
 
     index := self.cursors_idx
@@ -1692,14 +1710,31 @@ parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
     elog(self, self.cursors_idx, "unexpected token %v after field access", token)
 }
 
+// expects [ already nexted
+parse_array_index :: proc(self: ^Parser, ident: Ident) -> ArrayIndex {
+    // <ident>[
+
+    intlit_cursor_index := self.cursors_idx
+    index := new(Expr); index^ = parse_expr(self)
+    token_expect(self, TokenRs{})
+
+    i := new(Expr); i^ = ident
+
+    return ArrayIndex{
+        ident = i,
+        index = index,
+        type = nil,
+        cursors_idx = self.cursors_idx
+    }
+}
+
 parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     ident_index := self.cursors_idx
     
     token := token_peek(self)
     if token == nil do return nil
 
-    // NOTE: just for field access
-    // <ident>.
+    // <ident>. OR <ident>[
     #partial switch tok in token {
     case TokenDot:
         token_next(self)
@@ -1721,6 +1756,27 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
         case TokenEqual:
             token_next(self) // no nil check, already checked when peeked
             return parse_var_reassign(self, reassigned);
+        }
+    case TokenLs:
+        token_next(self)
+        arr_index := parse_array_index(self, ident)
+
+        token = token_peek(self)
+        if token == nil do return nil
+
+        #partial switch after in token {
+        case TokenPlus, TokenMinus, TokenStar, TokenSlash:
+            token_next(self) // no nil check, already checked when peeked
+            token_after := token_next(self)
+
+            if token_tag_equal(token_after, TokenEqual{}) {
+                return parse_var_operator_equal(self, arr_index, tok)
+            } else {
+                elog(self, self.cursors_idx, "unexpected token %v", tok)
+            }
+        case TokenEqual:
+            token_next(self) // no nil check, already checked when peeked
+            return parse_var_reassign(self, arr_index);
         }
     }
 
@@ -1745,7 +1801,6 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
         token_expect(self, TokenSemiColon{})
         return stmnt
     case:
-        debug("here")
         elog(self, self.cursors_idx, "unexpected token %v", tok)
     }
 
