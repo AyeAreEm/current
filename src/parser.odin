@@ -226,6 +226,7 @@ Keyword :: enum {
     If,
     Else,
     Extern,
+    For,
 }
 keyword_map := map[string]Keyword{
     "fn" = .Fn,
@@ -236,6 +237,7 @@ keyword_map := map[string]Keyword{
     "if" = .If,
     "else" = .Else,
     "extern" = .Extern,
+    "for" = .For,
 }
 expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
     #partial switch k {
@@ -513,6 +515,13 @@ If :: struct {
     els: [dynamic]Stmnt,
     cursors_idx: int,
 }
+For :: struct {
+    decl: VarDecl,
+    condition: Expr,
+    reassign: VarReassign,
+    body: [dynamic]Stmnt,
+    cursors_idx: int,
+}
 Block :: struct {
     body: [dynamic]Stmnt,
     cursors_idx: int,
@@ -529,6 +538,7 @@ Stmnt :: union {
     FnCall,
     ConstDecl,
     If,
+    For,
     Block,
     Extern,
     Directive,
@@ -639,6 +649,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     case Stmnt:
         switch stmnt in it {
+        case For:
+            return stmnt.cursors_idx
         case Directive:
             return get_directive_cursor_index(stmnt)
         case Extern:
@@ -662,223 +674,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         }
     }
 
-    debug("unreachable in get_cursor_index")
+    debug("unreachable in get_cursor_index, %v", item)
     unreachable()
-}
-
-expr_print :: proc(expression: Expr) {
-    switch expr in expression {
-    case Null:
-        fmt.printf("null")
-    case CstrLit:
-        fmt.printf("c\"%v\"", expr.literal)
-    case StrLit:
-        fmt.printf("\"%v\"", expr.literal)
-    case CharLit:
-        fmt.printf("'%v'", expr.literal)
-    case Deref:
-        fmt.print("&")
-    case FieldAccess:
-        expr_print(expr.expr^)
-        fmt.print(".")
-        expr_print(expr.field^)
-    case ArrayIndex:
-        expr_print(expr.ident^)
-        fmt.print("[")
-        expr_print(expr.index^)
-        fmt.print("]")
-    case Address:
-        fmt.print("& ")
-        expr_print(expr.value^)
-    case Bool:
-        fmt.print("Bool")
-    case Char:
-        fmt.print("Char")
-    case String:
-        fmt.print("String")
-    case Cstring:
-        fmt.print("Cstring")
-    case I8:
-        fmt.print("I8")
-    case I16:
-        fmt.print("I16")
-    case I32:
-        fmt.print("I32")
-    case I64:
-        fmt.print("I64")
-    case U8:
-        fmt.print("U8")
-    case U16:
-        fmt.print("U16")
-    case U32:
-        fmt.print("U32")
-    case U64:
-        fmt.print("U64")
-    case F32:
-        fmt.print("F32")
-    case F64:
-        fmt.print("F64")
-    case Usize:
-        fmt.print("Usize")
-    case Isize:
-        fmt.print("Isize")
-    case Literal:
-        fmt.printf("%v{{", expr.type)
-        for value, i in expr.values {
-            if i == 0 {
-                expr_print(value)
-            } else {
-                fmt.print(", ")
-                expr_print(value)
-            }
-        }
-        fmt.print("}")
-    case Grouping:
-        fmt.printf("(")
-        expr_print(expr.value^)
-        fmt.printf(")")
-    case True:
-        fmt.printf("True")
-    case False:
-        fmt.printf("False")
-    case Not:
-        fmt.printf("Not ")
-        expr_print(expr.condition^)
-    case Negative:
-        fmt.printf("- ")
-        expr_print(expr.value^)
-    case LessThan:
-        expr_print(expr.left^)
-        fmt.printf(" Less Than ")
-        expr_print(expr.right^)
-    case LessOrEqual:
-        expr_print(expr.left^)
-        fmt.printf(" Less Or Equal ")
-        expr_print(expr.right^)
-    case GreaterThan:
-        expr_print(expr.left^)
-        fmt.printf(" Greater Than ")
-        expr_print(expr.right^)
-    case GreaterOrEqual:
-        expr_print(expr.left^)
-        fmt.printf(" Greater Or Equal ")
-        expr_print(expr.right^)
-    case Equality:
-        expr_print(expr.left^)
-        fmt.printf(" Equals ")
-        expr_print(expr.right^)
-    case Inequality:
-        expr_print(expr.left^)
-        fmt.printf(" Not Equals ")
-        expr_print(expr.right^)
-    case Plus:
-        expr_print(expr.left^)
-        fmt.printf(" Plus(%v) ", expr.type)
-        expr_print(expr.right^)
-    case Minus:
-        expr_print(expr.left^)
-        fmt.printf(" Minus(%v) ", expr.type)
-        expr_print(expr.right^)
-    case Multiply:
-        expr_print(expr.left^)
-        fmt.printf(" Multiply(%v) ", expr.type)
-        expr_print(expr.right^)
-    case Divide:
-        expr_print(expr.left^)
-        fmt.printf(" Divide(%v) ", expr.type)
-        expr_print(expr.right^)
-    case IntLit:
-        fmt.printf("IntLit(%v) %v", expr.type, expr.literal)
-    case FloatLit:
-        fmt.printf("FloatLit(%v) %v", expr.type, expr.literal)
-    case FnCall:
-        fmt.printf("FnCall(%v) %v(", expr.type, expr.name)
-        for arg, i in expr.args {
-            if i == 0 {
-                expr_print(arg)
-            } else {
-                fmt.print(", ")
-                expr_print(arg)
-            }
-        }
-        fmt.print(")")
-    case Ident:
-        fmt.printf("Ident(\"%v\")", expr.literal)
-    case:
-        fmt.print("")
-    }
-}
-
-stmnt_print :: proc(statement: Stmnt, indent: uint = 0) {
-    for _ in 0..<indent {
-        fmt.print("    ")
-    }
-
-    switch stmnt in statement {
-    case Directive:
-        fmt.println("Directive (%v)", stmnt)
-    case Extern:
-        fmt.println("Extern {")
-        for s in stmnt.body {
-            stmnt_print(s, indent + 1)
-        }
-        fmt.println()
-        fmt.println("}")
-    case Block:
-        fmt.print("{")
-        for s in stmnt.body {
-            stmnt_print(s, indent + 1)
-        }
-        fmt.print("}")
-    case If:
-        fmt.printf("If (")
-        expr_print(stmnt.condition)
-        fmt.print(")")
-    case FnDecl:
-        fmt.printf("Fn(%v) %v(", stmnt.type, stmnt.name)
-        for arg, i in stmnt.args {
-            if i == 0 {
-                stmnt_print(arg, 0)
-            } else {
-                fmt.print(", ")
-                stmnt_print(arg, 0)
-            }
-        }
-        fmt.println(")")
-
-        for s in stmnt.body {
-            stmnt_print(s, indent+1)
-        }
-    case VarDecl:
-        if stmnt.value == nil {
-            fmt.printf("Var(%v) %v", stmnt.type, stmnt.name)
-            return
-        }
-
-        fmt.printf("Var(%v) %v = ", stmnt.type, stmnt.name)
-        expr_print(stmnt.value)
-        fmt.println("")
-    case VarReassign:
-        fmt.printf("VarReassign(%v) %v = ", stmnt.type, stmnt.name)
-        expr_print(stmnt.value)
-        fmt.println("")
-    case ConstDecl:
-        if stmnt.value == nil {
-            fmt.printf("Const(%v) %v", stmnt.type, stmnt.name)
-            return
-        }
-
-        fmt.printf("Const(%v) %v = ", stmnt.type, stmnt.name)
-        expr_print(stmnt.value)
-        fmt.println("")
-    case Return:
-
-        fmt.printf("Return(%v) ", stmnt.type)
-        expr_print(stmnt.value)
-        fmt.println("")
-    case FnCall:
-        expr_print(stmnt)
-    }
 }
 
 convert_ident :: proc(self: ^Parser, using token: TokenIdent) -> union {Type, Keyword, Ident} {
@@ -1748,9 +1545,9 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
             token_after := token_next(self)
 
             if token_tag_equal(token_after, TokenEqual{}) {
-                return parse_var_operator_equal(self, reassigned, tok)
+                return parse_var_operator_equal(self, reassigned, after)
             } else {
-                elog(self, self.cursors_idx, "unexpected token %v", tok)
+                elog(self, self.cursors_idx, "unexpected token %v", after)
             }
         case TokenEqual:
             token_next(self) // no nil check, already checked when peeked
@@ -1872,6 +1669,60 @@ parse_extern :: proc(self: ^Parser) -> Stmnt {
     }
 }
 
+parse_for :: proc(self: ^Parser) -> Stmnt {
+    index := self.cursors_idx
+
+    token_expect(self, TokenLb{})
+    token_ident := token_expect(self, TokenIdent{})
+    converted := convert_ident(self, token_ident.(TokenIdent))
+    ident: Ident
+    if id, ok := converted.(Ident); ok {
+        ident = id
+    } else {
+        elog(self, self.cursors_idx, "expected identifer, got %v", converted)
+    }
+
+    // for (i: 
+    token := token_peek(self)
+    if token_tag_equal(token, TokenColon{}) {
+        token_next(self)
+        token = token_peek(self)
+
+        vardecl: VarDecl
+        if token_tag_equal(token, TokenEqual{}) {
+            // for (i :=
+            token_next(self)
+            vardecl = parse_var_decl(self, ident).(VarDecl)
+        } else if token_tag_equal(token, TokenIdent{}) {
+            // for (i: <type>
+            type := parse_type(self)
+            token_expect(self, TokenEqual{})
+            vardecl = parse_var_decl(self, ident, type).(VarDecl)
+        } else {
+            elog(self, self.cursors_idx, "unexpected token %v in for loop", token)
+        }
+
+        condition := parse_expr(self)
+        token_expect(self, TokenSemiColon{})
+
+        reassign := parse(self)
+        token_expect(self, TokenRb{})
+
+        body := parse_block(self)
+
+        return For{
+            decl = vardecl,
+            condition = condition,
+            reassign = reassign.(VarReassign),
+            body = body,
+            cursors_idx = index,
+        }
+    } else {
+        // TODO: support `for (values) [value]`
+        elog(self, self.cursors_idx, "expected ':', got %v", token)
+    }
+}
+
 parse_directive :: proc(self: ^Parser) -> Stmnt {
     token := token_next(self)
     directive := parser_get_directive(self, token.(TokenDirective).literal)
@@ -1908,6 +1759,8 @@ parse :: proc(self: ^Parser) -> Stmnt {
                 return parse_if(self)
             case .Extern:
                 return parse_extern(self)
+            case .For:
+                return parse_for(self)
             }
         }
     case TokenLc:

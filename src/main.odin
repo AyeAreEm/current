@@ -114,7 +114,7 @@ build :: proc(filename: string) -> [dynamic]string {
 
     if DEBUG_MODE {
         for stmnt in ast {
-            stmnt_print(stmnt)
+            fmt.println(stmnt)
         }
     }
 

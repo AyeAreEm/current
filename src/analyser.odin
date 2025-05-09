@@ -511,6 +511,8 @@ type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
         elog(analyser, stmnt.cursors_idx, "unexpected scope block")
     case If:
         elog(analyser, stmnt.cursors_idx, "unexpected if statement")
+    case For:
+        elog(analyser, stmnt.cursors_idx, "unexpected for loop")
     case Extern:
         elog(analyser, stmnt.cursors_idx, "unexpected extern statement")
     case Directive:
@@ -977,6 +979,24 @@ analyse_if :: proc(self: ^Analyser, ifs: ^If) {
     symtab_pop_scope(self)
 }
 
+analyse_for :: proc(self: ^Analyser, forl: ^For) {
+    symtab_new_scope(self)
+
+    analyse_var_decl(self, &forl.decl)
+    analyse_expr(self, &forl.condition)
+    condition_type := type_of_expr(self, forl.condition)
+    if !tc_equals(self, Bool{}, condition_type) && !type_tag_equal(Option{}, condition_type) {
+        elog(self, get_cursor_index(forl.condition), "condition must be bool, got %v", condition_type)
+    }
+    analyse_var_reassign(self, &forl.reassign)
+
+    symtab_new_scope(self)
+    analyse_block(self, forl.body)
+    symtab_pop_scope(self)
+
+    symtab_pop_scope(self)
+}
+
 analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
     for &statement in block {
         switch &stmnt in statement {
@@ -1004,6 +1024,8 @@ analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
             analyse_fn_call(self, &stmnt)
         case If:
             analyse_if(self, &stmnt)
+        case For:
+            analyse_for(self, &stmnt)
         case FnDecl:
             elog(self, stmnt.cursors_idx, "illegal function declaration \"%v\" inside another function", stmnt.name)
         }
@@ -1048,6 +1070,8 @@ analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
             elog(self, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
         case If:
             elog(self, stmnt.cursors_idx, "illegal use of if statement, not inside a function")
+        case For:
+            elog(self, stmnt.cursors_idx, "illegal use of for loop, not inside a function")
         case Extern:
             elog(self, stmnt.cursors_idx, "illegal use of extern, already inside extern")
         case Directive:
@@ -1079,6 +1103,8 @@ analyse :: proc(self: ^Analyser) {
             elog(self, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
         case If:
             elog(self, stmnt.cursors_idx, "illegal use of if statement, not inside a function")
+        case For:
+            elog(self, stmnt.cursors_idx, "illegal use of for loop, not inside a function")
         }
     }
 }

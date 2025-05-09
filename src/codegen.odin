@@ -141,6 +141,8 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             fmt.sbprintln(&self.code, ';')
         case If:
             gen_if(self, stmnt)
+        case For:
+            gen_for(self, stmnt)
         }
     }
 
@@ -167,6 +169,32 @@ gen_if :: proc(self: ^Codegen, ifs: If) {
 
     fmt.sbprint(&self.code, " else ")
     gen_block(self, ifs.els)
+}
+
+gen_for :: proc(self: ^Codegen, forl: For) {
+    gen_indent(self)
+
+    fmt.sbprintln(&self.code, "{");
+    self.indent_level += 1
+
+    gen_var_decl(self, forl.decl)
+
+    condition, condition_alloc := gen_expr(self, forl.condition)
+    defer if condition_alloc do delete(condition)
+
+    reassigned, reassigned_alloced := gen_expr(self, forl.reassign.name)
+    defer if reassigned_alloced do delete(reassigned)
+
+    value, value_alloced := gen_expr(self, forl.reassign.value)
+    defer if value_alloced do delete(value)
+
+    gen_indent(self)
+    fmt.sbprintf(&self.code, "while (%v) : (%v = %v) ", condition, reassigned, value)
+    gen_block(self, forl.body)
+
+    self.indent_level -= 1
+    gen_indent(self)
+    fmt.sbprintln(&self.code, "}");
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {

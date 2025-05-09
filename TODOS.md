@@ -18,6 +18,7 @@
 - Result Type (!)
 
 # In Progress
+- For Loops
 - Importing External Libraries
 
 # Completed
