@@ -360,8 +360,6 @@ tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
 }
 
 tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
-    // TODO: finish this
-
     #partial switch &array in literal.type {
     case Array:
         if array_len, ok := array.len.?; ok {
@@ -378,6 +376,13 @@ tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
                 literal = length,
                 type = Usize{},
                 cursors_idx = 0,
+            }
+        }
+
+        for val, i in literal.values {
+            valtype := type_of_expr(analyser, val)
+            if !type_tag_equal(valtype, array.type^) {
+                elog(analyser, literal.cursors_idx, "array element %v type is %v, expected %v", i + 1, valtype, array.type^)
             }
         }
     }

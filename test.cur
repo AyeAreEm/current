@@ -3,10 +3,9 @@
 extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    words :: [_]cstring{"hello", "hey", "hi"};
-    for (i: usize = 0; i < words.len; i += 1;) {
-//                                    ^ remove semicolon from parsing
+    words :: [_]cstring{c"hello", c"hey", c"hi"};
+
+    for (i: usize = 0; i < words.len; i += 1) {
         puts(words[i]);
-//                 ^ force indexing to be usize maybe?
     }
 }

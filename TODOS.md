@@ -1,5 +1,5 @@
 # Todos
-- Loops
+- Parse Definition Names First
 - Break Statement
 - Continue Statement
 - Struct Definitions
@@ -16,6 +16,7 @@
 - Type Casting
 - Better Error Messages
 - Result Type (!)
+- Change Backend To LLVM or C
 
 # In Progress
 - For Loops

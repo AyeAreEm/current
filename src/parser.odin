@@ -1397,10 +1397,10 @@ parse_decl :: proc(self: ^Parser, ident: Ident) -> Stmnt {
     return nil
 }
 
-parse_var_reassign :: proc(self: ^Parser, ident: Expr) -> Stmnt {
+parse_var_reassign :: proc(self: ^Parser, ident: Expr, expect_semicolon := true) -> VarReassign {
     // <name> = 
     expr := parse_expr(self)
-    token_expect(self, TokenSemiColon{})
+    if expect_semicolon do token_expect(self, TokenSemiColon{})
 
     return VarReassign{
         name = ident,
@@ -1410,7 +1410,7 @@ parse_var_reassign :: proc(self: ^Parser, ident: Expr) -> Stmnt {
     }
 }
 
-parse_var_operator_equal :: proc(self: ^Parser, ident: Expr, operator: Token) -> Stmnt {
+parse_var_operator_equal :: proc(self: ^Parser, ident: Expr, operator: Token, expect_semicolon := true) -> VarReassign {
     // <name> [+-*/]= 
     operator_index := self.cursors_idx
     var := new(Expr); var^ = ident
@@ -1420,7 +1420,7 @@ parse_var_operator_equal :: proc(self: ^Parser, ident: Expr, operator: Token) ->
         type = nil,
         cursors_idx = self.cursors_idx
     }
-    token_expect(self, TokenSemiColon{})
+    if expect_semicolon do token_expect(self, TokenSemiColon{})
 
     reassign := VarReassign{
         name = ident,
@@ -1702,10 +1702,33 @@ parse_for :: proc(self: ^Parser) -> Stmnt {
             elog(self, self.cursors_idx, "unexpected token %v in for loop", token)
         }
 
+        // for (i: <type> = <expr>; <condition>)
         condition := parse_expr(self)
         token_expect(self, TokenSemiColon{})
 
-        reassign := parse(self)
+        reassign: VarReassign
+        token = token_peek(self)
+        if token_ident, ok := token.(TokenIdent); ok {
+            token_next(self)
+            token = token_peek(self)
+
+            #partial switch tok in token {
+            case TokenPlus, TokenMinus, TokenStar, TokenSlash:
+                token_next(self)
+                token_after := token_next(self)
+
+                // for (i: <type> = <expr>; <condition>; i [+-*/]=)
+                if token_tag_equal(token_after, TokenEqual{}) {
+                    reassign = parse_var_operator_equal(self, ident, tok, false)
+                } else {
+                    elog(self, self.cursors_idx, "unexpected token %v", tok)
+                }
+            case TokenEqual:
+                // for (i: <type> = <expr>; <condition>; i =)
+                token_next(self)
+                reassign = parse_var_reassign(self, ident, false);
+            }
+        }
         token_expect(self, TokenRb{})
 
         body := parse_block(self)
@@ -1713,7 +1736,7 @@ parse_for :: proc(self: ^Parser) -> Stmnt {
         return For{
             decl = vardecl,
             condition = condition,
-            reassign = reassign.(VarReassign),
+            reassign = reassign,
             body = body,
             cursors_idx = index,
         }
