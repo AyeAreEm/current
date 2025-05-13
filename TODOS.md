@@ -16,11 +16,11 @@
 - Type Casting
 - Better Error Messages
 - Result Type (!)
-- Change Backend To LLVM or C
 
 # In Progress
 - For Loops
 - Importing External Libraries
+- Change Backend To C
 
 # Completed
 - Function Declarations

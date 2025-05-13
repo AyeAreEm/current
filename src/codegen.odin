@@ -2,12 +2,15 @@ package main
 
 import "core:fmt"
 import "core:strings"
+import "core:math/rand"
 
 Codegen :: struct {
     ast: [dynamic]Stmnt,
     symtab: SymTab,
     code: strings.Builder,
 
+    def_loc: int,
+    generated_generics: [dynamic]string,
     linking: [dynamic]string,
     indent_level: u8,
 }
@@ -18,8 +21,74 @@ codegen_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab) -> Codegen {
         symtab = symtab,
         code = strings.builder_make(),
 
+        def_loc = 0,
+        generated_generics = make([dynamic]string),
         linking = make([dynamic]string),
         indent_level = 0,
+    }
+}
+
+ALPHABET :: []rune{
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
+}
+
+// returns allocated string, needs to be freed
+gen_random_name :: proc() -> string {
+    sb := strings.builder_make()
+
+    for i in 0..<10 {
+        fmt.sbprint(&sb, rand.choice(ALPHABET))
+    }
+
+    return strings.to_string(sb)
+}
+
+// returns allocated string, needs to be freed
+gen_typename :: proc(self: ^Codegen, types: []Type, typename: ^strings.Builder) {
+    for type in types {
+        switch t in type {
+        case Void, Untyped_Int, Untyped_Float, Option, TypeId:
+            panic("gen_typename not implemented yet")
+        case I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize, F32, F64, Bool, Char, String:
+            str, str_alloc := gen_type(self, t)
+            defer if str_alloc do delete(str)
+            fmt.sbprintf(typename, "%v", str)
+        case Cstring:
+            fmt.sbprintf(typename, "%v", "constcharptr")
+        case Ptr:
+            gen_typename(self, []Type{t.type^}, typename)
+            fmt.sbprintf(typename, "%v", "ptr")
+        case Array:
+            fmt.sbprintf(typename, "%v", "CurArray_")
+
+            length, length_alloced := gen_expr(self, t.len.?^)
+            defer if length_alloced do delete(length)
+
+            gen_typename(self, []Type{t.type^}, typename)
+
+            fmt.sbprintf(typename, "%v", length)
+        }
+    }
+}
+
+gen_array_decl_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder, name: Maybe(string)) {
+    #partial switch subtype in array {
+    case Array:
+        length, length_alloced := gen_expr(self, subtype.len.?^)
+        defer if length_alloced do delete(length)
+
+        gen_array_decl_type(self, subtype.type^, str, nil)
+        if n, ok := name.?; ok {
+            fmt.sbprintf(str, " %v[%v]", n, length)
+        } else {
+            fmt.sbprintf(str, "[%v]", length)
+        }
+    case:
+        t, t_alloc := gen_type(self, array)
+        defer if t_alloc do delete(t)
+
+        fmt.sbprintf(str, "%v", t)
     }
 }
 
@@ -29,8 +98,8 @@ gen_array_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder) {
         length, length_alloced := gen_expr(self, subtype.len.?^)
         defer if length_alloced do delete(length)
 
-        fmt.sbprintf(str, "[%v]", length)
         gen_array_type(self, subtype.type^, str)
+        fmt.sbprintf(str, "[%v]", length)
     case:
         t, t_alloc := gen_type(self, array)
         defer if t_alloc do delete(t)
@@ -49,7 +118,9 @@ gen_ptr_type :: proc(self: ^Codegen, ptr: Type) -> string {
     }
 }
 
-gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
+gen_type :: proc(self: ^Codegen, t: Type, declname: Maybe(string) = nil) -> (string, bool) {
+    gen_generic_decl(self, t)
+
     if type_tag_equal(t, Untyped_Int{}) {
         panic("compiler error: should not be converting untyped_int to string")
     } else if type_tag_equal(t, Untyped_Float{}) {
@@ -59,7 +130,11 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
     #partial switch subtype in t {
     case Array:
         ret := strings.builder_make()
-        gen_array_type(self, t, &ret)
+        if name, ok := declname.?; ok {
+            gen_array_decl_type(self, t, &ret, name)
+        } else {
+            gen_array_type(self, t, &ret)
+        }
         return strings.to_string(ret), true
     case Ptr:
         return gen_ptr_type(self, t), true
@@ -70,9 +145,9 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
 
         return fmt.sbprintf(&ret, "?%v", option_type), true
     case Cstring:
-        return "[*:0]const u8", false
+        return "const char*", false
     case String:
-        return "[:0]const u8", false
+        return "CurString", false
     case Char:
         return "u8", false
     }
@@ -134,9 +209,6 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             call := gen_fn_call(self, stmnt, true)
             defer delete(call)
 
-            if !type_tag_equal(stmnt.type, Void{}) {
-                fmt.sbprint(&self.code, "_ = ")
-            }
             fmt.sbprint(&self.code, call)
             fmt.sbprintln(&self.code, ';')
         case If:
@@ -189,7 +261,7 @@ gen_for :: proc(self: ^Codegen, forl: For) {
     defer if value_alloced do delete(value)
 
     gen_indent(self)
-    fmt.sbprintf(&self.code, "while (%v) : (%v = %v) ", condition, reassigned, value)
+    fmt.sbprintf(&self.code, "for (; %v; %v = %v) ", condition, reassigned, value)
     gen_block(self, forl.body)
 
     self.indent_level -= 1
@@ -198,12 +270,16 @@ gen_for :: proc(self: ^Codegen, forl: For) {
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
+    self.def_loc = len(self.code.buf)
     gen_indent(self)
 
-    if is_extern {
-        fmt.sbprintf(&self.code, "pub extern fn %v(", fndecl.name.literal)
+    if strings.compare(fndecl.name.literal, "main") == 0 {
+        fmt.sbprint(&self.code, "int main(")
     } else {
-        fmt.sbprintf(&self.code, "pub fn %v(", fndecl.name.literal)
+        fntype_str, fntype_str_alloced := gen_type(self, fndecl.type)
+        defer if fntype_str_alloced do delete(fntype_str)
+
+        fmt.sbprintf(&self.code, "%v %v(", fntype_str, fndecl.name.literal)
     }
 
     for stmnt, i in fndecl.args {
@@ -212,15 +288,12 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
         defer if arg_str_alloced do delete(arg_str)
 
         if i == 0 {
-            fmt.sbprintf(&self.code, "%v: %v", arg.name.literal, arg_str)
+            fmt.sbprintf(&self.code, "%v %v", arg_str, arg.name.literal)
         } else {
-            fmt.sbprintf(&self.code, ", %v: %v", arg.name.literal, arg_str)
+            fmt.sbprintf(&self.code, ", %v %v", arg_str, arg.name.literal)
         }
     }
-    fntype_str, fntype_str_alloced := gen_type(self, fndecl.type)
-    defer if fntype_str_alloced do delete(fntype_str)
-
-    fmt.sbprintf(&self.code, ") %v", fntype_str)
+    fmt.sbprint(&self.code, ")")
 
     if fndecl.has_body {
         fmt.sbprint(&self.code, " ")
@@ -299,7 +372,7 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         literal := fmt.aprintf("'%v'", expr.literal)
         return literal, true
     case StrLit:
-        literal := fmt.aprintf("\"%v\"", expr.literal)
+        literal := fmt.aprintf("curstr(\"%v\")", expr.literal)
         return literal, true
     case CstrLit:
         literal := fmt.aprintf("\"%v\"", expr.literal)
@@ -328,7 +401,7 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     case ArrayIndex:
         ident, ident_alloced := gen_expr(self, expr.ident^)
         index, index_alloced := gen_expr(self, expr.index^)
-        ret := fmt.aprintf("%v[%v]", ident, index)
+        ret := fmt.aprintf("%v.ptr[%v]", ident, index)
 
         if ident_alloced {
             delete(ident)
@@ -354,7 +427,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         expr_type_str, expr_type_str_alloced := gen_type(self, expr.type)
         defer if expr_type_str_alloced do delete(expr_type_str)
 
-        fmt.sbprintf(&literal, "%v{{", expr_type_str)
+        if type_tag_equal(expr.type, Array{}) {
+            fmt.sbprint(&literal, "{")
+        } else {
+            fmt.sbprintf(&literal, "(%v){{", expr_type_str)
+        }
         for val, i in expr.values {
             str_val, alloced := gen_expr(self, val)
             defer if alloced do delete(str_val)
@@ -528,16 +605,76 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     unreachable()
 }
 
+gen_generic_decl :: proc(self: ^Codegen, type: Type) {
+    #partial switch t in type {
+    case Array:
+        type_str, type_str_alloc := gen_type(self, t.type^)
+        defer if type_str_alloc do delete(type_str)
+
+        typename := strings.builder_make()
+        gen_typename(self, {t.type^}, &typename)
+
+        len, len_alloc := gen_expr(self, t.len.?^)
+        defer if len_alloc do delete(len)
+
+        curarray := fmt.aprintfln("CurArray(%v, %v, %v);", type_str, strings.to_string(typename), len)
+
+        for generics in self.generated_generics {
+            if strings.compare(curarray, generics) == 0 {
+                return
+            }
+        }
+
+        self.code = sbinsert(&self.code, curarray, self.def_loc)
+        append(&self.generated_generics, curarray)
+    }
+}
+
 gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
     gen_indent(self)
+
+    if type_tag_equal(vardecl.type, Array{}) {
+        temp_name := gen_random_name()
+        defer delete(temp_name)
+
+        var_type_str, var_type_str_alloced := gen_type(self, vardecl.type, temp_name)
+        defer if var_type_str_alloced do delete(var_type_str)
+
+        fmt.sbprintf(&self.code, "%v", var_type_str)
+
+        if vardecl.value == nil {
+            fmt.sbprintln(&self.code, ";")
+        } else {
+            fmt.sbprint(&self.code, " = ")
+
+            value, alloced := gen_expr(self, vardecl.value)
+            defer if alloced do delete(value)
+            fmt.sbprintfln(&self.code, "%v;", value)
+        }
+
+        typename := strings.builder_make()
+        defer delete(typename.buf)
+
+        gen_typename(self, {vardecl.type}, &typename)
+        gen_indent(self)
+
+        len, len_alloc := gen_expr(self, vardecl.type.(Array).len.?^)
+        defer if len_alloc do delete(len)
+
+        fmt.sbprintfln(&self.code, "%v %v = {{.ptr = %v, .len = %v}};", strings.to_string(typename), vardecl.name.literal, temp_name, len)
+        return
+    }
+
     var_type_str, var_type_str_alloced := gen_type(self, vardecl.type)
     defer if var_type_str_alloced do delete(var_type_str)
 
-    fmt.sbprintf(&self.code, "var %v: %v = ", vardecl.name.literal, var_type_str)
+    fmt.sbprintf(&self.code, "%v %v", var_type_str, vardecl.name.literal)
 
     if vardecl.value == nil {
-        fmt.sbprintln(&self.code, "undefined;")
+        fmt.sbprintln(&self.code, ";")
     } else {
+        fmt.sbprint(&self.code, " = ")
+
         value, alloced := gen_expr(self, vardecl.value)
         defer if alloced do delete(value)
         fmt.sbprintfln(&self.code, "%v;", value)
@@ -557,13 +694,36 @@ gen_var_reassign :: proc(self: ^Codegen, varre: VarReassign) {
 
 gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
     gen_indent(self)
-    const_type_str, const_type_str_alloced := gen_type(self, constdecl.type)
-    defer if const_type_str_alloced do delete(const_type_str)
 
     value, alloced := gen_expr(self, constdecl.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&self.code, "const %v: %v = %v;", constdecl.name.literal, const_type_str, value);
+    if type_tag_equal(constdecl.type, Array{}) {
+        temp_name := gen_random_name()
+        defer delete(temp_name)
+
+        const_type_str, const_type_str_alloced := gen_type(self, constdecl.type, temp_name)
+        defer if const_type_str_alloced do delete(const_type_str)
+
+        fmt.sbprintf(&self.code, "const %v = %v;", const_type_str, value)
+
+        typename := strings.builder_make()
+        defer delete(typename.buf)
+
+        gen_typename(self, {constdecl.type}, &typename)
+        gen_indent(self)
+
+        len, len_alloc := gen_expr(self, constdecl.type.(Array).len.?^)
+        defer if len_alloc do delete(len)
+
+        fmt.sbprintfln(&self.code, "%v %v = {{.ptr = %v, .len = %v}};", strings.to_string(typename), constdecl.name.literal, temp_name, len)
+        return
+    }
+
+    const_type_str, const_type_str_alloced := gen_type(self, constdecl.type, constdecl.name.literal)
+    defer if const_type_str_alloced do delete(const_type_str)
+
+    fmt.sbprintf(&self.code, "const %v %v = %v;", const_type_str, constdecl.name.literal, value)
 }
 
 gen_return :: proc(self: ^Codegen, ret: Return) {
@@ -585,7 +745,51 @@ gen_directive :: proc(self: ^Codegen, directive: Directive) {
     }
 }
 
+gen_c_necessities :: proc(self: ^Codegen) {
+    fmt.sbprintln(&self.code, "#include <stdint.h>")
+    fmt.sbprintln(&self.code, "#include <stddef.h>")
+    fmt.sbprintln(&self.code, "#include <string.h>")
+    fmt.sbprintln(&self.code, "#include <stdbool.h>")
+    fmt.sbprintln(&self.code, 
+`#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__sun) || defined(__CYGWIN__)
+#include <sys/types.h>
+#elif defined(_WIN32) || defined(__MINGW32__)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif`
+    )
+
+    fmt.sbprintln(&self.code, "typedef int8_t i8;")
+    fmt.sbprintln(&self.code, "typedef int16_t i16;")
+    fmt.sbprintln(&self.code, "typedef int32_t i32;")
+    fmt.sbprintln(&self.code, "typedef int64_t i64;")
+    fmt.sbprintln(&self.code, "typedef ssize_t isize;")
+    fmt.sbprintln(&self.code, "typedef uint8_t u8;")
+    fmt.sbprintln(&self.code, "typedef uint16_t u16;")
+    fmt.sbprintln(&self.code, "typedef uint32_t u32;")
+    fmt.sbprintln(&self.code, "typedef uint64_t u64;")
+    fmt.sbprintln(&self.code, "typedef size_t usize;")
+    fmt.sbprintln(&self.code, "typedef float f32;")
+    fmt.sbprintln(&self.code, "typedef double f64;")
+    fmt.sbprintln(&self.code, 
+`typedef struct CurString {
+    const char *ptr;
+    usize len;
+} CurString;`
+    )
+    fmt.sbprintln(&self.code, "#define curstr(s) ((CurString){.ptr = s, strlen(s)})")
+    fmt.sbprintln(&self.code, 
+`#define CurArray(T, Tname, N)\
+typedef struct CurArray_##Tname##N {\
+    T *ptr;\
+    const usize len;\
+} CurArray_##Tname##N;`
+    )
+}
+
 gen :: proc(self: ^Codegen) {
+    gen_c_necessities(self)
+
     for statement in self.ast {
         #partial switch stmnt in statement {
         case Directive:

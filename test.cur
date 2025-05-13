@@ -1,11 +1,17 @@
-#link "libc";
-
 extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    words :: [_]cstring{c"hello", c"hey", c"hi"};
+    num := 10;
 
-    for (i: usize = 0; i < words.len; i += 1) {
-        puts(words[i]);
+    cstr := c"hello";
+    str := "hello";
+    str_ptr := str.ptr;
+
+    greetings := [_]cstring{c"hello", c"hi", c"hey"};
+    len := greetings.len;
+    greetings[0] = c"wassup";
+
+    for (i: usize = 0; i < greetings.len; i += 1) {
+        puts(greetings[i]);
     }
 }

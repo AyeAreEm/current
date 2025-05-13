@@ -17,6 +17,23 @@ args_next :: proc(args: ^[]string, arg: string) -> string {
     return arg
 }
 
+// warning: this frees sb and returns a newly allocated string
+@(require_results)
+sbinsert :: proc(sb: ^strings.Builder, str: string, index: int) -> strings.Builder {
+    code := strings.builder_make()
+
+    first_half := sb.buf[:index]
+    strings.write_bytes(&code, first_half)
+    strings.write_string(&code, str)
+
+    second_half := sb.buf[index:]
+    strings.write_bytes(&code, second_half)
+
+    delete(sb.buf)
+
+    return code
+}
+
 debug :: proc(format: string, args: ..any) {
     fmt.eprint("[DEBUG]: ")
     fmt.eprintfln(format, ..args)
@@ -58,11 +75,10 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
     filename := get_filename(filepath)
 
     compile_com := make([dynamic]string)
-    append(&compile_com, "zig")
-    append(&compile_com, "build-exe" if !run else "run")
-    append(&compile_com, "--name")
+    append(&compile_com, "gcc")
+    append(&compile_com, "-o")
     append(&compile_com, filename)
-    append(&compile_com, "output.zig")
+    append(&compile_com, "output.c")
 
     for link in linking {
         append(&compile_com, link)
@@ -75,19 +91,38 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
         fmt.println("")
     }
 
-    state, stdout, stderr, process_err := os2.process_exec(os2.Process_Desc{
+    _, compile_stdout, compile_stderr, compile_process_err := os2.process_exec(os2.Process_Desc{
         command = compile_com[:],
     }, context.temp_allocator)
-    defer if process_err != nil {
-        delete(stdout)
-        delete(stderr)
+    defer if compile_process_err != nil {
+        delete(compile_stdout)
+        delete(compile_stderr)
     }
 
-    fmt.print(cast(string)stdout)
-    fmt.print(cast(string)stderr)
+    fmt.print(cast(string)compile_stdout)
+    fmt.print(cast(string)compile_stderr)
+
+    if run {
+        run_com := make([dynamic]string)
+        exe := fmt.aprintf("./%v", filename) if ODIN_OS == .Linux else fmt.aprintf("./%v.exe", filename)
+        defer delete(exe)
+
+        append(&run_com, exe)
+        _, run_stdout, run_stderr, run_process_err := os2.process_exec(os2.Process_Desc{
+            command = run_com[:],
+        }, context.temp_allocator)
+
+        defer if run_process_err != nil {
+            delete(run_stdout)
+            delete(run_stderr)
+        }
+
+        fmt.print(cast(string)run_stdout)
+        fmt.print(cast(string)run_stderr)
+    }
 
     if !DEBUG_MODE {
-        os2.remove("output.zig")
+        os2.remove("output.c")
     }
 }
 
@@ -121,7 +156,7 @@ build :: proc(filename: string) -> [dynamic]string {
     codegen := codegen_init(ast, symtab)
     gen(&codegen);
 
-    os.write_entire_file("output.zig", codegen.code.buf[:])
+    os.write_entire_file("output.c", codegen.code.buf[:])
     return codegen.linking
 }
 
