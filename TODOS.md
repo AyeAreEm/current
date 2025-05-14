@@ -21,6 +21,7 @@
 - For Loops
 - Importing External Libraries
 - Change Backend To C
+- Full field propogation
 
 # Completed
 - Function Declarations

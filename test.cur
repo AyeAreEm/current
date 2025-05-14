@@ -1,7 +1,11 @@
 extern puts :: fn(s: cstring) i32;
 
+some :: fn(arr: [5]i32) void {
+
+}
+
 main :: fn() void {
-    num := 10;
+    num: i32 = 10;
 
     cstr := c"hello";
     str := "hello";
@@ -13,5 +17,33 @@ main :: fn() void {
 
     for (i: usize = 0; i < greetings.len; i += 1) {
         puts(greetings[i]);
+    }
+
+    nums := [_]i32{10, 15, 20, 25, 30};
+    for (i: usize = 0; i < nums.len; i += 1) {
+        nums[i] += 1;
+    }
+
+    // TODO: make this error, unable to infer the length
+    // grid: [_]i32;
+
+    // TODO: initalise the length for this
+    // grid: [3]i32;
+    // so that `grid.len` can still work
+
+    // TODO: give a proper error if it was `[_][_]cstring{...}`
+    grid := [_][3]cstring{
+        [_]cstring{c"1", c"2", c"3"},
+        [_]cstring{c"4", c"5", c"6"},
+        [_]cstring{c"7", c"8", c"9"}
+    };
+
+    for (i: usize = 0; i < grid.len; i += 1) {
+        // TODO: propogate fields so that `grid[i].len` and `grid[i][j]` work
+        col := grid[i];
+        for (j: usize = 0; j < col.len; j += 1) {
+            puts(col[j]);
+        }
+        puts(c"");
     }
 }
