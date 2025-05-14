@@ -226,7 +226,7 @@ tc_infer :: proc(analyser: ^Analyser, lhs: ^Type, expr: Expr) {
     expr_default_type := tc_default_untyped_type(expr_type)
 
     if expr_default_type != nil {
-         lhs^ = expr_default_type
+        lhs^ = expr_default_type
     } else {
         lhs^ = expr_type
     }
@@ -381,7 +381,7 @@ tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
 
         for val, i in literal.values {
             valtype := type_of_expr(analyser, val)
-            if !type_tag_equal(valtype, array.type^) {
+            if !tc_equals(analyser, valtype, array.type^) {
                 elog(analyser, literal.cursors_idx, "array element %v type is %v, expected %v", i + 1, valtype, array.type^)
             }
         }
