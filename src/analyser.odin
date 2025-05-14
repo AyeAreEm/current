@@ -538,10 +538,6 @@ analyse_literal :: proc(self: ^Analyser, literal: ^Literal) {
     }
 
     tc_literal(self, literal)
-    
-    // TODO: check if elems are the correct type.
-    // i.e. if elems are the subtype of the array type
-    // or if elems are the correct type in type declaration
 }
 
 analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
@@ -626,11 +622,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         analyse_expr(self, ex.value)
         value_type := type_of_expr(self, ex.value^)
 
-        if t := tc_default_untyped_type(value_type); t != nil {
-            ex.type = t
-        } else {
-            ex.type = value_type
-        }
+        ex.type = value_type
     case Negative:
         analyse_expr(self, ex.value)
 

@@ -1566,7 +1566,7 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
             token_after := token_next(self)
 
             if token_tag_equal(token_after, TokenEqual{}) {
-                return parse_var_operator_equal(self, arr_index, tok)
+                return parse_var_operator_equal(self, arr_index, after)
             } else {
                 elog(self, self.cursors_idx, "unexpected token %v", tok)
             }
