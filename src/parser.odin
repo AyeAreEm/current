@@ -1463,7 +1463,7 @@ parse_var_operator_equal :: proc(self: ^Parser, ident: Expr, operator: Token, ex
 }
 
 // expects "." already nexted
-parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
+parse_field_access :: proc(self: ^Parser, ident: Expr) -> Expr {
     // <ident>.
 
     index := self.cursors_idx
@@ -1486,42 +1486,65 @@ parse_field_access :: proc(self: ^Parser, ident: Ident) -> FieldAccess {
     }
 
     //<ident>.<ident>
-    if token_tag_equal(token, TokenIdent{}) {
-        converted_ident := convert_ident(self, token.(TokenIdent))
-        if id, ok := converted_ident.(Ident); ok {
-            field := new(Expr); field^ = id
-
-            return FieldAccess{
-                expr = front,
-                field = field,
-                type = nil,
-                constant = false,
-                cursors_idx = index,
-            }
-        } else {
-            elog(self, self.cursors_idx, "unexpected token %v after field access", token)
-        }
+    if !token_tag_equal(token, TokenIdent{}) {
+        elog(self, self.cursors_idx, "unexpected token %v after field access", token)
     }
 
-    elog(self, self.cursors_idx, "unexpected token %v after field access", token)
+    converted_ident := convert_ident(self, token.(TokenIdent))
+    if id, ok := converted_ident.(Ident); ok {
+        field := new(Expr); field^ = id
+
+        fieldaccess := FieldAccess{
+            expr = front,
+            field = field,
+            type = nil,
+            constant = false,
+            cursors_idx = index,
+        }
+
+        token = token_peek(self)
+        if token_tag_equal(token, TokenDot{}) {
+            token_next(self)
+            return parse_field_access(self, fieldaccess)
+        } else if token_tag_equal(token, TokenLs{}) {
+            token_next(self)
+            return parse_array_index(self, fieldaccess)
+        }
+
+        return fieldaccess
+    } else {
+        elog(self, self.cursors_idx, "unexpected token %v after field access", token)
+    }
 }
 
 // expects [ already nexted
-parse_array_index :: proc(self: ^Parser, ident: Ident) -> ArrayIndex {
+parse_array_index :: proc(self: ^Parser, ident: Expr) -> Expr {
     // <ident>[
 
     intlit_cursor_index := self.cursors_idx
     index := new(Expr); index^ = parse_expr(self)
     token_expect(self, TokenRs{})
-
+    // <ident>[<index>]
+    
     i := new(Expr); i^ = ident
-
-    return ArrayIndex{
+    arrindex := ArrayIndex{
         ident = i,
         index = index,
         type = nil,
         cursors_idx = self.cursors_idx
     }
+
+    // check for field access
+    token := token_peek(self)
+    if token_tag_equal(token, TokenDot{}) {
+        token_next(self)
+        return parse_field_access(self, arrindex)
+    } else if token_tag_equal(token, TokenLs{}) {
+        token_next(self)
+        return parse_array_index(self, arrindex)
+    }
+
+    return arrindex
 }
 
 parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {

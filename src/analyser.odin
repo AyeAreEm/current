@@ -34,8 +34,11 @@ sym_equals :: proc(lhs: Expr, rhs: Expr) -> bool {
             return sym_equals(k.expr^, el.expr^) && sym_equals(k.field^, el.field^)
         }
     case ArrayIndex:
-        _, ok := rhs.(ArrayIndex)
-        return ok
+        if r, ok := rhs.(ArrayIndex); ok {
+            return sym_equals(el.ident^, r.ident^)
+        }
+        
+        return false
     }
 
     return false
@@ -75,6 +78,36 @@ symtab_propogate_ptr :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
     using analyser.symtab
 
     #partial switch v in value {
+    case nil:
+        v_expr: Expr
+        type: Type
+        constant: bool
+
+        if v, ok := key.(FieldAccess); ok {
+            v_expr = v
+            type = v.type
+            constant = v.type.(Ptr).constant
+        } else if v, ok := key.(ArrayIndex); ok {
+            v_expr = v
+            type = v.type
+            constant = v.type.(Ptr).constant
+        }
+
+        expr := new(Expr); expr^ = v_expr
+        field := new(Expr); field^ = Deref{
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access := FieldAccess{
+            expr = expr,
+            field = field,
+            type = tc_deref_ptr(analyser, type),
+            constant = constant,
+            cursors_idx = get_cursor_index(key),
+        }
+
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+        symtab_propogate(analyser, field_access, true)
     case VarDecl:
         expr := new(Expr); expr^ = v.name
         field := new(Expr); field^ = Deref{
@@ -90,6 +123,7 @@ symtab_propogate_ptr :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
 
         append(&keys[curr_scope], field_access)
         append(&values[curr_scope], nil)
+        symtab_propogate(analyser, field_access, true)
     case ConstDecl:
         expr := new(Expr); expr^ = v.name
         field := new(Expr); field^ = Deref{
@@ -105,6 +139,7 @@ symtab_propogate_ptr :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
 
         append(&keys[curr_scope], field_access)
         append(&values[curr_scope], nil)
+        symtab_propogate(analyser, field_access, true)
     }
 }
 
@@ -112,6 +147,44 @@ symtab_propogate_string :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
     using analyser.symtab
 
     #partial switch v in value {
+    case nil:
+        v_expr: Expr
+        if v, ok := key.(ArrayIndex); ok {
+            v_expr = v
+        } else if v, ok := key.(FieldAccess); ok {
+            v_expr = v
+        }
+
+        expr := new(Expr); expr^ = v_expr
+        field := new(Expr); field^ = Ident{
+            literal = "len",
+            type = Usize{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access := FieldAccess{
+            expr = expr,
+            field = field,
+            type = Usize{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+
+        field = new(Expr); field^ = Ident{
+            literal = "ptr",
+            type = Cstring{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access = FieldAccess{
+            expr = expr,
+            field = field,
+            type = Cstring{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
     case VarDecl:
         expr := new(Expr); expr^ = v.name
         field := new(Expr); field^ = Ident{
@@ -181,6 +254,57 @@ symtab_propogate_array :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
     using analyser.symtab
 
     #partial switch v in value {
+    case nil:
+        ident: Expr
+        type: Type
+        if v, ok := key.(ArrayIndex); ok {
+            ident = v
+            type = v.type
+        } else if v, ok := key.(FieldAccess); ok {
+            ident = v
+            type = v.type
+        }
+
+        expr := new(Expr); expr^ = ident
+        array_index := ArrayIndex{
+            ident = expr,
+            index = nil, // CAUTION: nil pointer
+            type = type.(Array).type^,
+            cursors_idx = get_cursor_index(key)
+        }
+        append(&keys[curr_scope], array_index)
+        append(&values[curr_scope], nil)
+        symtab_propogate(analyser, array_index, true)
+
+        field := new(Expr); field^ = Ident{
+            literal = "len",
+            type = Usize{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access := FieldAccess{
+            expr = expr,
+            field = field,
+            type = Usize{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
+
+        field = new(Expr); field^ = Ident{
+            literal = "ptr",
+            type = Cstring{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access = FieldAccess{
+            expr = expr,
+            field = field,
+            type = Cstring{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
     case VarDecl:
         expr := new(Expr); expr^ = v.name
         array_index := ArrayIndex{
@@ -191,6 +315,7 @@ symtab_propogate_array :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
         }
         append(&keys[curr_scope], array_index)
         append(&values[curr_scope], nil)
+        symtab_propogate(analyser, array_index, true)
 
         field := new(Expr); field^ = Ident{
             literal = "len",
@@ -207,20 +332,20 @@ symtab_propogate_array :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
         append(&keys[curr_scope], field_access)
         append(&values[curr_scope], nil)
 
-        // field = new(Expr); field^ = Ident{
-        //     literal = "ptr",
-        //     type = Cstring{},
-        //     cursors_idx = get_cursor_index(key),
-        // }
-        // field_access = FieldAccess{
-        //     expr = expr,
-        //     field = field,
-        //     type = Cstring{},
-        //     constant = true,
-        //     cursors_idx = get_cursor_index(key),
-        // }
-        // append(&keys[curr_scope], field_access)
-        // append(&values[curr_scope], nil)
+        field = new(Expr); field^ = Ident{
+            literal = "ptr",
+            type = Cstring{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access = FieldAccess{
+            expr = expr,
+            field = field,
+            type = Cstring{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
     case ConstDecl:
         expr := new(Expr); expr^ = v.name
         array_index := ArrayIndex{
@@ -231,6 +356,7 @@ symtab_propogate_array :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
         }
         append(&keys[curr_scope], array_index)
         append(&values[curr_scope], nil)
+        symtab_propogate(analyser, array_index, true)
 
         field := new(Expr); field^ = Ident{
             literal = "len",
@@ -247,25 +373,37 @@ symtab_propogate_array :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
         append(&keys[curr_scope], field_access)
         append(&values[curr_scope], nil)
 
-        // field = new(Expr); field^ = Ident{
-        //     literal = "ptr",
-        //     type = Cstring{},
-        //     cursors_idx = get_cursor_index(key),
-        // }
-        // field_access = FieldAccess{
-        //     expr = expr,
-        //     field = field,
-        //     type = Cstring{},
-        //     constant = true,
-        //     cursors_idx = get_cursor_index(key),
-        // }
-        // append(&keys[curr_scope], field_access)
-        // append(&values[curr_scope], nil)
+        field = new(Expr); field^ = Ident{
+            literal = "ptr",
+            type = Cstring{},
+            cursors_idx = get_cursor_index(key),
+        }
+        field_access = FieldAccess{
+            expr = expr,
+            field = field,
+            type = Cstring{},
+            constant = true,
+            cursors_idx = get_cursor_index(key),
+        }
+        append(&keys[curr_scope], field_access)
+        append(&values[curr_scope], nil)
     }
 }
 
-symtab_propogate :: proc(analyser: ^Analyser, key: Expr) {
+symtab_propogate :: proc(analyser: ^Analyser, key: Expr, no_val := false) {
     using analyser.symtab
+
+    if no_val {
+        type := type_of_expr(analyser, key)
+        if type_tag_equal(type, Ptr{}) {
+            symtab_propogate_ptr(analyser, key, nil)
+        } else if type_tag_equal(type, String{}) {
+            symtab_propogate_string(analyser, key, nil)
+        } else if type_tag_equal(type, Array{}) {
+            symtab_propogate_array(analyser, key, nil)
+        }
+        return
+    }
 
     value := symtab_find(analyser, key, get_cursor_index(key))
     if v, ok := value.(VarDecl); ok {
@@ -540,28 +678,31 @@ analyse_literal :: proc(self: ^Analyser, literal: ^Literal) {
     tc_literal(self, literal)
 }
 
+analyse_field_access :: proc(self: ^Analyser, expr: ^FieldAccess) {
+    fa := symtab_find_key(self, expr^, expr.cursors_idx).(FieldAccess)
+    if ai, ok := expr.expr.(ArrayIndex); ok {
+        expr.type = fa.type
+        expr.expr.(ArrayIndex).ident^ = fa.expr.(ArrayIndex).ident^
+        analyse_expr(self, expr.expr.(ArrayIndex).index)
+        return
+    } else {
+        expr^ = fa
+    }
+
+    analyse_expr(self, expr.expr)
+}
+
 analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     switch &ex in expr {
     case Deref:
         elog(self, ex.cursors_idx, "deref not implemented yet in analyse_expr")
     case FieldAccess:
-        fa := symtab_find_key(self, expr^, ex.cursors_idx).(FieldAccess)
-        ex = fa
+        analyse_field_access(self, &ex)
     case ArrayIndex:
-        arr_index := symtab_find(self, ex.ident^, ex.cursors_idx)
-        if var, var_ok := arr_index.(VarDecl); var_ok {
-            if arr, arr_ok := var.type.(Array); arr_ok {
-                ex.type = arr.type^
-            } else {
-                elog(self, ex.cursors_idx, "cannot index into types that aren't arrays")
-            }
-        } else if var, var_ok := arr_index.(ConstDecl); var_ok {
-            if arr, arr_ok := var.type.(Array); arr_ok {
-                ex.type = arr.type^
-            } else {
-                elog(self, ex.cursors_idx, "cannot index into types that aren't arrays")
-            }
-        }
+        arr_index := symtab_find_key(self, ex, ex.cursors_idx)
+        ex.type = arr_index.(ArrayIndex).type
+        analyse_expr(self, ex.ident)
+        analyse_expr(self, ex.index)
     case I8, I16, I32, I64, Isize:
         return
     case U8, U16, U32, U64, Usize:
@@ -926,7 +1067,7 @@ analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
         elog(self, fncall.cursors_idx, "expected %v argument(s) in function call \"%v\", got %v", decl_args_len, fncall.name, fncall_args_len)
     }
 
-    for &call_arg, i in fncall.args {
+    for &call_arg in fncall.args {
         analyse_expr(self, &call_arg)
     }
 
