@@ -4,9 +4,7 @@ main :: fn() void {
     // TODO: make this error, unable to infer the length
     // grid: [_]i32;
 
-    // TODO: initalise the length for this
-    // grid: [3]i32;
-    // so that `grid.len` can still work
+    nums: [3]i32;
 
     // TODO: give a proper error if it was `[_][_]cstring{...}`
     grid := [_][3]cstring{

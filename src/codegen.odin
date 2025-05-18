@@ -398,6 +398,48 @@ gen_fn_call :: proc(self: ^Codegen, fncall: FnCall, with_indent: bool = false) -
     return strings.to_string(call)
 }
 
+gen_array_literal :: proc(self: ^Codegen, expr: Literal) -> (string, bool) {
+    literal := strings.builder_make()
+    arr := expr.type.(Array)
+
+    typename := strings.builder_make()
+    defer delete(typename.buf)
+    gen_typename(self, {arr}, &typename)
+    fmt.sbprintf(&literal, "%v(", strings.to_lower(strings.to_string(typename)))
+
+    if subarr, ok := arr.type^.(Array); ok {
+        clear(&typename.buf)
+        gen_typename(self, {arr.type^}, &typename)
+        length, length_alloc := gen_expr(self, arr.len.?^)
+        defer if length_alloc do delete(length)
+
+        fmt.sbprintf(&literal, "(%v[%v]){{", strings.to_string(typename), length)
+    } else {
+        expr_type_str, expr_type_str_alloced := gen_type(self, expr.type)
+        defer if expr_type_str_alloced do delete(expr_type_str)
+
+        fmt.sbprintf(&literal, "(%v){{", expr_type_str)
+    }
+
+    for val, i in expr.values {
+        str_val, alloced := gen_expr(self, val)
+        defer if alloced do delete(str_val)
+
+        if i == 0 {
+            fmt.sbprintf(&literal, "%v", str_val)
+        } else {
+            fmt.sbprintf(&literal, ", %v", str_val)
+        }
+    }
+    fmt.sbprint(&literal, "}")
+
+    len, len_alloc := gen_expr(self, arr.len.?^)
+    defer if len_alloc do delete(len)
+    fmt.sbprintf(&literal, ", %v)", len)
+
+    return strings.to_string(literal), true
+}
+
 // returns string and true if string is allocated
 gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     switch expr in expression {
@@ -497,30 +539,13 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         literal := strings.builder_make()
 
         if arr, ok := expr.type.(Array); ok {
-            typename := strings.builder_make()
-            defer delete(typename.buf)
-            gen_typename(self, {arr}, &typename)
-            fmt.sbprintf(&literal, "%v(", strings.to_lower(strings.to_string(typename)))
-
-            if subarr, ok := arr.type^.(Array); ok {
-                clear(&typename.buf)
-                gen_typename(self, {arr.type^}, &typename)
-                length, length_alloc := gen_expr(self, arr.len.?^)
-                defer if length_alloc do delete(length)
-
-                fmt.sbprintf(&literal, "(%v[%v]){{", strings.to_string(typename), length)
-            } else {
-                expr_type_str, expr_type_str_alloced := gen_type(self, expr.type)
-                defer if expr_type_str_alloced do delete(expr_type_str)
-
-                fmt.sbprintf(&literal, "(%v){{", expr_type_str)
-            }
-
-        } else {
-            expr_type_str, expr_type_str_alloced := gen_type(self, expr.type)
-            defer if expr_type_str_alloced do delete(expr_type_str)
-            fmt.sbprintf(&literal, "(%v){{", expr_type_str)
+            delete(literal.buf)
+            return gen_array_literal(self, expr)
         }
+
+        expr_type_str, expr_type_str_alloced := gen_type(self, expr.type)
+        defer if expr_type_str_alloced do delete(expr_type_str)
+        fmt.sbprintf(&literal, "(%v){{", expr_type_str)
 
         for val, i in expr.values {
             str_val, alloced := gen_expr(self, val)
@@ -532,14 +557,8 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
                 fmt.sbprintf(&literal, ", %v", str_val)
             }
         }
+
         fmt.sbprint(&literal, "}")
-
-        if arr, ok := expr.type.(Array); ok {
-            len, len_alloc := gen_expr(self, arr.len.?^)
-            defer if len_alloc do delete(len)
-            fmt.sbprintf(&literal, ", %v)", len)
-        }
-
         return strings.to_string(literal), true
     case Grouping:
         value, alloced := gen_expr(self, expr.value^)
@@ -859,6 +878,19 @@ gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
     fmt.sbprintf(&self.code, "%v", proto)
 
     if vardecl.value == nil {
+        if _, ok := vardecl.type.(Array); ok {
+            fmt.sbprint(&self.code, " = ")
+
+            value, alloced := gen_array_literal(self, Literal{
+                values = [dynamic]Expr{},
+                type = vardecl.type,
+                cursors_idx = vardecl.cursors_idx
+            })
+            defer if alloced do delete(value)
+            fmt.sbprintfln(&self.code, "%v;", value)
+            return
+        }
+
         fmt.sbprintln(&self.code, ";")
     } else {
         fmt.sbprint(&self.code, " = ")
@@ -884,13 +916,23 @@ gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
     proto := gen_decl_proto(self, constdecl)
     defer delete(proto)
 
+    fmt.sbprintf(&self.code, "const %v = ", proto)
+
+    if _, ok := constdecl.type.(Array); ok {
+        value, alloced := gen_array_literal(self, Literal{
+            values = [dynamic]Expr{},
+            type = constdecl.type,
+            cursors_idx = constdecl.cursors_idx
+        })
+        defer if alloced do delete(value)
+        fmt.sbprintfln(&self.code, "%v;", value)
+        return
+    }
+
     value, alloced := gen_expr(self, constdecl.value)
     defer if alloced do delete(value)
 
-    const_type_str, const_type_str_alloced := gen_type(self, constdecl.type, constdecl.name.literal)
-    defer if const_type_str_alloced do delete(const_type_str)
-
-    fmt.sbprintf(&self.code, "const %v = %v;", proto, value)
+    fmt.sbprintfln(&self.code, "%v;", value)
 }
 
 gen_return :: proc(self: ^Codegen, ret: Return) {
