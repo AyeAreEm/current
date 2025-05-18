@@ -1,8 +1,8 @@
 extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    // TODO: make this error, unable to infer the length
-    // grid: [_]i32;
+    // nums: [_]i32;
+    // ^ this will now error
 
     nums: [3]i32;
 

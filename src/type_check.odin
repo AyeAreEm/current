@@ -335,6 +335,9 @@ tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
     expr_type := type_of_expr(analyser, vardecl.value)
 
     if type_tag_equal(expr_type, Void{}) {
+        if arr, ok := vardecl.type.(Array); ok {
+            if _, ok := arr.len.?; !ok do elog(analyser, vardecl.cursors_idx, "cannot infer array length for \"%v\" without compound literal", vardecl.name.literal)
+        }
         return
     }
 

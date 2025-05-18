@@ -1327,6 +1327,8 @@ parse_type :: proc(self: ^Parser) -> Type {
                     subtype := new(Type); subtype^ = array_type
                     t.type = subtype
                }
+            } else {
+                elog(self, self.cursors_idx, "expected an integer or underscore, got %v", after)
             }
         }
 
