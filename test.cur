@@ -1,14 +1,19 @@
-maybe10 :: fn() ?i32 {
-    return null;
-}
+#link "libc";
+
+extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    num := maybe10();
-    num = 10;
+    num: ?i32 = 10;
+    if (num) [n] {
+        puts(c"got a number");
+    } else {
+        puts(c"no number");
+    }
 
-    one: i32 = 1;
-    num = one;
-
-    two: ?i32 = 2;
-    num = two;
+    num = null;
+    if (num) [n] {
+        puts(c"got a number");
+    } else {
+        puts(c"no number");
+    }
 }

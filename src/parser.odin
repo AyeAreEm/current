@@ -524,7 +524,7 @@ Return :: struct {
 If :: struct {
     // type: Type,
     condition: Expr,
-    capture: Maybe(Ident),
+    capture: Maybe(union{Ident, ConstDecl}),
     body: [dynamic]Stmnt,
     els: [dynamic]Stmnt,
     cursors_idx: int,
@@ -1669,7 +1669,7 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
     _ = token_expect(self, TokenRb{})
 
     capture_tok := token_peek(self)
-    capture: Maybe(Ident) = nil
+    capture: Maybe(union{Ident, ConstDecl}) = nil
     // if (<condition>) <[capture]>
     if token_tag_equal(capture_tok, TokenLs{}) {
         token_next(self)

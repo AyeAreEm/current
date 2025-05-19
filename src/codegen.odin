@@ -270,22 +270,36 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
 
 gen_if :: proc(self: ^Codegen, ifs: If) {
     gen_indent(self)
-    fmt.sbprint(&self.code, "if (")
 
     condition, alloced := gen_expr(self, ifs.condition)
     defer if alloced do delete(condition)
 
-    fmt.sbprintf(&self.code, "%v) ", condition)
-
     if capture, ok := ifs.capture.?; ok {
-        fmt.sbprintf(&self.code, "|%v| ", capture.literal)
+        fmt.sbprintln(&self.code, "{");
+        self.indent_level += 1
+
+        proto := gen_decl_proto(self, capture.(ConstDecl))
+        defer delete(proto)
+
+        fmt.sbprintfln(&self.code, "const %v = %v.some;", proto, condition);
+        gen_indent(self)
+        fmt.sbprintf(&self.code, "if (%v.ok) ", condition)
+    } else {
+        fmt.sbprintf(&self.code, "if (%v) ", condition)
     }
+
 
     gen_block(self, ifs.body)
     strings.pop_byte(&self.code)
 
     fmt.sbprint(&self.code, " else ")
     gen_block(self, ifs.els)
+
+    if _, ok := ifs.capture.?; ok {
+        self.indent_level -= 1
+        gen_indent(self)
+        fmt.sbprintln(&self.code, "}");
+    }
 }
 
 gen_for :: proc(self: ^Codegen, forl: For) {

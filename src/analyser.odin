@@ -1073,20 +1073,21 @@ analyse_if :: proc(self: ^Analyser, ifs: ^If) {
         elog(self, ifs.cursors_idx, "condition must be bool or option, got %v", condition_type)
     }
 
-    captured: Maybe(ConstDecl) = nil
+    captured: Maybe(union{Ident, ConstDecl}) = nil
     if capture, ok := ifs.capture.?; ok {
         subtype := condition_type.(Option).type^
         captured = ConstDecl{
-            name = capture,
+            name = capture.(Ident),
             type = subtype,
             value = Null{},
-            cursors_idx = capture.cursors_idx,
+            cursors_idx = capture.(Ident).cursors_idx,
         }
+        ifs.capture = captured
     }
 
     symtab_new_scope(self)
     if c, ok := captured.?; ok {
-        symtab_push(self, c.name, c)
+        symtab_push(self, c.(ConstDecl).name, c.(ConstDecl))
     }
 
     analyse_block(self, ifs.body)
