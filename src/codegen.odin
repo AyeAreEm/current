@@ -156,7 +156,7 @@ gen_array_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder) {
 gen_ptr_type :: proc(self: ^Codegen, ptr: Type) -> string {
     #partial switch subtype in ptr {
     case Ptr:
-        return fmt.aprintf("*%v%v", "const " if subtype.constant else "", gen_ptr_type(self, subtype.type^))
+        return fmt.aprintf("%v%v*", gen_ptr_type(self, subtype.type^), " const" if subtype.constant else "")
     case:
         t, _ := gen_type(self, ptr)
         return t
@@ -333,6 +333,7 @@ gen_for :: proc(self: ^Codegen, forl: For) {
 gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) -> string {
     name: string
     type: Type
+    const := false
 
     if d, ok := decl.(VarDecl); ok {
         name = d.name.literal
@@ -340,6 +341,7 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
     } else if d, ok := decl.(ConstDecl); ok {
         name = d.name.literal
         type = d.type
+        const = true
     } else if d, ok := decl.(FnDecl); ok {
         name = d.name.literal
         type = d.type
@@ -355,7 +357,7 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
     var_type_str, var_type_str_alloced := gen_type(self, type)
     defer if var_type_str_alloced do delete(var_type_str)
 
-    return fmt.aprintf("%v %v", var_type_str, name)
+    return fmt.aprintf("%v %v %v", var_type_str, "const" if const else "", name)
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
@@ -1298,7 +1300,7 @@ gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
     proto := gen_decl_proto(self, constdecl)
     defer delete(proto)
 
-    fmt.sbprintf(&self.code, "const %v = ", proto)
+    fmt.sbprintf(&self.code, "%v = ", proto)
 
     if _, ok := constdecl.type.(Array); ok {
         value, alloced := gen_array_literal(self, Literal{

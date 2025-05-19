@@ -1,19 +1,4 @@
-#link "libc";
-
-extern puts :: fn(s: cstring) i32;
-
 main :: fn() void {
-    num: ?i32 = 10;
-    if (num) [n] {
-        puts(c"got a number");
-    } else {
-        puts(c"no number");
-    }
-
-    num = null;
-    if (num) [n] {
-        puts(c"got a number");
-    } else {
-        puts(c"no number");
-    }
+    num :: 10;
+    ptr :: &num;
 }

@@ -989,7 +989,7 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
         // because something like `p := &n` would have a `p.&` that doesn't have a value or
         // statement to declare it
         if varre.type == nil {
-            tc_infer(self, &varre.type, varre.value)
+            tc_infer(self, &varre.type, &varre.value)
         }
     } else if _, ok := stmnt_vardecl.(ConstDecl); ok {
         elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
