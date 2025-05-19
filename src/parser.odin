@@ -66,6 +66,7 @@ Isize :: struct {
 Array :: struct {
     type: ^Type,
     len: Maybe(^Expr), // if nil, infer len
+    cursors_idx: int,
 }
 
 Ptr :: struct {
@@ -1302,6 +1303,7 @@ parse_type :: proc(self: ^Parser) -> Type {
                 array_type := Array{
                     type = new(Type),
                     len = len,
+                    cursors_idx = self.cursors_idx,
                 }
 
                 #partial switch &t in type {
@@ -1318,6 +1320,7 @@ parse_type :: proc(self: ^Parser) -> Type {
                 array_type := Array{
                     type = new(Type),
                     len = nil,
+                    cursors_idx = self.cursors_idx,
                 }
 
                 #partial switch &t in type {

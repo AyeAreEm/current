@@ -1,12 +1,14 @@
 extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    // nums: [_]i32;
-    // ^ this will now error
-
-    nums: [3]i32;
-
-    // TODO: give a proper error if it was `[_][_]cstring{...}`
+    /*
+        This will now error since the length cannot be infered
+        grid := [_][_]cstring{
+            [_]cstring{c"1", c"2", c"3"},
+            [_]cstring{c"4", c"5", c"6"},
+            [_]cstring{c"7", c"8", c"9"}
+        };
+    */
     grid := [_][3]cstring{
         [_]cstring{c"1", c"2", c"3"},
         [_]cstring{c"4", c"5", c"6"},

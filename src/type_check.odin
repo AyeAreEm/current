@@ -49,6 +49,7 @@ tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
             #partial switch r in rhs {
             case Array:
                 l_len, _ := evaluate_expr(analyser, lhs_len)
+                if _, ok := r.len.?; !ok do elog(analyser, r.cursors_idx, "cannot infer array length")
                 r_len, _ := evaluate_expr(analyser, r.len.?)
                 if l_len != r_len do return false
                 return tc_array_equals(analyser, l.type^, r.type^)
