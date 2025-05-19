@@ -391,15 +391,16 @@ symtab_propogate_array :: proc(analyser: ^Analyser, key: Expr, value: Stmnt) {
 }
 
 symtab_propogate :: proc(analyser: ^Analyser, key: Expr, no_val := false) {
+    key := key
     using analyser.symtab
 
     if no_val {
-        type := type_of_expr(analyser, key)
-        if type_tag_equal(type, Ptr{}) {
+        type, type_alloc := type_of_expr(analyser, &key); defer if type_alloc do free(type)
+        if type_tag_equal(type^, Ptr{}) {
             symtab_propogate_ptr(analyser, key, nil)
-        } else if type_tag_equal(type, String{}) {
+        } else if type_tag_equal(type^, String{}) {
             symtab_propogate_string(analyser, key, nil)
-        } else if type_tag_equal(type, Array{}) {
+        } else if type_tag_equal(type^, Array{}) {
             symtab_propogate_array(analyser, key, nil)
         }
         return
@@ -494,130 +495,107 @@ analyser_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab, filename: string, cur
     }
 }
 
-type_of_expr :: proc(analyser: ^Analyser, expr: Expr) -> Type {
-    expr := expr
-
+type_of_expr :: proc(analyser: ^Analyser, expr: ^Expr) -> (^Type, bool) {
     switch &ex in expr {
     case Null:
-        return ex.type
+        return &ex.type, false
     case CstrLit:
-        return ex.type
+        return &ex.type, false
     case StrLit:
-        return ex.type
+        return &ex.type, false
     case CharLit:
-        return ex.type
+        return &ex.type, false
     case Address:
-        atype := new(Type); atype^ = ex.type
         decl := symtab_find(analyser, ex.value^, get_cursor_index(ex.value^))
-        return Ptr{
-            type = atype,
+        ptr := new(Type); ptr^ = Ptr{
+            type = &ex.type,
             constant = stmnt_is_constant(analyser, decl)
         }
+        return ptr, true
     case Literal:
-        return ex.type
-    case Bool:
-        return TypeId{}
-    case Char:
-        return TypeId{}
-    case String:
-        return TypeId{}
-    case Cstring:
-        return TypeId{}
-    case I8:
-        return TypeId{}
-    case I16:
-        return TypeId{}
-    case I32:
-        return TypeId{}
-    case I64:
-        return TypeId{}
-    case U8:
-        return TypeId{}
-    case U16:
-        return TypeId{}
-    case U32:
-        return TypeId{}
-    case U64:
-        return TypeId{}
-    case F32:
-        return TypeId{}
-    case F64:
-        return TypeId{}
-    case Usize:
-        return TypeId{}
-    case Isize:
-        return TypeId{}
+        return &ex.type, false
+    case Bool, Char, String, Cstring,
+         I8, I16, I32, I64, Isize,
+         U8, U16, U32, U64, Usize,
+         F32, F64:
+
+        t := new(Type); t^ = TypeId{}
+        return t, true
     case Negative:
-        return ex.type
+        return &ex.type, false
     case Grouping:
-        return ex.type
+        return &ex.type, false
     case IntLit:
-        return ex.type
+        return &ex.type, false
     case FloatLit:
-        return ex.type
+        return &ex.type, false
     case Deref:
         // TODO: this should probably give an actual type
         elog(analyser, ex.cursors_idx, "not implemented, can't return type from Deref right now")
     case FieldAccess:
         if ex.type != nil {
-            return ex.type
+            return &ex.type, false
         }
 
         decl := symtab_find(analyser, ex.expr^, ex.cursors_idx)
         if var, ok := decl.(VarDecl); ok {
-            return var.type
+            ex.type = var.type
         } else if var, ok := decl.(ConstDecl); ok {
-            return var.type
+            ex.type = var.type
         } else {
             elog(analyser, ex.cursors_idx, "expected a variable or constant, got %v", decl)
         }
+        return &ex.type, false
     case ArrayIndex:
-        return ex.type
+        return &ex.type, false
     case Ident:
         decl := symtab_find(analyser, ex, ex.cursors_idx)
         if var, ok := decl.(VarDecl); ok {
-            return var.type
+            ex.type = var.type
         } else if var, ok := decl.(ConstDecl); ok {
-            return var.type
+            ex.type = var.type
         } else {
             elog(analyser, ex.cursors_idx, "expected ident to be a variable or constant, got %v", decl)
         }
+        return &ex.type, false
     case FnCall:
         call := symtab_find(analyser, ex.name, ex.cursors_idx).(FnDecl)
-        return call.type
+        ex.type = call.type
+        return &ex.type, false
     case LessThan:
-        return Bool{}
+        return &ex.type, false
     case LessOrEqual:
-        return Bool{}
+        return &ex.type, false
     case GreaterThan:
-        return Bool{}
+        return &ex.type, false
     case GreaterOrEqual:
-        return Bool{}
+        return &ex.type, false
     case Equality:
-        return Bool{}
+        return &ex.type, false
     case Inequality:
-        return Bool{}
+        return &ex.type, false
     case Not:
-        return Bool{}
+        return &ex.type, false
     case Plus:
-        return ex.type
+        return &ex.type, false
     case Minus:
-        return ex.type
+        return &ex.type, false
     case Multiply:
-        return ex.type
+        return &ex.type, false
     case Divide:
-        return ex.type
+        return &ex.type, false
     case True:
-        return ex.type
+        return &ex.type, false
     case False:
-        return ex.type
+        return &ex.type, false
     }
 
     if expr == nil {
-        return Void{}
+        t := new(Type); t^ = Void{}
+        return t, true
     }
 
-    return nil
+    return nil, false
 }
 
 stmnt_is_constant :: proc(analyser: ^Analyser, statement: Stmnt) -> bool {
@@ -761,9 +739,10 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         return
     case Grouping:
         analyse_expr(self, ex.value)
-        value_type := type_of_expr(self, ex.value^)
+        value_type, alloc := type_of_expr(self, ex.value)
+        defer if alloc do free(value_type)
 
-        ex.type = value_type
+        ex.type = value_type^
     case Negative:
         analyse_expr(self, ex.value)
 
@@ -771,11 +750,14 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
             elog(self, ex.cursors_idx, "cannot negate unsigned integers")
         }
 
-        value_type := type_of_expr(self, ex.value^)
-        ex.type = value_type
+        value_type, alloc := type_of_expr(self, ex.value)
+        defer if alloc do free(value_type)
+
+        ex.type = value_type^
     case Not:
         analyse_expr(self, ex.condition)
-        t := type_of_expr(self, ex.condition^)
+        t, alloc := type_of_expr(self, ex.condition)
+        defer if alloc do free(t)
 
         if !tc_equals(self, Bool{}, t) {
             elog(self, ex.cursors_idx, "expected a boolean after '!' operator, got %v", t)
@@ -789,87 +771,87 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v == %v", lt, rt)
         }
 
-        if !tc_can_compare_value(self, lt, rt) {
+        if !tc_can_compare_value(self, lt^, rt^) {
             elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
         }
     case Inequality:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v != %v", lt, rt)
         }
 
-        if !tc_can_compare_value(self, lt, rt) {
+        if !tc_can_compare_value(self, lt^, rt^) {
             elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
         }
     case LessThan:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v < %v", lt, rt)
         }
 
-        if !tc_can_compare_order(self, lt, rt) {
+        if !tc_can_compare_order(self, lt^, rt^) {
             elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
         }
     case LessOrEqual:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v <= %v", lt, rt)
         }
 
-        if !tc_can_compare_order(self, lt, rt) {
+        if !tc_can_compare_order(self, lt^, rt^) {
             elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
         }
     case GreaterThan:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v > %v", lt, rt)
         }
 
-        if !tc_can_compare_order(self, lt, rt) {
+        if !tc_can_compare_order(self, lt^, rt^) {
             elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
         }
     case GreaterOrEqual:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v >= %v", lt, rt)
         }
 
-        if !tc_can_compare_order(self, lt, rt) {
+        if !tc_can_compare_order(self, lt^, rt^) {
             elog(self, ex.cursors_idx, "cannot compare %v and %v", lt, rt)
         }
     case Plus:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v + %v", lt, rt)
         }
 
@@ -877,20 +859,20 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         _, rt_ok := rt.(Untyped_Int)
 
         if lt_ok && rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else if rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else {
-            ex.type = rt
+            ex.type = rt^
         }
 
     case Minus:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v - %v", lt, rt)
         }
 
@@ -898,19 +880,19 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         _, rt_ok := rt.(Untyped_Int)
 
         if lt_ok && rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else if rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else {
-            ex.type = rt
+            ex.type = rt^
         }
     case Multiply:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v * %v", lt, rt)
         }
 
@@ -918,19 +900,19 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         _, rt_ok := rt.(Untyped_Int)
 
         if lt_ok && rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else if rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else {
-            ex.type = rt
+            ex.type = rt^
         }
     case Divide:
         analyse_expr(self, ex.left)
         analyse_expr(self, ex.right)
 
-        lt := type_of_expr(self, ex.left^)
-        rt := type_of_expr(self, ex.right^)
-        if !tc_equals(self, lt, rt) {
+        lt, lt_alloc := type_of_expr(self, ex.left); defer if lt_alloc do free(lt)
+        rt, rt_alloc := type_of_expr(self, ex.right); defer if rt_alloc do free(rt)
+        if !tc_equals(self, lt^, rt) {
             elog(self, ex.cursors_idx, "mismatch types, %v / %v", lt, rt)
         }
 
@@ -938,11 +920,11 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
         _, rt_ok := rt.(Untyped_Int)
 
         if lt_ok && rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else if rt_ok {
-            ex.type = lt
+            ex.type = lt^
         } else {
-            ex.type = rt
+            ex.type = rt^
         }
     }
 }
@@ -966,7 +948,7 @@ analyse_var_decl :: proc(self: ^Analyser, vardecl: ^VarDecl) {
             }
         } else if vardecl.type != nil {
             // <name>: <type> = <type>{..};
-            if !tc_equals(self, vardecl.type, val.type) {
+            if !tc_equals(self, vardecl.type, &val.type) {
                 elog(self, vardecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", vardecl.name, vardecl.type, val.type)
             }
         } else {
@@ -1015,7 +997,8 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
         elog(self, varre.cursors_idx, "expected \"%v\" to be a variable, got %v", varre.name, stmnt_vardecl)
     }
 
-    value_type := type_of_expr(self, varre.value)
+    value_type, alloc := type_of_expr(self, &varre.value)
+    defer if alloc do free(value_type)
     if !tc_equals(self, varre.type, value_type) {
         elog(self, varre.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", varre.name, varre.type, value_type)
     }
@@ -1034,7 +1017,7 @@ analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {
             }
         } else if constdecl.type != nil {
             // <name>: <type> = <type>{..};
-            if !tc_equals(self, constdecl.type, val.type) {
+            if !tc_equals(self, constdecl.type, &val.type) {
                 elog(self, constdecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, val.type)
             }
         } else {
@@ -1073,7 +1056,8 @@ analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
 
     for decl_arg, i in fndecl.args {
         darg_type := type_of_stmnt(self, decl_arg)
-        carg_type := type_of_expr(self, fncall.args[i])
+        carg_type, alloc := type_of_expr(self, &fncall.args[i])
+        defer if alloc do free(carg_type)
 
         if !tc_equals(self, darg_type, carg_type) {
             elog(self, fncall.cursors_idx, "mismatch types, argument %v is expected to be of type %v, got %v", i + 1, darg_type, carg_type)
@@ -1083,8 +1067,9 @@ analyse_fn_call :: proc(self: ^Analyser, fncall: ^FnCall) {
 
 analyse_if :: proc(self: ^Analyser, ifs: ^If) {
     analyse_expr(self, &ifs.condition)
-    condition_type := type_of_expr(self, ifs.condition)
-    if !tc_equals(self, Bool{}, condition_type) && !type_tag_equal(Option{}, condition_type) {
+    condition_type, alloc := type_of_expr(self, &ifs.condition)
+    defer if alloc do free(condition_type)
+    if !tc_equals(self, Bool{}, condition_type) && !type_tag_equal(Option{}, condition_type^) {
         elog(self, ifs.cursors_idx, "condition must be bool or option, got %v", condition_type)
     }
 
@@ -1117,8 +1102,9 @@ analyse_for :: proc(self: ^Analyser, forl: ^For) {
 
     analyse_var_decl(self, &forl.decl)
     analyse_expr(self, &forl.condition)
-    condition_type := type_of_expr(self, forl.condition)
-    if !tc_equals(self, Bool{}, condition_type) && !type_tag_equal(Option{}, condition_type) {
+    condition_type, alloc := type_of_expr(self, &forl.condition)
+    defer if alloc do free(condition_type)
+    if !tc_equals(self, Bool{}, condition_type) && !type_tag_equal(Option{}, condition_type^) {
         elog(self, get_cursor_index(forl.condition), "condition must be bool, got %v", condition_type)
     }
     analyse_var_reassign(self, &forl.reassign)

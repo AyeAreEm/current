@@ -1,7 +1,14 @@
-gimme_5_i32s :: fn() [5]i32 {
-    return [5]i32{1, 2, 3, 4, 5};
+maybe10 :: fn() ?i32 {
+    return null;
 }
 
 main :: fn() void {
-    arr := gimme_5_i32s();
+    num := maybe10();
+    num = 10;
+
+    one: i32 = 1;
+    num = one;
+
+    two: ?i32 = 2;
+    num = two;
 }

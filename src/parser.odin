@@ -77,6 +77,7 @@ Ptr :: struct {
 Option :: struct {
     type: ^Type,
     is_null: bool,
+    gen_option: bool,
     cursors_idx: int,
 }
 
@@ -247,7 +248,12 @@ expr_from_keyword :: proc(using parser: ^Parser, k: Keyword) -> Expr {
     case .False:
         return False{type = Bool{}, cursors_idx = cursors_idx}
     case .Null:
-        return Null{type = Option{is_null = true}}
+        return Null{
+            type = Option{
+                type = new(Type),
+                is_null = true,
+            }
+        }
     case:
         elog(parser, cursors_idx, "expected an expression, got keyword %v", k)
     }
@@ -356,35 +362,42 @@ Multiply :: struct {
 LessThan :: struct {
     left: ^Expr, // these have to be pointers
     right: ^Expr,
+    type: Type,
     cursors_idx: int,
 }
 LessOrEqual :: struct {
     left: ^Expr, // these have to be pointers
     right: ^Expr,
+    type: Type,
     cursors_idx: int,
 }
 GreaterThan :: struct {
     left: ^Expr, // these have to be pointers
     right: ^Expr,
+    type: Type,
     cursors_idx: int,
 }
 GreaterOrEqual :: struct {
     left: ^Expr, // these have to be pointers
     right: ^Expr,
+    type: Type,
     cursors_idx: int,
 }
 Equality :: struct {
     left: ^Expr, // these have to be pointers
     right: ^Expr,
+    type: Type,
     cursors_idx: int,
 }
 Inequality :: struct {
     left: ^Expr, // these have to be pointers
     right: ^Expr,
+    type: Type,
     cursors_idx: int,
 }
 Not :: struct {
     condition: ^Expr,
+    type: Type,
     cursors_idx: int,
 }
 Negative :: struct {
@@ -808,12 +821,14 @@ parse_comparison :: proc(self: ^Parser) -> Expr {
                 expr = LessOrEqual{
                     left = left,
                     right = right,
+                    type = Bool{},
                     cursors_idx = index,
                 }
             } else {
                 expr = GreaterOrEqual{
                     left = left,
                     right = right,
+                    type = Bool{},
                     cursors_idx = index,
                 }
             }
@@ -822,12 +837,14 @@ parse_comparison :: proc(self: ^Parser) -> Expr {
                 expr = LessThan{
                     left = left,
                     right = right,
+                    type = Bool{},
                     cursors_idx = index,
                 }
             } else {
                 expr = GreaterThan{
                     left = left,
                     right = right,
+                    type = Bool{},
                     cursors_idx = index,
                 }
             }
@@ -858,12 +875,14 @@ parse_equality :: proc(self: ^Parser) -> Expr {
             expr = Inequality{
                 left = left,
                 right = right,
+                type = Bool{},
                 cursors_idx = index,
             }
         } else {
             expr = Equality{
                 left = left,
                 right = right,
+                type = Bool{},
                 cursors_idx = index,
             }
         }
@@ -1043,6 +1062,7 @@ parse_unary :: proc(self: ^Parser) -> Expr {
         return Not{
             condition = right,
             cursors_idx = index,
+            type = Bool{},
         }
     } else if token_tag_equal(op, TokenMinus{}) {
         return Negative{

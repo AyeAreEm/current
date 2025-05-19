@@ -86,27 +86,42 @@ tc_ptr_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     unreachable()
 }
 
-tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
-    // <ident>: <lhs> = <rhs>
+// <ident>: <lhs> = <rhs>
+// rhs is a pointer because it might be correct if wrapped in an Option
+tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
     switch l in lhs {
     case TypeId:
         debug("warning: unexpected comparison between TypeId and %v", rhs)
     case Void:
         debug("warning: unexpected comparison between Void and %v", rhs)
     case Option:
-        #partial switch r in rhs {
+        #partial switch &r in rhs {
         case Option:
             if r.is_null {
+                r.type^ = l.type^
+                r.gen_option = true;
                 return true
             }
-            return tc_equals(analyser, l.type^, r.type^)
+            return tc_equals(analyser, l.type^, r.type)
         case:
-            return tc_equals(analyser, l.type^, rhs)
+            if tc_equals(analyser, l.type^, rhs) {
+                subtype := new(Type); subtype^ = rhs^
+                // NOTE: ^ this leaks memory but is needed for the lifetime
+                // of the process so it will be cleaned once the process ends
+                rhs^ = Option{
+                    type = subtype,
+                    is_null = false,
+                    gen_option = true,
+                    cursors_idx = 0,
+                }
+                return true
+            }
+            return false
         }
     case Ptr:
-        return tc_ptr_equals(analyser, lhs, rhs)
+        return tc_ptr_equals(analyser, lhs, rhs^)
     case Array:
-        return tc_array_equals(analyser, lhs, rhs)
+        return tc_array_equals(analyser, lhs, rhs^)
     case Untyped_Int:
         #partial switch r in rhs {
         case Untyped_Int, I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize:
@@ -132,61 +147,91 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
     case I8:
         #partial switch r in rhs {
         case I8, Untyped_Int:
+            rhs^ = l
             return true
         }
     case I16:
         #partial switch r in rhs {
-        case I16, I8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case I16, I8:
             return true
         }
     case I32:
         #partial switch r in rhs {
-        case I32, I16, I8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case I32, I16, I8:
             return true
         }
     case I64:
         #partial switch r in rhs {
-        case I64, I32, I16, I8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case I64, I32, I16, I8:
             return true
         }
     case Isize:
         #partial switch r in rhs {
-        case Isize, I64, I32, I16, I8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case Isize, I64, I32, I16, I8:
             return true
         }
     case U8:
         #partial switch r in rhs {
         case U8, Untyped_Int:
+            rhs^ = l
             return true
         }
     case U16:
         #partial switch r in rhs {
-        case U16, U8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case U16, U8:
             return true
         }
     case U32:
         #partial switch r in rhs {
-        case U32, U16, U8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case U32, U16, U8:
             return true
         }
     case U64:
         #partial switch r in rhs {
-        case U64, U32, U16, U8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case U64, U32, U16, U8:
             return true
         }
     case Usize:
         #partial switch r in rhs {
-        case Usize, I64, I32, I16, I8, Untyped_Int:
+        case Untyped_Int:
+            rhs^ = l
+            return true
+        case Usize, I64, I32, I16, I8:
             return true
         }
     case F32:
         #partial switch r in rhs {
         case F32, Untyped_Float:
+            rhs^ = l
             return true
         }
     case F64:
         #partial switch r in rhs {
-        case F64, F32, Untyped_Float:
+        case Untyped_Float:
+            rhs^ = l
+            return true
+        case F64, F32:
             return true
         }
     }
@@ -199,13 +244,14 @@ tc_return :: proc(analyser: ^Analyser, fn: FnDecl, ret: ^Return) {
         ret.type = fn.type // fn.type can't be nil
     }
 
-    ret_expr_type := type_of_expr(analyser, ret.value)
+    ret_expr_type, alloc := type_of_expr(analyser, &ret.value)
+    defer if alloc do free(ret_expr_type)
 
     if !tc_equals(analyser, ret.type, ret_expr_type) {
         elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, return type %v, expression type %v", ret.type, ret_expr_type)
     }
 
-    if !tc_equals(analyser, fn.type, ret.type) {
+    if !tc_equals(analyser, fn.type, &ret.type) {
         elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, function type %v, return type %v", fn.type, ret.type)
     }
 }
@@ -223,13 +269,16 @@ tc_default_untyped_type :: proc(t: Type) -> Type {
 }
 
 tc_infer :: proc(analyser: ^Analyser, lhs: ^Type, expr: Expr) {
-    expr_type := type_of_expr(analyser, expr)
-    expr_default_type := tc_default_untyped_type(expr_type)
+    expr := expr
+
+    expr_type, alloc := type_of_expr(analyser, &expr)
+    defer if alloc do free(expr_type)
+    expr_default_type := tc_default_untyped_type(expr_type^)
 
     if expr_default_type != nil {
         lhs^ = expr_default_type
     } else {
-        lhs^ = expr_type
+        lhs^ = expr_type^
     }
 }
 
@@ -333,9 +382,10 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
 }
 
 tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
-    expr_type := type_of_expr(analyser, vardecl.value)
+    expr_type, alloc := type_of_expr(analyser, &vardecl.value)
+    defer if alloc do free(expr_type)
 
-    if type_tag_equal(expr_type, Void{}) {
+    if type_tag_equal(expr_type^, Void{}) {
         if arr, ok := vardecl.type.(Array); ok {
             if _, ok := arr.len.?; !ok do elog(analyser, vardecl.cursors_idx, "cannot infer array length for \"%v\" without compound literal", vardecl.name.literal)
         }
@@ -352,7 +402,8 @@ tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
 }
 
 tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
-    expr_type := type_of_expr(analyser, constdecl.value)
+    expr_type, alloc := type_of_expr(analyser, &constdecl.value)
+    defer if alloc do free(expr_type)
 
     if constdecl.type == nil {
         tc_infer(analyser, &constdecl.type, constdecl.value)
@@ -383,9 +434,10 @@ tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
             }
         }
 
-        for val, i in literal.values {
-            valtype := type_of_expr(analyser, val)
-            if !tc_equals(analyser, valtype, array.type^) {
+        for &val, i in literal.values {
+            valtype, alloc := type_of_expr(analyser, &val)
+            defer if alloc do free(valtype)
+            if !tc_equals(analyser, valtype^, array.type) {
                 elog(analyser, literal.cursors_idx, "array element %v type is %v, expected %v", i + 1, valtype, array.type^)
             }
         }
@@ -473,7 +525,10 @@ tc_can_compare_order :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
 }
 
 tc_is_unsigned :: proc(analyser: ^Analyser, expr: Expr) -> bool {
-    type := type_of_expr(analyser, expr)
+    expr := expr
+
+    type, alloc := type_of_expr(analyser, &expr)
+    defer if alloc do free(type)
 
     #partial switch t in type {
     case U8, U16, U32, U64, Usize:

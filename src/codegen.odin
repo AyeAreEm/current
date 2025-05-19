@@ -91,7 +91,7 @@ gen_typename_array :: proc(self: ^Codegen, type: Type, dimension: int) -> string
 gen_typename :: proc(self: ^Codegen, types: []Type, typename: ^strings.Builder) {
     for type in types {
         switch t in type {
-        case Void, Untyped_Int, Untyped_Float, Option, TypeId:
+        case Void, Untyped_Int, Untyped_Float, TypeId:
             panic("gen_typename not implemented yet")
         case I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize, F32, F64, Bool, Char, String:
             str, str_alloc := gen_type(self, t)
@@ -107,6 +107,12 @@ gen_typename :: proc(self: ^Codegen, types: []Type, typename: ^strings.Builder) 
             defer delete(curarray.buf)
 
             fmt.sbprintf(typename, "%v", strings.to_string(curarray))
+        case Option:
+            subtypename := strings.builder_make()
+            defer delete(subtypename.buf)
+            gen_typename(self, {t.type^}, &subtypename)
+
+            fmt.sbprintf(typename, "CurOption_%v", strings.to_string(subtypename))
         }
     }
 }
@@ -311,8 +317,6 @@ gen_for :: proc(self: ^Codegen, forl: For) {
 // returns allocated string, needs to be freed
 @(require_results)
 gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) -> string {
-    proto := strings.builder_make()
-
     name: string
     type: Type
 
@@ -329,15 +333,15 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
 
     gen_indent(self)
     if type_tag_equal(type, Array{}) {
-        delete(proto.buf)
         return gen_decl_array_proto(self, decl)
+    } else if type_tag_equal(type, Option{}) {
+        return gen_decl_option_proto(self, decl)
     }
 
     var_type_str, var_type_str_alloced := gen_type(self, type)
     defer if var_type_str_alloced do delete(var_type_str)
 
-    fmt.sbprintf(&proto, "%v %v", var_type_str, name)
-    return strings.to_string(proto)
+    return fmt.aprintf("%v %v", var_type_str, name)
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
@@ -442,7 +446,9 @@ gen_array_literal :: proc(self: ^Codegen, expr: Literal) -> (string, bool) {
 
 // returns string and true if string is allocated
 gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
-    switch expr in expression {
+    expression := expression
+
+    switch &expr in expression {
     case Cstring:
         return gen_type(self, expr)
     case String:
@@ -476,29 +482,143 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
     case F64:
         return gen_type(self, expr)
     case Ident:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         return expr.literal, false
     case IntLit:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         return expr.literal, false
     case FloatLit:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option{
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         return expr.literal, false
     case CharLit:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         literal := fmt.aprintf("'%v'", expr.literal)
         return literal, true
     case StrLit:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         literal := fmt.aprintf("curstr(\"%v\")", expr.literal)
         return literal, true
     case CstrLit:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         literal := fmt.aprintf("\"%v\"", expr.literal)
         return literal, true
     case True:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         return "true", false
     case False:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         return "false", false
     case Null:
-        return "null", false
+        typename := strings.builder_make()
+        defer delete(typename.buf)
+        gen_typename(self, {expr.type.(Option).type^}, &typename)
+
+        curoption := fmt.aprintf("curoptionnull_%v()", strings.to_string(typename))
+        return curoption, true
     case Deref:
         return "*", false
     case FieldAccess:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         subexpr, subexpr_alloced := gen_expr(self, expr.expr^)
         field, field_alloced := gen_expr(self, expr.field^)
         ret := fmt.aprintf("%v.%v", subexpr, field)
@@ -512,6 +632,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case ArrayIndex:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         ident, ident_alloced := gen_expr(self, expr.ident^)
         index, index_alloced := gen_expr(self, expr.index^)
         ret := fmt.aprintf("%v.ptr[%v]", ident, index)
@@ -525,6 +658,18 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         
         return ret, true
     case Address:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
         value, alloced := gen_expr(self, expr.value^)
         ret := fmt.aprintf("&%v", value)
         
@@ -534,8 +679,34 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case FnCall:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         return gen_fn_call(self, expr), true
     case Literal:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         literal := strings.builder_make()
 
         if arr, ok := expr.type.(Array); ok {
@@ -561,6 +732,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         fmt.sbprint(&literal, "}")
         return strings.to_string(literal), true
     case Grouping:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         value, alloced := gen_expr(self, expr.value^)
         ret := fmt.aprintf("(%v)", value)
         if alloced {
@@ -569,6 +753,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Negative:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         value, alloced := gen_expr(self, expr.value^)
         ret := fmt.aprintf("-%v", value)
         
@@ -578,6 +775,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Not:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         cond, alloced := gen_expr(self, expr.condition^)
         ret := fmt.aprintf("!%v", cond)
         
@@ -587,6 +797,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case LessThan:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v < %v", lhs, rhs)
@@ -600,6 +823,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case LessOrEqual:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v <= %v", lhs, rhs)
@@ -613,6 +849,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case GreaterThan:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v > %v", lhs, rhs)
@@ -626,6 +875,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case GreaterOrEqual:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v >= %v", lhs, rhs)
@@ -639,6 +901,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Equality:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v == %v", lhs, rhs)
@@ -652,6 +927,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Inequality:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v != %v", lhs, rhs)
@@ -665,6 +953,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Plus:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v + %v", lhs, rhs)
@@ -678,6 +979,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Minus:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v - %v", lhs, rhs)
@@ -691,6 +1005,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Multiply:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v * %v", lhs, rhs)
@@ -704,6 +1031,19 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         return ret, true
     case Divide:
+        if opt, ok := expr.type.(Option); ok && opt.gen_option {
+            typename := strings.builder_make()
+            defer delete(typename.buf)
+            gen_typename(self, {opt.type^}, &typename)
+
+            expr.type = opt.type^
+            value, alloced := gen_expr(self, expr)
+            defer if alloced do delete(value)
+
+            curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
+            return curoption, true
+        }
+
         lhs, lhs_alloc := gen_expr(self, expr.left^)
         rhs, rhs_alloc := gen_expr(self, expr.right^)
         ret := fmt.aprintf("%v / %v", lhs, rhs)
@@ -794,13 +1134,32 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
             self.code = sbinsert(&self.code, strings.to_string(curarray), self.def_loc)
             self.def_loc += len(strings.to_string(curarray))
             append(&self.generated_generics, strings.to_string(curarray))
+        } else {
+            delete(curarray.buf)
         }
+    case Option:
+        type_str, type_str_alloc := gen_type(self, t.type^)
+        defer if type_str_alloc do delete(type_str)
+
+        typename := strings.builder_make()
+        defer delete(typename.buf)
+        gen_typename(self, {t.type^}, &typename)
+
+        curoption := fmt.aprintfln("CurOption(%v, %v);", type_str, strings.to_string(typename))
+        for generics in self.generated_generics {
+            if strings.compare(curoption, generics) == 0 {
+                delete(curoption)
+                return
+            }
+        }
+
+        self.code = sbinsert(&self.code, curoption, self.def_loc)
+        self.def_loc += len(curoption)
+        append(&self.generated_generics, curoption)
     }
 }
 
 gen_decl_array2d :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}, t2d: Array) -> string {
-    proto := strings.builder_make()
-
     name: string
     type: Type
     if d, ok := decl.(VarDecl); ok {
@@ -824,14 +1183,11 @@ gen_decl_array2d :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}
     type_str, type_str_alloced := gen_type(self, type)
     defer if type_str_alloced do delete(type_str)
 
-    fmt.sbprintf(&proto, "%v %v", strings.to_string(typename), name)
-    return strings.to_string(proto)
+    return fmt.aprintf("%v %v", strings.to_string(typename), name)
 }
 
 // returns allocated string, needs to be freed
 gen_decl_array_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) -> string {
-    proto := strings.builder_make()
-
     name: string
     type: Type
 
@@ -856,8 +1212,32 @@ gen_decl_array_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnD
     defer delete(typename.buf)
     gen_typename(self, {type}, &typename)
 
-    fmt.sbprintf(&proto, "%v %v", strings.to_string(typename), name)
-    return strings.to_string(proto)
+    return fmt.aprintf("%v %v", strings.to_string(typename), name)
+}
+
+// returns allocated string, needs to be freed
+gen_decl_option_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) -> string {
+    name: string
+    type: Type
+
+    if d, ok := decl.(VarDecl); ok {
+        name = d.name.literal
+        type = d.type
+    } else if d, ok := decl.(ConstDecl); ok {
+        name = d.name.literal
+        type = d.type
+    } else if d, ok := decl.(FnDecl); ok {
+        name = d.name.literal
+        type = d.type
+    }
+
+    gen_generic_decl(self, type)
+
+    typename := strings.builder_make()
+    defer delete(typename.buf)
+    gen_typename(self, {type}, &typename)
+
+    return fmt.aprintf("%v %v", strings.to_string(typename), name)
 }
 
 gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
@@ -997,6 +1377,25 @@ CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, us
     CurArray2d_##Tname##B##A ret;\
     ret.ptr = ptr;\
     ret.len = len;\
+    return ret;\
+}`
+    )
+    // option
+    fmt.sbprintln(&self.code, 
+`#define CurOption(T, Tname)\
+typedef struct CurOption_##Tname {\
+    T some;\
+    bool ok;\
+} CurOption_##Tname;\
+CurOption_##Tname curoption_##Tname(T some) {\
+    CurOption_##Tname ret;\
+    ret.some = some;\
+    ret.ok = true;\
+    return ret;\
+}\
+CurOption_##Tname curoptionnull_##Tname() {\
+    CurOption_##Tname ret;\
+    ret.ok = false;\
     return ret;\
 }`
     )
