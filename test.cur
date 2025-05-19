@@ -1,4 +1,3 @@
 main :: fn() void {
-    word := "word";
-    ptr := &word;
+    words := [2]string{"hello", "hi"};
 }

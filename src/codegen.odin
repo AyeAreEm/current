@@ -426,7 +426,15 @@ gen_array_literal :: proc(self: ^Codegen, expr: Literal) -> (string, bool) {
     typename := strings.builder_make()
     defer delete(typename.buf)
     gen_typename(self, {arr}, &typename)
-    fmt.sbprintf(&literal, "%v(", strings.to_lower(strings.to_string(typename)))
+
+    types := strings.split_n(strings.to_string(typename), "_", 2)
+    defer delete(types)
+    types[0] = strings.to_lower(types[0])
+
+    curarray_gen := strings.join(types, "_")
+    defer delete(curarray_gen)
+
+    fmt.sbprintf(&literal, "%v(", curarray_gen)
 
     if subarr, ok := arr.type^.(Array); ok {
         clear(&typename.buf)
