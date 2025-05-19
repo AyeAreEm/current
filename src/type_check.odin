@@ -90,8 +90,6 @@ tc_ptr_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
 // rhs is a pointer because it might be correct if wrapped in an Option
 tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
     switch l in lhs {
-    case TypeId:
-        debug("warning: unexpected comparison between TypeId and %v", rhs)
     case Void:
         debug("warning: unexpected comparison between Void and %v", rhs)
     case Option:
@@ -244,8 +242,7 @@ tc_return :: proc(analyser: ^Analyser, fn: FnDecl, ret: ^Return) {
         ret.type = fn.type // fn.type can't be nil
     }
 
-    ret_expr_type, alloc := type_of_expr(analyser, &ret.value)
-    defer if alloc do free(ret_expr_type)
+    ret_expr_type := type_of_expr(analyser, &ret.value)
 
     if !tc_equals(analyser, ret.type, ret_expr_type) {
         elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, return type %v, expression type %v", ret.type, ret_expr_type)
@@ -269,8 +266,7 @@ tc_default_untyped_type :: proc(t: Type) -> Type {
 }
 
 tc_infer :: proc(analyser: ^Analyser, lhs: ^Type, expr: ^Expr) {
-    expr_type, alloc := type_of_expr(analyser, expr)
-    defer if alloc do free(expr_type)
+    expr_type := type_of_expr(analyser, expr)
     expr_default_type := tc_default_untyped_type(expr_type^)
 
     if expr_default_type != nil {
@@ -380,8 +376,7 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
 }
 
 tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
-    expr_type, alloc := type_of_expr(analyser, &vardecl.value)
-    defer if alloc do free(expr_type)
+    expr_type := type_of_expr(analyser, &vardecl.value)
 
     if type_tag_equal(expr_type^, Void{}) {
         if arr, ok := vardecl.type.(Array); ok {
@@ -400,8 +395,7 @@ tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
 }
 
 tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
-    expr_type, alloc := type_of_expr(analyser, &constdecl.value)
-    defer if alloc do free(expr_type)
+    expr_type := type_of_expr(analyser, &constdecl.value)
 
     if constdecl.type == nil {
         tc_infer(analyser, &constdecl.type, &constdecl.value)
@@ -433,8 +427,7 @@ tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
         }
 
         for &val, i in literal.values {
-            valtype, alloc := type_of_expr(analyser, &val)
-            defer if alloc do free(valtype)
+            valtype := type_of_expr(analyser, &val)
             if !tc_equals(analyser, valtype^, array.type) {
                 elog(analyser, literal.cursors_idx, "array element %v type is %v, expected %v", i + 1, valtype, array.type^)
             }
@@ -524,9 +517,7 @@ tc_can_compare_order :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
 
 tc_is_unsigned :: proc(analyser: ^Analyser, expr: Expr) -> bool {
     expr := expr
-
-    type, alloc := type_of_expr(analyser, &expr)
-    defer if alloc do free(type)
+    type := type_of_expr(analyser, &expr)
 
     #partial switch t in type {
     case U8, U16, U32, U64, Usize:

@@ -91,7 +91,7 @@ gen_typename_array :: proc(self: ^Codegen, type: Type, dimension: int) -> string
 gen_typename :: proc(self: ^Codegen, types: []Type, typename: ^strings.Builder) {
     for type in types {
         switch t in type {
-        case Void, Untyped_Int, Untyped_Float, TypeId:
+        case Void, Untyped_Int, Untyped_Float:
             panic("gen_typename not implemented yet")
         case I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize, F32, F64, Bool, Char, String:
             str, str_alloc := gen_type(self, t)
@@ -357,7 +357,7 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
     var_type_str, var_type_str_alloced := gen_type(self, type)
     defer if var_type_str_alloced do delete(var_type_str)
 
-    return fmt.aprintf("%v %v %v", var_type_str, "const" if const else "", name)
+    return fmt.aprintf("%v%v %v", var_type_str, " const" if const else "", name)
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {

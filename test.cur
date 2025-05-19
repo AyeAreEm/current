@@ -1,4 +1,4 @@
 main :: fn() void {
-    num :: 10;
-    ptr :: &num;
+    word := "word";
+    ptr := &word;
 }

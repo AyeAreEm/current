@@ -83,7 +83,6 @@ Option :: struct {
 
 Untyped_Int :: struct {}
 Untyped_Float :: struct {}
-TypeId :: struct{}
 Type :: union {
     Void,
     Bool,
@@ -114,8 +113,6 @@ Type :: union {
     Array,
     Ptr,
     Option,
-
-    TypeId,
 }
 type_map := map[string]Type{
     "void" = Void{},
@@ -157,9 +154,6 @@ type_tag_equal :: proc(lhs, rhs: Type) -> bool {
         return ok
     case Ptr:
         _, ok := rhs.(Ptr)
-        return ok
-    case TypeId:
-        _, ok := rhs.(TypeId)
         return ok
     case Array:
         _, ok := rhs.(Array)
