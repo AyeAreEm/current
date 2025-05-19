@@ -81,7 +81,13 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
     append(&compile_com, "output.c")
 
     for link in linking {
-        append(&compile_com, link)
+        if strings.compare(link, "libc") == 0 {
+            append(&compile_com, "-lc")
+        } else {
+            l := fmt.aprintf("-L", link)
+            // NOTE: ^ this leaks memory but the process will free it
+            append(&compile_com, l)
+        }
     }
 
     if DEBUG_MODE {

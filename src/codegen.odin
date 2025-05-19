@@ -194,6 +194,7 @@ gen_type :: proc(self: ^Codegen, t: Type, declname: Maybe(string) = nil) -> (str
     case String:
         return "CurString", false
     case Char:
+        // TODO: make this be a type that supports utf8
         return "u8", false
     }
 
@@ -1330,11 +1331,7 @@ gen_return :: proc(self: ^Codegen, ret: Return) {
 gen_directive :: proc(self: ^Codegen, directive: Directive) {
     switch d in directive {
     case DirectiveLink:
-        if strings.compare(d.link, "libc") == 0 {
-            append(&self.linking, "-lc")
-        } else {
-            append(&self.linking, d.link)
-        }
+        append(&self.linking, d.link)
     }
 }
 

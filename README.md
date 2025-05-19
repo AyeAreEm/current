@@ -27,7 +27,7 @@ vec2 :: struct[T] {
     y: T,
 }
 
-vec2[T].add :: fn(*self, other: vec2[T]) void {
+vec2[$T].add :: fn(*self, other: vec2[T]) void {
     self.x += other.x;
     self.y += other.y;
 }
