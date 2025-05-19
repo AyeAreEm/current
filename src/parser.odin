@@ -730,8 +730,7 @@ parse_fn_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
     args := parse_block(self, TokenLb{}, TokenRb{})
     self.in_func_decl_args = false
 
-    type_ident := token_expect(self, TokenIdent{})
-    type := convert_ident(self, type_ident.(TokenIdent)).(Type)
+    type := parse_type(self)
 
     token := token_peek(self)
     if token_tag_equal(token, TokenLc{}) {

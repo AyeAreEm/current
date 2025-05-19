@@ -1,24 +1,7 @@
-extern puts :: fn(s: cstring) i32;
+gimme_5_i32s :: fn() [5]i32 {
+    return [5]i32{1, 2, 3, 4, 5};
+}
 
 main :: fn() void {
-    /*
-        This will now error since the length cannot be infered
-        grid := [_][_]cstring{
-            [_]cstring{c"1", c"2", c"3"},
-            [_]cstring{c"4", c"5", c"6"},
-            [_]cstring{c"7", c"8", c"9"}
-        };
-    */
-    grid := [_][3]cstring{
-        [_]cstring{c"1", c"2", c"3"},
-        [_]cstring{c"4", c"5", c"6"},
-        [_]cstring{c"7", c"8", c"9"}
-    };
-
-    for (i: usize = 0; i < grid.len; i += 1) {
-        for (j: usize = 0; j < grid[i].len; j += 1) {
-            puts(grid[i][j]);
-        }
-        puts(c"");
-    }
+    arr := gimme_5_i32s();
 }

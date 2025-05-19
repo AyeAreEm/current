@@ -803,21 +803,15 @@ gen_decl_array2d :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}
 
     name: string
     type: Type
-    value: Expr
     if d, ok := decl.(VarDecl); ok {
         name = d.name.literal
         type = d.type
-        value = d.value
     } else if d, ok := decl.(ConstDecl); ok {
         name = d.name.literal
         type = d.type
-        value = d.value
     } else if d, ok := decl.(FnDecl); ok {
         name = d.name.literal
         type = d.type
-
-        // TODO: add this | CurArray2d_i3233 gimme_arr();
-        panic("ahhhhhh no fn decl array2d proto")
     }
 
     gen_generic_decl(self, type)
@@ -840,22 +834,16 @@ gen_decl_array_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnD
 
     name: string
     type: Type
-    value: Expr
 
     if d, ok := decl.(VarDecl); ok {
         name = d.name.literal
         type = d.type
-        value = d.value
     } else if d, ok := decl.(ConstDecl); ok {
         name = d.name.literal
         type = d.type
-        value = d.value
     } else if d, ok := decl.(FnDecl); ok {
         name = d.name.literal
         type = d.type
-
-        // TODO: add this | CurArray_i323 gimme_arr();
-        panic("ahhhh no fn decl array proto")
     }
 
     if t, ok := type.(Array).type.(Array); ok {
