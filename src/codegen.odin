@@ -628,8 +628,6 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
 
         curoption := fmt.aprintf("curoptionnull_%v()", strings.to_string(typename))
         return curoption, true
-    case Deref:
-        return "*", false
     case FieldAccess:
         if opt, ok := expr.type.(Option); ok && opt.gen_option {
             typename := strings.builder_make()
@@ -645,6 +643,11 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         }
 
         subexpr, subexpr_alloced := gen_expr(self, expr.expr^)
+        if expr.deref {
+            ret := fmt.aprintf("*%v", subexpr)
+            return ret, true
+        }
+
         field, field_alloced := gen_expr(self, expr.field^)
         ret := fmt.aprintf("%v.%v", subexpr, field)
 
@@ -1187,12 +1190,15 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
 gen_decl_array2d :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}, t2d: Array) -> string {
     name: string
     type: Type
+    const := false
+
     if d, ok := decl.(VarDecl); ok {
         name = d.name.literal
         type = d.type
     } else if d, ok := decl.(ConstDecl); ok {
         name = d.name.literal
         type = d.type
+        const = true
     } else if d, ok := decl.(FnDecl); ok {
         name = d.name.literal
         type = d.type
@@ -1208,13 +1214,14 @@ gen_decl_array2d :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}
     type_str, type_str_alloced := gen_type(self, type)
     defer if type_str_alloced do delete(type_str)
 
-    return fmt.aprintf("%v %v", strings.to_string(typename), name)
+    return fmt.aprintf("%v%v %v", strings.to_string(typename), " const" if const else "",name)
 }
 
 // returns allocated string, needs to be freed
 gen_decl_array_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) -> string {
     name: string
     type: Type
+    const := false
 
     if d, ok := decl.(VarDecl); ok {
         name = d.name.literal
@@ -1222,6 +1229,7 @@ gen_decl_array_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnD
     } else if d, ok := decl.(ConstDecl); ok {
         name = d.name.literal
         type = d.type
+        const = true
     } else if d, ok := decl.(FnDecl); ok {
         name = d.name.literal
         type = d.type
@@ -1237,13 +1245,14 @@ gen_decl_array_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnD
     defer delete(typename.buf)
     gen_typename(self, {type}, &typename)
 
-    return fmt.aprintf("%v %v", strings.to_string(typename), name)
+    return fmt.aprintf("%v%v %v", strings.to_string(typename), " const" if const else "", name)
 }
 
 // returns allocated string, needs to be freed
 gen_decl_option_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) -> string {
     name: string
     type: Type
+    const := false
 
     if d, ok := decl.(VarDecl); ok {
         name = d.name.literal
@@ -1251,6 +1260,7 @@ gen_decl_option_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, Fn
     } else if d, ok := decl.(ConstDecl); ok {
         name = d.name.literal
         type = d.type
+        const = true
     } else if d, ok := decl.(FnDecl); ok {
         name = d.name.literal
         type = d.type
@@ -1262,7 +1272,7 @@ gen_decl_option_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, Fn
     defer delete(typename.buf)
     gen_typename(self, {type}, &typename)
 
-    return fmt.aprintf("%v %v", strings.to_string(typename), name)
+    return fmt.aprintf("%v%v %v", strings.to_string(typename), " const" if const else "", name)
 }
 
 gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {

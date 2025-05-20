@@ -1,3 +1,18 @@
 main :: fn() void {
-    words := [2]string{"hello", "hi"};
+    word := "word";
+    word_len := word.len;
+
+    words :: [2]string{"hello", "hi"};
+    words[0] = "hey";
+    first_len := words[0].len;
+    words_len := words.len;
+
+    num: i32 = 10;
+    ptr: ?*i32 = &num;
+
+    if (ptr) [p] {
+        // p.& = 15;
+        // ^ this will error since p is a constant
+        // TODO: add &p
+    }
 }

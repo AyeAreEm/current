@@ -33,16 +33,16 @@ F32_MAX :: min(f32)
 F64_MIN :: min(f64)
 F64_MAX :: min(f64)
 
-tc_deref_ptr :: proc(analyser: ^Analyser, type: Type) -> Type {
-    #partial switch t in type {
+tc_deref_ptr :: proc(analyser: ^Analyser, type: ^Type) -> ^Type {
+    #partial switch &t in type {
     case Ptr:
-        return t.type^
+        return t.type
     case:
-        return t
+        return &t
     }
 }
 
-tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
+tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
     #partial switch &l in lhs {
     case Array:
         if lhs_len, ok := l.len.?; ok {
@@ -52,7 +52,7 @@ tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
                 if _, ok := r.len.?; !ok do elog(analyser, r.cursors_idx, "cannot infer array length")
                 r_len, _ := evaluate_expr(analyser, r.len.?)
                 if l_len != r_len do return false
-                return tc_array_equals(analyser, l.type^, r.type^)
+                return tc_array_equals(analyser, l.type^, r.type)
             }
         } else {
             #partial switch r in rhs {
@@ -60,27 +60,27 @@ tc_array_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
                 r_len, _ := evaluate_expr(analyser, r.len.?)
                 l.len = new(Expr);
                 l.len = r.len.?
-                return tc_array_equals(analyser, l.type^, r.type^)
+                return tc_array_equals(analyser, l.type^, r.type)
             }
         }
     case:
-        return type_tag_equal(lhs, rhs)
+        return tc_equals(analyser, lhs, rhs)
     }
 
     unreachable()
 }
 
-tc_ptr_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: Type) -> bool {
-    #partial switch l in lhs {
+tc_ptr_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
+    #partial switch &l in lhs {
     case Ptr:
         #partial switch r in rhs {
         case Ptr:
             if !l.constant && r.constant do return false
-            if !l.constant && !r.constant do return tc_ptr_equals(analyser, l.type^, r.type^)
-            if l.constant do return tc_ptr_equals(analyser, l.type^, r.type^)
+            if !l.constant && !r.constant do return tc_ptr_equals(analyser, l.type^, r.type)
+            if l.constant do return tc_ptr_equals(analyser, l.type^, r.type)
         }
     case:
-        return type_tag_equal(lhs, rhs)
+        return tc_equals(analyser, lhs, rhs)
     }
 
     unreachable()
@@ -117,9 +117,9 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
             return false
         }
     case Ptr:
-        return tc_ptr_equals(analyser, lhs, rhs^)
+        return tc_ptr_equals(analyser, lhs, rhs)
     case Array:
-        return tc_array_equals(analyser, lhs, rhs^)
+        return tc_array_equals(analyser, lhs, rhs)
     case Untyped_Int:
         #partial switch r in rhs {
         case Untyped_Int, I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize:

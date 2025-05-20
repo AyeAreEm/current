@@ -16,8 +16,18 @@ Char :: struct {
     cursors_idx: int,
 }
 String :: struct {
-    // len: uint,
     cursors_idx: int,
+}
+String_fields := [dynamic]Expr{
+    Ident{literal = "len",
+        type = Usize{},
+        cursors_idx = 0
+    },
+    Ident{
+        literal = "ptr",
+        type = Cstring{},
+        cursors_idx = 0,
+    }
 }
 Cstring :: struct {
     cursors_idx: int,
@@ -67,6 +77,17 @@ Array :: struct {
     type: ^Type,
     len: Maybe(^Expr), // if nil, infer len
     cursors_idx: int,
+}
+Array_fields := [dynamic]Expr{
+    Ident{literal = "len",
+        type = Usize{},
+        cursors_idx = 0
+    },
+    Ident{
+        literal = "ptr",
+        type = Cstring{},
+        cursors_idx = 0,
+    }
 }
 
 Ptr :: struct {
@@ -315,6 +336,7 @@ FieldAccess :: struct {
     field: ^Expr,
     type: Type,
     constant: bool,
+    deref: bool,
     cursors_idx: int,
 }
 ArrayIndex :: struct {
@@ -418,9 +440,6 @@ Address :: struct {
     to_constant: bool,
     cursors_idx: int,
 }
-Deref :: struct {
-    cursors_idx: int,
-}
 Null :: struct {
     type: Type,
     cursors_idx: int,
@@ -479,7 +498,6 @@ Expr :: union {
     Address,
     FieldAccess,
     ArrayIndex,
-    Deref,
 
     Null,
 }
@@ -573,8 +591,6 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
         case StrLit:
             return expr.cursors_idx
         case CharLit:
-            return expr.cursors_idx
-        case Deref:
             return expr.cursors_idx
         case FieldAccess:
             return expr.cursors_idx
@@ -1490,15 +1506,12 @@ parse_field_access :: proc(self: ^Parser, ident: Expr) -> Expr {
     // <ident>.&
     token := token_next(self)
     if token_tag_equal(token, TokenAmpersand{}) {
-        field := new(Expr); field^ = Deref{
-            cursors_idx = self.cursors_idx
-        }
-
         return FieldAccess{
             expr = front,
-            field = field,
+            field = nil, // CAUTION: nil pointer
             type = nil,
             constant = false,
+            deref = true,
             cursors_idx = index,
         }
     }
