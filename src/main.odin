@@ -7,7 +7,7 @@ import "core:os/os2"
 
 DEBUG_MODE :: false
 
-args_next :: proc(args: ^[]string, arg: string) -> string {
+args_next :: proc(args: ^[]string) -> string {
     if len(args) == 0 {
         elog("expected another argument")
     }
@@ -173,9 +173,9 @@ main :: proc() {
         os.exit(1)
     }
 
-    arg0 := args_next(&args, "")
-    command := args_next(&args, arg0)
-    filename := args_next(&args, command)
+    args_next(&args)
+    command := args_next(&args)
+    filename := args_next(&args)
 
     if strings.compare(command, "build") == 0 {
         linking := build(filename)
