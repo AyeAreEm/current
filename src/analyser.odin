@@ -346,10 +346,8 @@ analyse_field_access :: proc(self: ^Analyser, expr: ^FieldAccess) {
 
     // dereferencing
     if t, ok := type.(Ptr); ok {
-        stmnt := symtab_find(self, expr.expr^, expr.cursors_idx)
-        constant := stmnt_is_constant(self, stmnt)
         expr.type = tc_deref_ptr(self, type)^
-        expr.constant = constant
+        expr.constant = t.constant
     } else {
         elog(self, expr.cursors_idx, "cannot derefernce %v, not a pointer", type^)
     }

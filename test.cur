@@ -1,18 +1,10 @@
+extern puts :: fn(s: cstring) i32;
+
 main :: fn() void {
-    word := "word";
-    word_len := word.len;
+    word :: "hello";
+    ptr := &word;
 
-    words :: [2]string{"hello", "hi"};
-    words[0] = "hey";
-    first_len := words[0].len;
-    words_len := words.len;
+    ptr.& = "hi"; // this now errors again since word is constant
 
-    num: i32 = 10;
-    ptr: ?*i32 = &num;
-
-    if (ptr) [p] {
-        // p.& = 15;
-        // ^ this will error since p is a constant
-        // TODO: add &p
-    }
+    puts(word.ptr);
 }
