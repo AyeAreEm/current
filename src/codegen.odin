@@ -6,7 +6,6 @@ import "core:math/rand"
 
 Codegen :: struct {
     ast: [dynamic]Stmnt,
-    symtab: SymTab,
     code: strings.Builder,
 
     def_loc: int,
@@ -15,10 +14,9 @@ Codegen :: struct {
     indent_level: u8,
 }
 
-codegen_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab) -> Codegen {
+codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
     return {
         ast = ast,
-        symtab = symtab,
         code = strings.builder_make(),
 
         def_loc = 0,

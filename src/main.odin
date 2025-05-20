@@ -42,6 +42,8 @@ debug :: proc(format: string, args: ..any) {
 usage :: proc() {
     fmt.eprintln("USAGE: ")
     fmt.eprintln("    build [filename.cur] | build executable")
+    fmt.eprintln("    run [filename.cur] | build and run executable")
+    fmt.eprintln()
 }
 
 current_elog :: proc(format: string, args: ..any) -> ! {
@@ -84,9 +86,7 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
         if strings.compare(link, "libc") == 0 {
             append(&compile_com, "-lc")
         } else {
-            l := fmt.aprintf("-L", link)
-            // NOTE: ^ this leaks memory but the process will free it
-            append(&compile_com, l)
+            append(&compile_com, link)
         }
     }
 
@@ -149,8 +149,7 @@ build :: proc(filename: string) -> [dynamic]string {
         append(&ast, stmnt)
     }
 
-    symtab := symtab_init()
-    analyser := analyser_init(ast, symtab, filename, cursors)
+    analyser := analyser_init(ast, filename, cursors)
     analyse(&analyser)
 
     if DEBUG_MODE {
@@ -159,7 +158,7 @@ build :: proc(filename: string) -> [dynamic]string {
         }
     }
 
-    codegen := codegen_init(ast, symtab)
+    codegen := codegen_init(ast)
     gen(&codegen);
 
     os.write_entire_file("output.c", codegen.code.buf[:])

@@ -127,10 +127,10 @@ Analyser :: struct {
     cursors: [dynamic][2]u32,
 }
 
-analyser_init :: proc(ast: [dynamic]Stmnt, symtab: SymTab, filename: string, cursors: [dynamic][2]u32) -> Analyser {
+analyser_init :: proc(ast: [dynamic]Stmnt, filename: string, cursors: [dynamic][2]u32) -> Analyser {
     return {
         ast = ast,
-        symtab = symtab,
+        symtab = symtab_init(),
         current_fn = nil,
         
         filename = filename,
