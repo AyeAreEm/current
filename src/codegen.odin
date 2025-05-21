@@ -1348,6 +1348,10 @@ gen_directive :: proc(self: ^Codegen, directive: Directive) {
     switch d in directive {
     case DirectiveLink:
         append(&self.linking, d.link)
+    case DirectiveSysLink:
+        l := fmt.aprintf("-l%v", d.link)
+        delete(d.link)
+        append(&self.linking, l)
     }
 }
 

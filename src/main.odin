@@ -83,11 +83,7 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
     append(&compile_com, "output.c")
 
     for link in linking {
-        if strings.compare(link, "libc") == 0 {
-            append(&compile_com, "-lc")
-        } else {
-            append(&compile_com, link)
-        }
+        append(&compile_com, link);
     }
 
     if DEBUG_MODE {

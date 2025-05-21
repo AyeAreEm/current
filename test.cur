@@ -1,10 +1,12 @@
+#syslink "c"; // link with system library
+#link "hello.o"; // link with specificed path
+// #link "./hello.o";
+
 extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
     word :: "hello";
     ptr := &word;
-
-    ptr.& = "hi"; // this now errors again since word is constant
 
     puts(word.ptr);
 }
