@@ -133,6 +133,7 @@ build :: proc(filename: string) -> [dynamic]string {
     if !content_bytes_ok {
         elog("failed to read %v", filename)
     }
+    defer delete(content_bytes)
 
     content := transmute(string)content_bytes
     tokens, cursors := lexer(content)

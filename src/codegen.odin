@@ -1347,10 +1347,9 @@ gen_return :: proc(self: ^Codegen, ret: Return) {
 gen_directive :: proc(self: ^Codegen, directive: Directive) {
     switch d in directive {
     case DirectiveLink:
-        append(&self.linking, d.link)
+        append(&self.linking, strings.clone(d.link))
     case DirectiveSysLink:
         l := fmt.aprintf("-l%v", d.link)
-        delete(d.link)
         append(&self.linking, l)
     }
 }
