@@ -1667,6 +1667,16 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
 
 parse_return :: proc(self: ^Parser) -> Stmnt {
     index := self.cursors_idx
+    token := token_peek(self)
+    if token_tag_equal(token, TokenSemiColon{}) {
+        token_next(self)
+        return Return{
+            value = nil,
+            type = nil,
+            cursors_idx = index,
+        }
+    }
+
     expr := parse_expr(self)
     token_expect(self, TokenSemiColon{})
     return Return{

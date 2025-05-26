@@ -1338,6 +1338,11 @@ gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
 
 gen_return :: proc(self: ^Codegen, ret: Return) {
     gen_indent(self)
+    if ret.value == nil {
+        fmt.sbprintfln(&self.code, "return;")
+        return
+    }
+
     value, alloced := gen_expr(self, ret.value)
     defer if alloced do delete(value)
 

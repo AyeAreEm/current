@@ -242,6 +242,14 @@ tc_return :: proc(analyser: ^Analyser, fn: FnDecl, ret: ^Return) {
         ret.type = fn.type // fn.type can't be nil
     }
 
+    if ret.value == nil {
+        if type_tag_equal(fn.type, Void{}) {
+            return
+        }
+
+        elog(analyser, get_cursor_index(cast(Stmnt)ret^), "mismatch types, function type isn't void, expression type is void")
+    }
+
     ret_expr_type := type_of_expr(analyser, &ret.value)
 
     if !tc_equals(analyser, ret.type, ret_expr_type) {
@@ -376,13 +384,23 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
 }
 
 tc_var_decl :: proc(analyser: ^Analyser, vardecl: ^VarDecl) {
-    expr_type := type_of_expr(analyser, &vardecl.value)
+    expr_type: ^Type
+    if vardecl.value == nil {
+        expr_type = &vardecl.type
+    } else {
+        expr_type = type_of_expr(analyser, &vardecl.value)
+    }
 
     if type_tag_equal(expr_type^, Void{}) {
         if arr, ok := vardecl.type.(Array); ok {
-            if _, ok := arr.len.?; !ok do elog(analyser, vardecl.cursors_idx, "cannot infer array length for \"%v\" without compound literal", vardecl.name.literal)
+            if _, ok := arr.len.?; !ok {
+                elog(analyser, vardecl.cursors_idx, "cannot infer array length for \"%v\" without compound literal", vardecl.name.literal)
+            } else {
+                return
+            }
         }
-        return
+
+        elog(analyser, vardecl.cursors_idx, "variable cannot be of type void")
     }
 
     if vardecl.type == nil {

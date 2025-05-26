@@ -1,12 +1,7 @@
-#syslink "c"; // link with system library
-#link "hello.o"; // link with specificed path
-// #link "./hello.o";
-
-extern puts :: fn(s: cstring) i32;
+some :: fn() void {
+    return;
+}
 
 main :: fn() void {
-    word :: "hello";
-    ptr := &word;
-
-    puts(word.ptr);
+    x := some();
 }
