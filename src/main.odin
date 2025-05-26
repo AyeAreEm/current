@@ -74,10 +74,28 @@ get_filename :: proc(path: string) -> string {
 }
 
 compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
+    cc: string
+    gcc_state, _, _, _ := os2.process_exec(os2.Process_Desc{
+        command = { "gcc", "-v" },
+    }, context.temp_allocator)
+    if gcc_state.exit_code != 0 {
+        clang_state, _, _, _ := os2.process_exec(os2.Process_Desc{
+            command = { "gcc", "-v" },
+        }, context.temp_allocator)
+
+        if clang_state.exit_code != 0 {
+            elog("gcc or clang not detected, please ensure you have one of these compilers")
+        } else {
+            cc = "clang"
+        }
+    } else {
+        cc = "gcc"
+    }
+
     filename := get_filename(filepath)
 
     compile_com := make([dynamic]string)
-    append(&compile_com, "gcc")
+    append(&compile_com, cc)
     append(&compile_com, "-o")
     append(&compile_com, filename)
     append(&compile_com, "output.c")
@@ -106,7 +124,7 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
 
     if run {
         run_com := make([dynamic]string)
-        exe := fmt.aprintf("./%v", filename) if ODIN_OS == .Linux else fmt.aprintf("./%v.exe", filename)
+        exe := fmt.aprintf("./%v.exe", filename) if ODIN_OS == .Windows else fmt.aprintf("./%v", filename)
         defer delete(exe)
 
         append(&run_com, exe)
