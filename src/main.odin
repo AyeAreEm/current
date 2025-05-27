@@ -4,76 +4,11 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:os/os2"
+import "cli"
 
 DEBUG_MODE :: false
 
-args_next :: proc(args: ^[]string) -> string {
-    if len(args) == 0 {
-        elog("expected another argument")
-    }
-
-    arg := args[0]
-    args^ = args[1:]
-    return arg
-}
-
-// warning: this frees sb and returns a newly allocated string
-@(require_results)
-sbinsert :: proc(sb: ^strings.Builder, str: string, index: int) -> strings.Builder {
-    code := strings.builder_make()
-
-    first_half := sb.buf[:index]
-    strings.write_bytes(&code, first_half)
-    strings.write_string(&code, str)
-
-    second_half := sb.buf[index:]
-    strings.write_bytes(&code, second_half)
-
-    delete(sb.buf)
-
-    return code
-}
-
-debug :: proc(format: string, args: ..any) {
-    fmt.eprint("[DEBUG]: ")
-    fmt.eprintfln(format, ..args)
-}
-
-usage :: proc() {
-    fmt.eprintln("USAGE: ")
-    fmt.eprintln("    build [filename.cur] | build executable")
-    fmt.eprintln("    run [filename.cur] | build and run executable")
-    fmt.eprintln()
-}
-
-current_elog :: proc(format: string, args: ..any) -> ! {
-    fmt.eprintf("\x1b[91;1merror\x1b[0m: ")
-    fmt.eprintfln(format, ..args)
-    usage()
-
-    os.exit(1)
-}
-
-elog :: proc{current_elog, parser_elog, analyse_elog}
-
-get_filename :: proc(path: string) -> string {
-    filename: string
-    path_parts: []string
-    defer delete(path_parts)
-
-    if strings.contains(path[0:2], "./") {
-        path_parts = strings.split(path[2:], ".")
-    } else if strings.contains(path[0:2], ".\\") {
-        path_parts = strings.split(path[3:], ".")
-    } else {
-        path_parts = strings.split(path, ".")
-    }
-
-    filename = strings.clone(path_parts[0])
-    return filename
-}
-
-compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
+compile :: proc(filepath: string, linking: [dynamic]string, run: bool) {
     cc: string
     gcc_state, _, _, _ := os2.process_exec(os2.Process_Desc{
         command = { "gcc", "-v" },
@@ -92,6 +27,8 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
         cc = "gcc"
     }
 
+    // allocated but near the end of the proces
+    // no need to clean up
     filename := get_filename(filepath)
 
     compile_com := make([dynamic]string)
@@ -146,7 +83,7 @@ compile :: proc(filepath: string, linking: [dynamic]string, run := false) {
     }
 }
 
-build :: proc(filename: string) -> [dynamic]string {
+build :: proc(filename: string, run := false) {
     content_bytes, content_bytes_ok := os.read_entire_file(filename)
     if !content_bytes_ok {
         elog("failed to read %v", filename)
@@ -177,27 +114,28 @@ build :: proc(filename: string) -> [dynamic]string {
     gen(&codegen);
 
     os.write_entire_file("output.c", codegen.code.buf[:])
-    return codegen.linking
+    compile(filename, codegen.linking, run)
 }
 
 main :: proc() {
-    args := os.args
-    if len(args) == 1 {
-        usage()
-        os.exit(1)
-    }
+    args := cli.parse()
 
-    args_next(&args)
-    command := args_next(&args)
-    filename := args_next(&args)
+    switch args.command {
+    case .Build:
+        if args.help {
+            cli.usage(args)
+        }
 
-    if strings.compare(command, "build") == 0 {
-        linking := build(filename)
-        compile(filename, linking)
-    } else if strings.compare(command, "run") == 0 {
-        linking := build(filename)
-        compile(filename, linking, true)
-    } else {
-        elog("unexpected command %v", command)
+        build(args.filename)
+    case .Run:
+        if args.help {
+            cli.usage(args)
+        }
+
+        build(args.filename, true)
+    case:
+        if args.help {
+            cli.usage(args)
+        }
     }
 }
