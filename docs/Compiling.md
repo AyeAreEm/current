@@ -6,6 +6,7 @@ Build:
 ```console
 $ current build main.cur
 $ ./main
+Hello, World!
 $
 ```
 
