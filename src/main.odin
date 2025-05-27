@@ -8,7 +8,7 @@ import "cli"
 
 DEBUG_MODE :: false
 
-compile :: proc(filepath: string, linking: [dynamic]string, run: bool) {
+compile :: proc(output: string, linking: [dynamic]string, run: bool) {
     cc: string
     gcc_state, _, _, _ := os2.process_exec(os2.Process_Desc{
         command = { "gcc", "-v" },
@@ -27,14 +27,10 @@ compile :: proc(filepath: string, linking: [dynamic]string, run: bool) {
         cc = "gcc"
     }
 
-    // allocated but near the end of the proces
-    // no need to clean up
-    filename := get_filename(filepath)
-
     compile_com := make([dynamic]string)
     append(&compile_com, cc)
     append(&compile_com, "-o")
-    append(&compile_com, filename)
+    append(&compile_com, output)
     append(&compile_com, "output.c")
 
     for link in linking {
@@ -61,7 +57,7 @@ compile :: proc(filepath: string, linking: [dynamic]string, run: bool) {
 
     if run {
         run_com := make([dynamic]string)
-        exe := fmt.aprintf("./%v.exe", filename) if ODIN_OS == .Windows else fmt.aprintf("./%v", filename)
+        exe := fmt.aprintf("./%v.exe", output) if ODIN_OS == .Windows else fmt.aprintf("./%v", output)
         defer delete(exe)
 
         append(&run_com, exe)
@@ -83,10 +79,10 @@ compile :: proc(filepath: string, linking: [dynamic]string, run: bool) {
     }
 }
 
-build :: proc(filename: string, run := false) {
-    content_bytes, content_bytes_ok := os.read_entire_file(filename)
+build :: proc(filepath: string, run := false) {
+    content_bytes, content_bytes_ok := os.read_entire_file(filepath)
     if !content_bytes_ok {
-        elog("failed to read %v", filename)
+        elog("failed to read %v", filepath)
     }
     defer delete(content_bytes)
 
@@ -96,12 +92,12 @@ build :: proc(filename: string, run := false) {
 
     // TODO: add another pass to get definitions
     ast := [dynamic]Stmnt{}
-    parser := parser_init(tokens, filename, cursors)
+    parser := parser_init(tokens, filepath, cursors)
     for stmnt := parse(&parser); stmnt != nil; stmnt = parse(&parser) {
         append(&ast, stmnt)
     }
 
-    analyser := analyser_init(ast, filename, cursors)
+    analyser := analyser_init(ast, filepath, cursors)
     analyse(&analyser)
 
     if DEBUG_MODE {
@@ -114,6 +110,10 @@ build :: proc(filename: string, run := false) {
     gen(&codegen);
 
     os.write_entire_file("output.c", codegen.code.buf[:])
+
+    // maybe allocated but near the end of the process
+    // will let the os clean it up
+    filename := get_filename(filepath) if len(codegen.output) == 0 else codegen.output
     compile(filename, codegen.linking, run)
 }
 

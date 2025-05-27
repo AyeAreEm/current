@@ -6,12 +6,15 @@ import "core:math/rand"
 
 Codegen :: struct {
     ast: [dynamic]Stmnt,
+
     code: strings.Builder,
+    indent_level: u8,
 
     def_loc: int,
     generated_generics: [dynamic]string,
+
     linking: [dynamic]string,
-    indent_level: u8,
+    output: string,
 }
 
 codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
@@ -1356,6 +1359,8 @@ gen_directive :: proc(self: ^Codegen, directive: Directive) {
     case DirectiveSysLink:
         l := fmt.aprintf("-l%v", d.link)
         append(&self.linking, l)
+    case DirectiveOutput:
+        self.output = d.name
     }
 }
 

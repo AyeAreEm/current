@@ -282,13 +282,19 @@ DirectiveSysLink :: struct {
     link: string,
     cursors_idx: int,
 }
+DirectiveOutput :: struct {
+    name: string,
+    cursors_idx: int,
+}
 Directive :: union {
     DirectiveLink,
     DirectiveSysLink,
+    DirectiveOutput,
 }
 directive_map := map[string]Directive{
     "link" = DirectiveLink{},
     "syslink" = DirectiveSysLink{},
+    "output" = DirectiveOutput{},
 }
 
 parser_get_directive :: proc(self: ^Parser, word: string) -> Directive {
@@ -581,6 +587,8 @@ get_directive_cursor_index :: proc(item: Directive) -> int {
     case DirectiveLink:
         return it.cursors_idx
     case DirectiveSysLink:
+        return it.cursors_idx
+    case DirectiveOutput:
         return it.cursors_idx
     }
 
@@ -1837,6 +1845,13 @@ parse_directive :: proc(self: ^Parser) -> Stmnt {
         token_expect(self, TokenSemiColon{});
 
         d.link = token.(TokenStrLit).literal
+    case DirectiveOutput:
+        d.cursors_idx = self.cursors_idx
+
+        token = token_expect(self, TokenStrLit{})
+        token_expect(self, TokenSemiColon{});
+
+        d.name = token.(TokenStrLit).literal
     }
 
     return directive

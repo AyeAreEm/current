@@ -1,3 +1,5 @@
+#output "test";
+
 extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
