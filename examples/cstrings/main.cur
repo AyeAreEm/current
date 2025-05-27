@@ -2,6 +2,6 @@ main :: fn() void {
     word1 := c"hello";
     // word1: cstring = c"hello";
 
-    word2 := "hello"; // word2: string = "hello";
-    ptr := word2.ptr; // ptr: cstring = word2.ptr;
+    word2 := "hello"; // string
+    ptr := word2.ptr; // cstring
 }
