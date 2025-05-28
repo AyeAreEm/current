@@ -1448,23 +1448,21 @@ typedef SSIZE_T ssize_t;
 `#define CurArray1d(T, Tname, A)\
 typedef struct CurArray1d_##Tname##A {\
     T *ptr;\
-    usize len;\
+    const usize len;\
 } CurArray1d_##Tname##A;\
 CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr, usize len) {\
-    CurArray1d_##Tname##A ret;\
+    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){.len = len};\
     ret.ptr = ptr;\
-    ret.len = len;\
     return ret;\
 }
 #define CurArray2d(T, Tname, A, B)\
 typedef struct CurArray2d_##Tname##B##A {\
     CurArray1d_##Tname##A* ptr;\
-    usize len;\
+    const usize len;\
 } CurArray2d_##Tname##B##A;\
 CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, usize len) {\
-    CurArray2d_##Tname##B##A ret;\
+    CurArray2d_##Tname##B##A ret = (CurArray2d_##Tname##B##A){.len = len};\
     ret.ptr = ptr;\
-    ret.len = len;\
     return ret;\
 }`
     )
