@@ -122,6 +122,11 @@ Analyser :: struct {
     symtab: SymTab,
     current_fn: Maybe(FnDecl),
 
+    compile_flags: struct {
+        output: bool,
+        optimise: bool,
+    },
+
     // debug
     filename: string,
     cursors: [dynamic][2]u32,
@@ -811,7 +816,7 @@ analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
     for &statement in block {
         switch &stmnt in statement {
         case Directive:
-            continue
+            analyse_directive(self, &stmnt)
         case Extern:
             analyse_extern(self, &stmnt)
         case Block:
@@ -890,10 +895,66 @@ analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
     }
 }
 
+analyse_directive :: proc(self: ^Analyser, directive: ^Directive) {
+    switch d in directive {
+    case DirectiveLink, DirectiveSysLink:
+        return
+    case DirectiveOutput:
+        if !self.compile_flags.output {
+            self.compile_flags.output = true
+        } else {
+            elog(self, d.cursors_idx, "output already set, cannot have more than one output directive")
+        }
+    case DirectiveO0:
+        if !self.compile_flags.optimise {
+            self.compile_flags.optimise = true
+        } else {
+            elog(self, d.cursors_idx, "optimisation already set, cannot have more than one optimisation directive")
+        }
+    case DirectiveO1:
+        if !self.compile_flags.optimise {
+            self.compile_flags.optimise = true
+        } else {
+            elog(self, d.cursors_idx, "optimisation already set, cannot have more than one optimisation directive")
+        }
+    case DirectiveO2:
+        if !self.compile_flags.optimise {
+            self.compile_flags.optimise = true
+        } else {
+            elog(self, d.cursors_idx, "optimisation already set, cannot have more than one optimisation directive")
+        }
+    case DirectiveO3:
+        if !self.compile_flags.optimise {
+            self.compile_flags.optimise = true
+        } else {
+            elog(self, d.cursors_idx, "optimisation already set, cannot have more than one optimisation directive")
+        }
+    case DirectiveOdebug:
+        if !self.compile_flags.optimise {
+            self.compile_flags.optimise = true
+        } else {
+            elog(self, d.cursors_idx, "optimisation already set, cannot have more than one optimisation directive")
+        }
+    case DirectiveOfast:
+        if !self.compile_flags.optimise {
+            self.compile_flags.optimise = true
+        } else {
+            elog(self, d.cursors_idx, "optimisation already set, cannot have more than one optimisation directive")
+        }
+    case DirectiveOsmall:
+        if !self.compile_flags.optimise {
+            self.compile_flags.optimise = true
+        } else {
+            elog(self, d.cursors_idx, "optimisation already set, cannot have more than one optimisation directive")
+        }
+    }
+}
+
 analyse :: proc(self: ^Analyser) {
     for statement in self.ast {
         switch &stmnt in statement {
         case Directive:
+            analyse_directive(self, &stmnt)
             continue
         case Extern:
             analyse_extern(self, &stmnt)

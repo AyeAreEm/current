@@ -8,7 +8,9 @@ import "cli"
 
 DEBUG_MODE :: false
 
-compile :: proc(output: string, linking: [dynamic]string, run: bool) {
+compile :: proc(compile_flags: CompileFlags, run: bool) {
+    using compile_flags
+
     cc: string
     gcc_state, _, _, _ := os2.process_exec(os2.Process_Desc{
         command = { "gcc", "-v" },
@@ -32,6 +34,24 @@ compile :: proc(output: string, linking: [dynamic]string, run: bool) {
     append(&compile_com, "-o")
     append(&compile_com, output)
     append(&compile_com, "output.c")
+
+    switch optimisation {
+    case .Zero:
+        append(&compile_com, "-O0")
+    case .One:
+        append(&compile_com, "-O1")
+    case .Two:
+        append(&compile_com, "-O2")
+    case .Three:
+        append(&compile_com, "-O3")
+    case .Debug:
+        append(&compile_com, "-Og")
+        append(&compile_com, "-g")
+    case .Fast:
+        append(&compile_com, "-O3")
+    case .Small:
+        append(&compile_com, "-Os")
+    }
 
     for link in linking {
         append(&compile_com, link);
@@ -113,8 +133,10 @@ build :: proc(filepath: string, run := false) {
 
     // maybe allocated but near the end of the process
     // will let the os clean it up
-    filename := get_filename(filepath) if len(codegen.output) == 0 else codegen.output
-    compile(filename, codegen.linking, run)
+    if len(codegen.compile_flags.output) == 0 {
+        codegen.compile_flags.output = get_filename(filepath)
+    }
+    compile(codegen.compile_flags, run)
 }
 
 main :: proc() {

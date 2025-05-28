@@ -4,6 +4,22 @@ import "core:fmt"
 import "core:strings"
 import "core:math/rand"
 
+OptLevel :: enum {
+    Zero,
+    One,
+    Two,
+    Three,
+    Debug,
+    Fast,
+    Small,
+}
+
+CompileFlags :: struct {
+    linking: [dynamic]string,
+    output: string,
+    optimisation: OptLevel,
+}
+
 Codegen :: struct {
     ast: [dynamic]Stmnt,
 
@@ -13,8 +29,7 @@ Codegen :: struct {
     def_loc: int,
     generated_generics: [dynamic]string,
 
-    linking: [dynamic]string,
-    output: string,
+    compile_flags: CompileFlags,
 }
 
 codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
@@ -24,7 +39,10 @@ codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
 
         def_loc = 0,
         generated_generics = make([dynamic]string),
-        linking = make([dynamic]string),
+        compile_flags = {
+            linking = make([dynamic]string),
+            optimisation = .Debug,
+        },
         indent_level = 0,
     }
 }
@@ -1355,12 +1373,26 @@ gen_return :: proc(self: ^Codegen, ret: Return) {
 gen_directive :: proc(self: ^Codegen, directive: Directive) {
     switch d in directive {
     case DirectiveLink:
-        append(&self.linking, strings.clone(d.link))
+        append(&self.compile_flags.linking, strings.clone(d.link))
     case DirectiveSysLink:
         l := fmt.aprintf("-l%v", d.link)
-        append(&self.linking, l)
+        append(&self.compile_flags.linking, l)
     case DirectiveOutput:
-        self.output = d.name
+        self.compile_flags.output = d.name
+    case DirectiveO0:
+        self.compile_flags.optimisation = .Zero
+    case DirectiveO1:
+        self.compile_flags.optimisation = .One
+    case DirectiveO2:
+        self.compile_flags.optimisation = .Two
+    case DirectiveO3:
+        self.compile_flags.optimisation = .Three
+    case DirectiveOdebug:
+        self.compile_flags.optimisation = .Debug
+    case DirectiveOfast:
+        self.compile_flags.optimisation = .Fast
+    case DirectiveOsmall:
+        self.compile_flags.optimisation = .Small
     }
 }
 

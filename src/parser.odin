@@ -286,15 +286,50 @@ DirectiveOutput :: struct {
     name: string,
     cursors_idx: int,
 }
+DirectiveO0 :: struct {
+    cursors_idx: int,
+}
+DirectiveO1 :: struct {
+    cursors_idx: int,
+}
+DirectiveO2 :: struct {
+    cursors_idx: int,
+}
+DirectiveO3 :: struct {
+    cursors_idx: int,
+}
+DirectiveOdebug :: struct {
+    cursors_idx: int,
+}
+DirectiveOfast :: struct {
+    cursors_idx: int,
+}
+DirectiveOsmall :: struct {
+    cursors_idx: int,
+}
 Directive :: union {
     DirectiveLink,
     DirectiveSysLink,
     DirectiveOutput,
+    DirectiveO0,
+    DirectiveO1,
+    DirectiveO2,
+    DirectiveO3,
+    DirectiveOdebug,
+    DirectiveOfast,
+    DirectiveOsmall,
 }
 directive_map := map[string]Directive{
     "link" = DirectiveLink{},
     "syslink" = DirectiveSysLink{},
     "output" = DirectiveOutput{},
+    "O0" = DirectiveO0{},
+    "O1" = DirectiveO1{},
+    "O2" = DirectiveO2{},
+    "O3" = DirectiveO3{},
+    "Odebug" = DirectiveOdebug{},
+    "Ofast" = DirectiveOfast{},
+    "Osmall" = DirectiveOsmall{},
 }
 
 parser_get_directive :: proc(self: ^Parser, word: string) -> Directive {
@@ -589,6 +624,20 @@ get_directive_cursor_index :: proc(item: Directive) -> int {
     case DirectiveSysLink:
         return it.cursors_idx
     case DirectiveOutput:
+        return it.cursors_idx
+    case DirectiveO0:
+        return it.cursors_idx
+    case DirectiveO1:
+        return it.cursors_idx
+    case DirectiveO2:
+        return it.cursors_idx
+    case DirectiveO3:
+        return it.cursors_idx
+    case DirectiveOdebug:
+        return it.cursors_idx
+    case DirectiveOfast:
+        return it.cursors_idx
+    case DirectiveOsmall:
         return it.cursors_idx
     }
 
@@ -1835,23 +1884,44 @@ parse_directive :: proc(self: ^Parser) -> Stmnt {
         d.cursors_idx = self.cursors_idx
 
         token = token_expect(self, TokenStrLit{})
-        token_expect(self, TokenSemiColon{});
+        token_expect(self, TokenSemiColon{})
 
         d.link = token.(TokenStrLit).literal
     case DirectiveSysLink:
         d.cursors_idx = self.cursors_idx
 
         token = token_expect(self, TokenStrLit{})
-        token_expect(self, TokenSemiColon{});
+        token_expect(self, TokenSemiColon{})
 
         d.link = token.(TokenStrLit).literal
     case DirectiveOutput:
         d.cursors_idx = self.cursors_idx
 
         token = token_expect(self, TokenStrLit{})
-        token_expect(self, TokenSemiColon{});
+        token_expect(self, TokenSemiColon{})
 
         d.name = token.(TokenStrLit).literal
+    case DirectiveO0:
+        d.cursors_idx = self.cursors_idx
+        token_expect(self, TokenSemiColon{})
+    case DirectiveO1:
+        d.cursors_idx = self.cursors_idx
+        token_expect(self, TokenSemiColon{})
+    case DirectiveO2:
+        d.cursors_idx = self.cursors_idx
+        token_expect(self, TokenSemiColon{})
+    case DirectiveO3:
+        d.cursors_idx = self.cursors_idx
+        token_expect(self, TokenSemiColon{})
+    case DirectiveOdebug:
+        d.cursors_idx = self.cursors_idx
+        token_expect(self, TokenSemiColon{})
+    case DirectiveOfast:
+        d.cursors_idx = self.cursors_idx
+        token_expect(self, TokenSemiColon{})
+    case DirectiveOsmall:
+        d.cursors_idx = self.cursors_idx
+        token_expect(self, TokenSemiColon{})
     }
 
     return directive

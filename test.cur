@@ -1,7 +1,8 @@
 #output "test";
-
-extern puts :: fn(s: cstring) i32;
+#Odebug;
 
 main :: fn() void {
-    puts(c"hello world");
+    x := 10;
+    y := 5;
+    z := x + y;
 }
