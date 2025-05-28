@@ -1,8 +1,17 @@
-#output "test";
-#Odebug;
+// ?void now errors, why would you need that when you could just use a boolean right?
+// maybe i haven't thought of all cases but either way, they are the same length in bytes
+#syslink "c";
+
+extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    x := 10;
-    y := 5;
-    z := x + y;
+    word := "hello";
+    len := word.len;
+    ptr := word.ptr;
+
+    words := [_]string{"hello", "world"};
+
+    for (i: usize = 0; i < words.len; i += 1) {
+        puts(words[i].ptr);
+    }
 }

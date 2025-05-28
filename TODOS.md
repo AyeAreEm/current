@@ -16,13 +16,11 @@
 - Type Casting
 - Better Error Messages
 - Result Type (!)
+- Variadic Arguments
 
 # In Progress
 - For Loops
 - Importing External Libraries
-- Change Backend To C
-- Full field propogation
-- Optional Void
 
 # Completed
 - Function Declarations

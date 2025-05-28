@@ -95,6 +95,10 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
     case Option:
         #partial switch &r in rhs {
         case Option:
+            if type_tag_equal(l.type^, Void{}) || type_tag_equal(r.type^, Void{}) {
+                elog(analyser, l.cursors_idx, "cannot use ?void, maybe use a bool instead?")
+            }
+
             if r.is_null {
                 r.type^ = l.type^
                 r.gen_option = true;

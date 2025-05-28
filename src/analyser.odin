@@ -26,16 +26,6 @@ sym_equals :: proc(lhs: Expr, rhs: Expr) -> bool {
         if k, ok := rhs.(Ident); ok {
             return strings.compare(k.literal, el.literal) == 0
         }
-    case FieldAccess:
-        if k, ok := rhs.(FieldAccess); ok {
-            return sym_equals(k.expr^, el.expr^) && sym_equals(k.field^, el.field^)
-        }
-    case ArrayIndex:
-        if r, ok := rhs.(ArrayIndex); ok {
-            return sym_equals(el.ident^, r.ident^)
-        }
-        
-        return false
     }
 
     return false
