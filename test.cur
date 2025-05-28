@@ -1,17 +1,16 @@
-// ?void now errors, why would you need that when you could just use a boolean right?
-// maybe i haven't thought of all cases but either way, they are the same length in bytes
 #syslink "c";
 
 extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    word := "hello";
-    len := word.len;
-    ptr := word.ptr;
-
-    words := [_]string{"hello", "world"};
+    words := [5]string{"0", "1", "2", "3", "4"};
 
     for (i: usize = 0; i < words.len; i += 1) {
+        if (i == 1) {
+            continue;
+        } else if (i == 3) {
+            break;
+        }
         puts(words[i].ptr);
     }
 }

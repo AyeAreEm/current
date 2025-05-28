@@ -1,22 +1,21 @@
 # Todos
 - Parse Definition Names First
-- Break Statement
-- Continue Statement
 - Struct Definitions
 - Struct Literals
 - Enum Definitions
+- Better Error Messages
 - Defining Libraries
 - Importing Libraries
 - Tagged Union Definitions
 - Tagged Union Literals
 - Switch Statements
 - Generics
+- Type Casting
 - Compile Time Expressions
 - Compile Time Execution
-- Type Casting
-- Better Error Messages
 - Result Type (!)
 - Variadic Arguments
+- Standard Library
 
 # In Progress
 - For Loops
@@ -52,3 +51,5 @@
 - Option Type (?)
 - If Statement Capture (Option)
 - Array Indexing
+- Continue Statement
+- Break Statement

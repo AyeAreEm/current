@@ -237,6 +237,8 @@ type_tag_equal :: proc(lhs, rhs: Type) -> bool {
 Keyword :: enum {
     Fn,
     Return,
+    Continue,
+    Break,
     True,
     False,
     Null,
@@ -248,6 +250,8 @@ Keyword :: enum {
 keyword_map := map[string]Keyword{
     "fn" = .Fn,
     "return" = .Return,
+    "continue" = .Continue,
+    "break" = .Break,
     "true" = .True,
     "false" = .False,
     "null" = .Null,
@@ -580,6 +584,12 @@ Return :: struct {
     value: Expr,
     cursors_idx: int,
 }
+Continue :: struct {
+    cursors_idx: int,
+}
+Break :: struct {
+    cursors_idx: int,
+}
 If :: struct {
     // type: Type,
     condition: Expr,
@@ -608,6 +618,8 @@ Stmnt :: union {
     VarDecl,
     VarReassign,
     Return,
+    Continue,
+    Break,
     FnCall,
     ConstDecl,
     If,
@@ -752,6 +764,10 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return stmnt.cursors_idx
         case Return:
             return stmnt.cursors_idx
+        case Continue:
+            return stmnt.cursors_idx
+        case Break:
+            return stmnt.cursors_idx
         case FnDecl:
             return stmnt.cursors_idx
         case FnCall:
@@ -848,12 +864,14 @@ parse_fn_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
 }
 
 parse_block :: proc(self: ^Parser, start: Token = TokenLc{}, end: Token = TokenRc{}) -> [dynamic]Stmnt {
-    _ = token_expect(self, start)
+    if start != nil {
+        _ = token_expect(self, start)
+    }
 
     block := [dynamic]Stmnt{}
 
     // if there's nothing inside the block
-    if token := token_peek(self); token_tag_equal(token, end) {
+    if token := token_peek(self); token_tag_equal(token, end) && start != nil  {
         token_next(self)
         return block
     }
@@ -1743,6 +1761,24 @@ parse_return :: proc(self: ^Parser) -> Stmnt {
     }
 }
 
+parse_continue :: proc(self: ^Parser) -> Stmnt {
+    index := self.cursors_idx
+    token_expect(self, TokenSemiColon{})
+
+    return Continue{
+        cursors_idx = index
+    }
+}
+
+parse_break :: proc(self: ^Parser) -> Stmnt {
+    index := self.cursors_idx
+    token_expect(self, TokenSemiColon{})
+
+    return Break{
+        cursors_idx = index
+    }
+}
+
 parse_if :: proc(self: ^Parser) -> Stmnt {
     index := self.cursors_idx
 
@@ -1775,7 +1811,7 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
         if keyword, ok := converted.(Keyword); ok {
             if keyword == .Else {
                 token_next(self)
-                else_block = parse_block(self)
+                else_block = parse_block(self, nil)
             }
         }
     }
@@ -1942,6 +1978,10 @@ parse :: proc(self: ^Parser) -> Stmnt {
             #partial switch keyword {
             case .Return:
                 return parse_return(self)
+            case .Continue:
+                return parse_continue(self)
+            case .Break:
+                return parse_break(self)
             case .If:
                 return parse_if(self)
             case .Extern:

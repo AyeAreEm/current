@@ -107,10 +107,16 @@ symtab_pop_scope :: proc(analyser: ^Analyser) {
     curr_scope -= 1
 }
 
+EnvInfo :: struct {
+    fn: Maybe(FnDecl),
+    forl: bool,
+}
+
 Analyser :: struct {
     ast: [dynamic]Stmnt,
     symtab: SymTab,
-    current_fn: Maybe(FnDecl),
+
+    env_info: EnvInfo,
 
     compile_flags: struct {
         output: bool,
@@ -126,7 +132,7 @@ analyser_init :: proc(ast: [dynamic]Stmnt, filename: string, cursors: [dynamic][
     return {
         ast = ast,
         symtab = symtab_init(),
-        current_fn = nil,
+        env_info = EnvInfo{},
         
         filename = filename,
         cursors = cursors,
@@ -294,6 +300,10 @@ type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
         return stmnt.type
     case Return:
         return stmnt.type
+    case Continue:
+        elog(analyser, stmnt.cursors_idx, "unexpected continue statement")
+    case Break:
+        elog(analyser, stmnt.cursors_idx, "unexpected break statement")
     case Block:
         elog(analyser, stmnt.cursors_idx, "unexpected scope block")
     case If:
@@ -796,7 +806,11 @@ analyse_for :: proc(self: ^Analyser, forl: ^For) {
     analyse_var_reassign(self, &forl.reassign)
 
     symtab_new_scope(self)
+
+    self.env_info.forl = true
     analyse_block(self, forl.body)
+    self.env_info.forl = false
+
     symtab_pop_scope(self)
 
     symtab_pop_scope(self)
@@ -814,10 +828,18 @@ analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
             analyse_block(self, stmnt.body)
             symtab_pop_scope(self)
         case Return:
-            if fn, ok := self.current_fn.?; ok {
+            if fn, ok := self.env_info.fn.?; ok {
                 analyse_return(self, fn, &stmnt)
             } else {
                 elog(self, stmnt.cursors_idx, "illegal use of return, not inside a function")
+            }
+        case Continue:
+            if !self.env_info.forl {
+                elog(self, stmnt.cursors_idx, "illegal use of continue, not inside a loop")
+            }
+        case Break:
+            if !self.env_info.forl {
+                elog(self, stmnt.cursors_idx, "illegal use of break, not inside a loop")
             }
         case VarDecl:
             analyse_var_decl(self, &stmnt)
@@ -851,7 +873,7 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: FnDecl) {
     if strings.compare(fn.name.literal, "main") == 0 && !type_tag_equal(fn.type, Void{}) {
         elog(self, fn.cursors_idx, "illegal main function, expected return type to be void, got %v", fn.type)
     }
-    self.current_fn = fn
+    self.env_info.fn = fn
 
     analyse_block(self, fn.body)
 }
@@ -871,6 +893,10 @@ analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
             elog(self, stmnt.cursors_idx, "illegal use of scope block, not inside a function")
         case Return:
             elog(self, stmnt.cursors_idx, "illegal use of return, not inside a function")
+        case Continue:
+            elog(self, stmnt.cursors_idx, "illegal use of continue, not inside a loop")
+        case Break:
+            elog(self, stmnt.cursors_idx, "illegal use of break, not inside a loop")
         case FnCall:
             elog(self, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
         case If:
@@ -960,6 +986,10 @@ analyse :: proc(self: ^Analyser) {
             elog(self, stmnt.cursors_idx, "illegal use of scope block, not inside a function")
         case Return:
             elog(self, stmnt.cursors_idx, "illegal use of return, not inside a function")
+        case Continue:
+            elog(self, stmnt.cursors_idx, "illegal use of continue, not inside a loop")
+        case Break:
+            elog(self, stmnt.cursors_idx, "illegal use of break, not inside a loop")
         case FnCall:
             elog(self, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
         case If:

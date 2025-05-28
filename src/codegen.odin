@@ -270,6 +270,10 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             gen_var_reassign(self, stmnt)
         case Return:
             gen_return(self, stmnt)
+        case Continue:
+            gen_continue(self)
+        case Break:
+            gen_break(self)
         case FnCall:
             call := gen_fn_call(self, stmnt, true)
             defer delete(call)
@@ -1368,6 +1372,16 @@ gen_return :: proc(self: ^Codegen, ret: Return) {
     defer if alloced do delete(value)
 
     fmt.sbprintfln(&self.code, "return %v;", value)
+}
+
+gen_continue :: proc(self: ^Codegen) {
+    gen_indent(self)
+    fmt.sbprintln(&self.code, "continue;")
+}
+
+gen_break :: proc(self: ^Codegen) {
+    gen_indent(self)
+    fmt.sbprintln(&self.code, "break;")
 }
 
 gen_directive :: proc(self: ^Codegen, directive: Directive) {
