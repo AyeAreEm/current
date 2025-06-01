@@ -10,82 +10,109 @@ Void :: struct {
     cursors_idx: int,
 }
 Bool :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 Char :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 String :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 String_fields := [dynamic]Expr{
-    Ident{literal = "len",
-        type = Usize{},
+    Ident{
+        literal = "len",
+        type = Usize{
+            constant = true,
+        },
         cursors_idx = 0
     },
     Ident{
         literal = "ptr",
-        type = Cstring{},
+        type = Cstring{
+            constant = true,
+        },
         cursors_idx = 0,
     }
 }
 Cstring :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 
 I8 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 I16 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 I32 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 I64 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 
 U8 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 U16 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 U32 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 U64 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 
 F32 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 F64 :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 
 Usize :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 Isize :: struct {
+    constant: bool,
     cursors_idx: int,
 }
 
 Array :: struct {
     type: ^Type,
     len: Maybe(^Expr), // if nil, infer len
+    constant: bool,
     cursors_idx: int,
 }
 Array_fields := [dynamic]Expr{
-    Ident{literal = "len",
-        type = Usize{},
+    Ident{
+        literal = "len",
+        type = Usize{
+            constant = true,
+        },
         cursors_idx = 0
     },
     Ident{
         literal = "ptr",
-        type = Cstring{},
+        type = Cstring{
+            constant = true,
+        },
         cursors_idx = 0,
     }
 }
@@ -99,6 +126,7 @@ Option :: struct {
     type: ^Type,
     is_null: bool,
     gen_option: bool,
+    constant: bool,
     cursors_idx: int,
 }
 
@@ -386,7 +414,6 @@ FieldAccess :: struct {
     expr: ^Expr,
     field: ^Expr,
     type: Type,
-    constant: bool,
     deref: bool,
     cursors_idx: int,
 }
@@ -488,7 +515,6 @@ Grouping :: struct {
 Address :: struct {
     value: ^Expr,
     type: Type,
-    to_constant: bool,
     cursors_idx: int,
 }
 Null :: struct {
@@ -1593,7 +1619,6 @@ parse_field_access :: proc(self: ^Parser, ident: Expr) -> Expr {
             expr = front,
             field = nil, // CAUTION: nil pointer
             type = nil,
-            constant = false,
             deref = true,
             cursors_idx = index,
         }
@@ -1612,7 +1637,6 @@ parse_field_access :: proc(self: ^Parser, ident: Expr) -> Expr {
             expr = front,
             field = field,
             type = nil,
-            constant = false,
             cursors_idx = index,
         }
 

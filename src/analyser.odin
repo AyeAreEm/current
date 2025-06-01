@@ -139,6 +139,86 @@ analyser_init :: proc(ast: [dynamic]Stmnt, filename: string, cursors: [dynamic][
     }
 }
 
+type_is_constant :: proc(type: ^Type) -> ^bool {
+    switch &t in type {
+    case I8:
+        return &t.constant
+    case I16:
+        return &t.constant
+    case I32:
+        return &t.constant
+    case I64:
+        return &t.constant
+    case Isize:
+        return &t.constant
+    case U8:
+        return &t.constant
+    case U16:
+        return &t.constant
+    case U32:
+        return &t.constant
+    case U64:
+        return &t.constant
+    case Usize:
+        return &t.constant
+    case F32:
+        return &t.constant
+    case F64:
+        return &t.constant
+    case Array:
+        return &t.constant
+    case Ptr:
+        return &t.constant
+    case Bool:
+        return &t.constant
+    case Char:
+        return &t.constant
+    case Cstring:
+        return &t.constant
+    case String:
+        return &t.constant
+    case Option:
+        return &t.constant
+    case Void:
+        panic("inside type_is_constant, can't get constant from void")
+    case Untyped_Float:
+        panic("inside type_is_constant, can't get constant from untyped_float")
+    case Untyped_Int:
+        panic("inside type_is_constant, can't get constant from untyped_int")
+    }
+
+    panic("inside type_is_constant, type is nil")
+}
+
+make_type_constant :: proc(type: ^Type) {
+    switch &t in type {
+    case I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize, F32, F64,
+         Bool, Char, String, Cstring:
+        type_is_constant(type)^ = true
+        return
+    case Array:
+        make_type_constant(t.type)
+        type_is_constant(type)^ = true
+        return
+    case Ptr:
+        // we won't make its underlying type constant
+        type_is_constant(type)^ = true
+        return
+    case Option:
+        make_type_constant(t.type)
+        type_is_constant(type)^ = true
+        return
+    case Void:
+        panic("inside make_type_constant, can't get constant from void")
+    case Untyped_Float:
+        panic("inside make_type_constant, can't get constant from untyped_float")
+    case Untyped_Int:
+        panic("inside make_type_constant, can't get constant from untyped_int")
+    }
+
+    panic("inside make_type_constant, type is nil")
+}
+
 type_of_expr :: proc(analyser: ^Analyser, expr: ^Expr) -> ^Type {
     switch &ex in expr {
     case Null:
@@ -352,7 +432,6 @@ analyse_field_access :: proc(self: ^Analyser, expr: ^FieldAccess) {
     // dereferencing
     if t, ok := type.(Ptr); ok {
         expr.type = tc_deref_ptr(self, type)^
-        expr.constant = t.constant
     } else {
         elog(self, expr.cursors_idx, "cannot derefernce %v, not a pointer", type^)
     }
@@ -402,7 +481,6 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
                 type = type,
                 constant = stmnt_is_constant(self, stmnt)
             }
-            ex.to_constant = stmnt_is_constant(self, stmnt)
         case:
             elog(self, ex.cursors_idx, "can't take address of {}", ex.value^)
         }
@@ -670,11 +748,11 @@ analyse_var_reassign :: proc(self: ^Analyser, varre: ^VarReassign) {
     analyse_expr(self, &varre.value)
     value_type := type_of_expr(self, &varre.value)
 
-    if re, ok := varre.name.(FieldAccess); ok {
-        if re.constant {
-            elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
-        }
+    if type_is_constant(type_of_expr(self, &varre.name))^ {
+        elog(self, varre.cursors_idx, "cannot mutate constant variable \"%v\"", varre.name)
+    }
 
+    if re, ok := varre.name.(FieldAccess); ok {
         varre.type = re.type
         if !tc_equals(self, varre.type, value_type) {
             elog(self, varre.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", varre.name, varre.type, value_type)
@@ -707,19 +785,19 @@ analyse_const_decl :: proc(self: ^Analyser, constdecl: ^ConstDecl) {
     case Literal:
         if val.type == nil {
             if constdecl.type == nil {
-                // <name> := {..}; can't do that
+                // <name> :: {..}; can't do that
                 elog(self, constdecl.cursors_idx, "missing type for literal")
             } else {
-                // <name>: <type> = {..};
+                // <name>: <type>: {..};
                 val.type = constdecl.type
             }
         } else if constdecl.type != nil {
-            // <name>: <type> = <type>{..};
+            // <name>: <type>: <type>{..};
             if !tc_equals(self, constdecl.type, &val.type) {
                 elog(self, constdecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, val.type)
             }
         } else {
-            // <name> := <type>{..};
+            // <name> :: <type>{..};
             constdecl.type = val.type
         }
     }

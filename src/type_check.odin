@@ -424,6 +424,7 @@ tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
     } else if !tc_equals(analyser, constdecl.type, expr_type) {
         elog(analyser, constdecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, expr_type)
     }
+    make_type_constant(&constdecl.type)
 
     tc_number_within_bounds(analyser, constdecl.type, constdecl.value)
 }
@@ -450,7 +451,7 @@ tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
 
         for &val, i in literal.values {
             valtype := type_of_expr(analyser, &val)
-            if !tc_equals(analyser, valtype^, array.type) {
+            if !tc_equals(analyser, array.type^, valtype) {
                 elog(analyser, literal.cursors_idx, "array element %v type is %v, expected %v", i + 1, valtype, array.type^)
             }
         }

@@ -1,16 +1,20 @@
-#syslink "c";
-
-extern puts :: fn(s: cstring) i32;
-
 main :: fn() void {
-    words := [5]string{"0", "1", "2", "3", "4"};
+    words :: [_]string{"hello", "hi", "hey"};
 
+    /* this now errors correctly
     for (i: usize = 0; i < words.len; i += 1) {
-        if (i == 1) {
-            continue;
-        } else if (i == 3) {
-            break;
-        }
-        puts(words[i].ptr);
+        words[0] = "wassup";
     }
+    */
+
+    /* so does this
+        words.len = 10;
+    */
+
+    // constant pointers and pointers to constants work again
+    num :: 10;
+    ptr :: &num;
+
+    // array of options also now works
+    maybe_nums :: [_]?i32{1, null, 3};
 }
