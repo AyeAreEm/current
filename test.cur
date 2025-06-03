@@ -1,20 +1,10 @@
+vec2 :: struct {
+    x: f32;
+    y: f32;
+}
+
 main :: fn() void {
-    words :: [_]string{"hello", "hi", "hey"};
-
-    /* this now errors correctly
-    for (i: usize = 0; i < words.len; i += 1) {
-        words[0] = "wassup";
-    }
-    */
-
-    /* so does this
-        words.len = 10;
-    */
-
-    // constant pointers and pointers to constants work again
-    num :: 10;
-    ptr :: &num;
-
-    // array of options also now works
-    maybe_nums :: [_]?i32{1, null, 3};
+    // each element in the literal is
+    // type checked
+    pos := vec2{10.5, 15.3};
 }

@@ -21,7 +21,7 @@ String :: struct {
     constant: bool,
     cursors_idx: int,
 }
-String_fields := [dynamic]Expr{
+String_fields := [dynamic]Ident{
     Ident{
         literal = "len",
         type = Usize{
@@ -100,7 +100,7 @@ Array :: struct {
     constant: bool,
     cursors_idx: int,
 }
-Array_fields := [dynamic]Expr{
+Array_fields := [dynamic]Ident{
     Ident{
         literal = "len",
         type = Usize{
@@ -126,6 +126,12 @@ Option :: struct {
     type: ^Type,
     is_null: bool,
     gen_option: bool,
+    constant: bool,
+    cursors_idx: int,
+}
+
+TypeDef :: struct {
+    name: string,
     constant: bool,
     cursors_idx: int,
 }
@@ -162,6 +168,8 @@ Type :: union {
     Array,
     Ptr,
     Option,
+
+    TypeDef,
 }
 type_map := map[string]Type{
     "void" = Void{},
@@ -255,15 +263,25 @@ type_tag_equal :: proc(lhs, rhs: Type) -> bool {
     case Void:
         _, ok := rhs.(Void)
         return ok
+    case TypeDef:
+        _, ok := rhs.(TypeDef)
+        return ok
     case nil:
         return rhs == nil
     }
 
     return false
 }
+typedef_from_ident :: proc(ident: Ident) -> TypeDef {
+    return TypeDef{
+        name = ident.literal,
+        cursors_idx = ident.cursors_idx
+    }
+}
 
 Keyword :: enum {
     Fn,
+    Struct,
     Return,
     Continue,
     Break,
@@ -277,6 +295,7 @@ Keyword :: enum {
 }
 keyword_map := map[string]Keyword{
     "fn" = .Fn,
+    "struct" = .Struct,
     "return" = .Return,
     "continue" = .Continue,
     "break" = .Break,
@@ -587,6 +606,12 @@ FnDecl :: struct {
     has_body: bool,
     cursors_idx: int,
 }
+StructDecl :: struct {
+    name: Ident,
+    // type: Type,
+    fields: [dynamic]Stmnt,
+    cursors_idx: int,
+}
 VarDecl :: struct {
     name: Ident,
     type: Type,
@@ -641,6 +666,7 @@ Extern :: struct {
 }
 Stmnt :: union {
     FnDecl,
+    StructDecl,
     VarDecl,
     VarReassign,
     Return,
@@ -796,6 +822,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return stmnt.cursors_idx
         case FnDecl:
             return stmnt.cursors_idx
+        case StructDecl:
+            return stmnt.cursors_idx
         case FnCall:
             return stmnt.cursors_idx
         case ConstDecl:
@@ -851,6 +879,17 @@ parser_elog :: proc(self: ^Parser, i: int, format: string, args: ..any) -> ! {
     fmt.eprintfln(format, ..args)
 
     os.exit(1)
+}
+
+parse_struct_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
+    index := self.cursors_idx
+    fields := parse_block(self)
+
+    return StructDecl{
+        name = name,
+        fields = fields,
+        cursors_idx = index,
+    }
 }
 
 parse_fn_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
@@ -1031,9 +1070,9 @@ parse_primary :: proc(self: ^Parser) -> Expr {
             elog(self, self.cursors_idx, "unexpected type %v", type)
         }
     case TokenIdent:
-        token_next(self)
         converted_ident := convert_ident(self, tok)
         if name, ok := converted_ident.(Ident); ok {
+            token_next(self)
             token = token_peek(self)
 
             if token_tag_equal(token, TokenDot{}) {
@@ -1041,8 +1080,15 @@ parse_primary :: proc(self: ^Parser) -> Expr {
                 token_next(self)
                 return parse_field_access(self, name)
             } else if token_tag_equal(token, TokenLs{}) {
+                // <ident>[
                 token_next(self)
                 return parse_array_index(self, name)
+            } else if token_tag_equal(token, TokenLc{}) {
+                // <ident>{
+                // ident must be a typedef
+                token_next(self)
+                type := typedef_from_ident(name)
+                return parse_end_literal(self, type)
             } else if strings.compare(name.literal, "c") == 0 {
                 // c""
                 if token_tag_equal(token, TokenStrLit{}) {
@@ -1058,9 +1104,20 @@ parse_primary :: proc(self: ^Parser) -> Expr {
             // <ident>
             return name
         } else if keyword, ok := converted_ident.(Keyword); ok {
+            token_next(self)
             return expr_from_keyword(self, keyword)
+        } else if _, ok := converted_ident.(Type); ok {
+            type := parse_type(self)
+            token = token_peek(self)
+
+            if token_tag_equal(token, TokenLc{}) {
+                token_next(self)
+                return parse_end_literal(self, type)
+            } else {
+                elog(self, self.cursors_idx, "unexpected type %v", type)
+            }
         } else {
-            elog(self, self.cursors_idx, "expected identifier, got %v", converted_ident)
+            elog(self, self.cursors_idx, "unexpected identifier %v", tok.ident)
         }
     case TokenIntLit:
         token_next(self)
@@ -1279,6 +1336,9 @@ parse_const_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil) -> Stmnt
             case .Fn:
                 token_next(self) // no nil check, checked when peeked
                 return parse_fn_decl(self, ident)
+            case .Struct:
+                token_next(self) // no nil check, checked when peeked
+                return parse_struct_decl(self, ident)
             case .True, .False, .Null:
             case:
                 elog(self, index, "unexpected token %v", tok)
@@ -1481,8 +1541,13 @@ parse_type :: proc(self: ^Parser) -> Type {
 
         if subtype, ok := converted_ident.(Type); ok {
             type = subtype
-        } else {
+        } else if subtype, ok := converted_ident.(Keyword); ok {
             elog(self, self.cursors_idx, "expected a type, got %v", tok.ident)
+        } else {
+            type = TypeDef{
+                name = converted_ident.(Ident).literal,
+                cursors_idx = self.cursors_idx,
+            }
         }
     }
 

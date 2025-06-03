@@ -220,9 +220,10 @@ gen_type :: proc(self: ^Codegen, t: Type, declname: Maybe(string) = nil) -> (str
     case Char:
         // TODO: make this be a type that supports utf8
         return "u8", false
+    case TypeDef:
+        return subtype.name, false
     }
 
-    t := t
     for k, v in type_map {
         if type_tag_equal(t, v) {
             return k, false
@@ -267,6 +268,8 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             fmt.sbprintln(&self.code)
         case FnDecl:
             gen_fn_decl(self, stmnt)
+        case StructDecl:
+            gen_struct_decl(self, stmnt)
         case VarDecl:
             gen_var_decl(self, stmnt)
         case ConstDecl:
@@ -385,6 +388,15 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
     defer if var_type_str_alloced do delete(var_type_str)
 
     return fmt.aprintf("%v %v", var_type_str, name)
+}
+
+gen_struct_decl :: proc(self: ^Codegen, structd: StructDecl) {
+    self.def_loc = len(self.code.buf)
+    gen_indent(self)
+
+    fmt.sbprintf(&self.code, "typedef struct %v", structd.name.literal)
+    gen_block(self, structd.fields)
+    fmt.sbprintfln(&self.code, "%v;", structd.name.literal)
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
@@ -1484,6 +1496,8 @@ gen :: proc(self: ^Codegen) {
             gen_extern(self, stmnt)
         case FnDecl:
             gen_fn_decl(self, stmnt)
+        case StructDecl:
+            gen_struct_decl(self, stmnt)
         case VarDecl:
             gen_var_decl(self, stmnt)
         case ConstDecl:

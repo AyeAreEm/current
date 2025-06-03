@@ -1,7 +1,5 @@
 # Todos
 - Parse Definition Names First
-- Struct Definitions
-- Struct Literals
 - Enum Definitions
 - Better Error Messages
 - Defining Libraries
@@ -20,6 +18,7 @@
 # In Progress
 - For Loops
 - Importing External Libraries
+- Struct Literals
 
 # Completed
 - Function Declarations
@@ -53,3 +52,4 @@
 - Array Indexing
 - Continue Statement
 - Break Statement
+- Struct Definitions

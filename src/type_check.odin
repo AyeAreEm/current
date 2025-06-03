@@ -1,6 +1,7 @@
 package main
 
 import "core:strconv"
+import "core:strings"
 import "core:fmt"
 import "core:math"
 
@@ -32,6 +33,90 @@ F32_MIN :: min(f32)
 F32_MAX :: min(f32)
 F64_MIN :: min(f64)
 F64_MAX :: min(f64)
+
+tc_is_constant :: proc(type: ^Type) -> ^bool {
+    switch &t in type {
+    case I8:
+        return &t.constant
+    case I16:
+        return &t.constant
+    case I32:
+        return &t.constant
+    case I64:
+        return &t.constant
+    case Isize:
+        return &t.constant
+    case U8:
+        return &t.constant
+    case U16:
+        return &t.constant
+    case U32:
+        return &t.constant
+    case U64:
+        return &t.constant
+    case Usize:
+        return &t.constant
+    case F32:
+        return &t.constant
+    case F64:
+        return &t.constant
+    case Array:
+        return &t.constant
+    case Ptr:
+        return &t.constant
+    case Bool:
+        return &t.constant
+    case Char:
+        return &t.constant
+    case Cstring:
+        return &t.constant
+    case String:
+        return &t.constant
+    case Option:
+        return &t.constant
+    case TypeDef:
+        return &t.constant
+    case Void:
+        panic("inside tc_is_constant, can't get constant from void")
+    case Untyped_Float:
+        panic("inside tc_is_constant, can't get constant from untyped_float")
+    case Untyped_Int:
+        panic("inside tc_is_constant, can't get constant from untyped_int")
+    }
+
+    panic("inside tc_is_constant, type is nil")
+}
+
+tc_make_constant :: proc(type: ^Type) {
+    switch &t in type {
+    case I8, I16, I32, I64, Isize, U8, U16, U32, U64, Usize, F32, F64,
+         Bool, Char, String, Cstring:
+        tc_is_constant(type)^ = true
+        return
+    case Array:
+        tc_make_constant(t.type)
+        tc_is_constant(type)^ = true
+        return
+    case Ptr:
+        // we won't make its underlying type constant
+        tc_is_constant(type)^ = true
+        return
+    case Option:
+        tc_make_constant(t.type)
+        tc_is_constant(type)^ = true
+        return
+    case TypeDef:
+        t.constant = true
+    case Void:
+        panic("inside tc_make_constant, can't get constant from void")
+    case Untyped_Float:
+        panic("inside tc_make_constant, can't get constant from untyped_float")
+    case Untyped_Int:
+        panic("inside tc_make_constant, can't get constant from untyped_int")
+    }
+
+    panic("inside tc_make_constant, type is nil")
+}
 
 tc_deref_ptr :: proc(analyser: ^Analyser, type: ^Type) -> ^Type {
     #partial switch &t in type {
@@ -92,6 +177,13 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
     switch l in lhs {
     case Void:
         debug("warning: unexpected comparison between Void and %v", rhs)
+    case TypeDef:
+        #partial switch r in rhs {
+        case TypeDef:
+            if strings.compare(l.name, r.name) == 0 {
+                return true
+            }
+        }
     case Option:
         #partial switch &r in rhs {
         case Option:
@@ -424,44 +516,9 @@ tc_const_decl :: proc(analyser: ^Analyser, constdecl: ^ConstDecl) {
     } else if !tc_equals(analyser, constdecl.type, expr_type) {
         elog(analyser, constdecl.cursors_idx, "mismatch types, variable \"%v\" type %v, expression type %v", constdecl.name, constdecl.type, expr_type)
     }
-    make_type_constant(&constdecl.type)
+    tc_make_constant(&constdecl.type)
 
     tc_number_within_bounds(analyser, constdecl.type, constdecl.value)
-}
-
-tc_array_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
-    #partial switch &array in literal.type {
-    case Array:
-        if array_len, ok := array.len.?; ok {
-            length, _ := evaluate_expr(analyser, array_len)
-
-            if len(literal.values) != cast(int)length {
-                elog(analyser, literal.cursors_idx, "array length {}, literal length {}", length, len(literal.values))
-            }
-        } else {
-            length := fmt.aprintf("%v", len(literal.values))
-
-            array.len = new(Expr)
-            array.len.?^ = IntLit{
-                literal = length,
-                type = Usize{},
-                cursors_idx = 0,
-            }
-        }
-
-        for &val, i in literal.values {
-            valtype := type_of_expr(analyser, &val)
-            if !tc_equals(analyser, array.type^, valtype) {
-                elog(analyser, literal.cursors_idx, "array element %v type is %v, expected %v", i + 1, valtype, array.type^)
-            }
-        }
-    }
-}
-
-tc_literal :: proc(analyser: ^Analyser, literal: ^Literal) {
-    if type_tag_equal(literal.type, Array{}) {
-        tc_array_literal(analyser, literal)
-    }
 }
 
 tc_can_compare_value :: proc(analyser: ^Analyser, lhs, rhs: Type) -> bool {
