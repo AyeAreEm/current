@@ -18,7 +18,6 @@
 # In Progress
 - For Loops
 - Importing External Libraries
-- Struct Literals
 
 # Completed
 - Function Declarations
@@ -53,3 +52,4 @@
 - Continue Statement
 - Break Statement
 - Struct Definitions
+- Struct Literals
