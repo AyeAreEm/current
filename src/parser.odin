@@ -420,7 +420,10 @@ CstrLit :: struct {
     cursors_idx: int,
 }
 Literal :: struct {
-    values: [dynamic]Expr,
+    values: union{
+        [dynamic]Expr,
+        [dynamic]VarReassign,
+    },
     type: Type,
     cursors_idx: int,
 }
@@ -1186,14 +1189,58 @@ parse_end_fn_call :: proc(self: ^Parser, callee: Ident) -> FnCall {
 
 parse_end_literal :: proc(self: ^Parser, type: Type) -> Expr {
     index := self.cursors_idx
-    values := [dynamic]Expr{}
+    values: union{[dynamic]Expr, [dynamic]VarReassign}
 
-    token := token_peek(self)
-    if !token_tag_equal(token, TokenRc{}) {
-        append(&values, parse_expr(self))
-        for after := token_peek(self); token_tag_equal(after, TokenComma{}); after = token_peek(self) {
-            token_next(self)
-            append(&values, parse_expr(self))
+    first := true
+    stmnts := false
+    for !token_tag_equal(token_peek(self), TokenRc{}) {
+        if first {
+            if token_tag_equal(token_peek(self), TokenDot{}) {
+                // expecting var reassign statement
+                // { .
+                token_next(self)
+                tok := token_expect(self, TokenIdent{})
+                ident := convert_ident(self, tok.(TokenIdent))
+                if id, ok := ident.(Ident); ok {
+                    token_expect(self, TokenEqual{})
+                    stmnt := parse_var_reassign(self, id, false)
+                    values = [dynamic]VarReassign{}
+                    append(&values.([dynamic]VarReassign), stmnt)
+
+                    stmnts = true
+                } else {
+                    elog(self, self.cursors_idx, "expected identifer in compound literal, got %v", ident)
+                }
+            } else {
+                expr := parse_expr(self)
+                values = [dynamic]Expr{}
+                append(&values.([dynamic]Expr), expr)
+            }
+            first = false
+            continue
+        }
+
+        token_expect(self, TokenComma{})
+        if token_tag_equal(token_peek(self), TokenRc{}) {
+            break
+        }
+
+        if stmnts {
+            // expecting var reassign statement
+            // { .
+            token_expect(self, TokenDot{})
+            tok := token_expect(self, TokenIdent{})
+            ident := convert_ident(self, tok.(TokenIdent))
+            if id, ok := ident.(Ident); ok {
+                token_expect(self, TokenEqual{})
+                stmnt := parse_var_reassign(self, id, false)
+                append(&values.([dynamic]VarReassign), stmnt)
+            } else {
+                elog(self, self.cursors_idx, "expected identifer in compound literal, got %v", ident)
+            }
+        } else {
+            expr := parse_expr(self)
+            append(&values.([dynamic]Expr), expr)
         }
     }
 

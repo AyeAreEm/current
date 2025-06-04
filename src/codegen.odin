@@ -488,7 +488,7 @@ gen_array_literal :: proc(self: ^Codegen, expr: Literal) -> (string, bool) {
         fmt.sbprintf(&literal, "(%v){{", expr_type_str)
     }
 
-    for val, i in expr.values {
+    for val, i in expr.values.([dynamic]Expr) {
         str_val, alloced := gen_expr(self, val)
         defer if alloced do delete(str_val)
 
@@ -784,16 +784,34 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         defer if expr_type_str_alloced do delete(expr_type_str)
         fmt.sbprintf(&literal, "(%v){{", expr_type_str)
 
-        for val, i in expr.values {
-            str_val, alloced := gen_expr(self, val)
-            defer if alloced do delete(str_val)
+        if values, ok := expr.values.([dynamic]Expr); ok {
+            for val, i in values {
+                str_val, alloced := gen_expr(self, val)
+                defer if alloced do delete(str_val)
 
-            if i == 0 {
-                fmt.sbprintf(&literal, "%v", str_val)
-            } else {
-                fmt.sbprintf(&literal, ", %v", str_val)
+                if i == 0 {
+                    fmt.sbprintf(&literal, "%v", str_val)
+                } else {
+                    fmt.sbprintf(&literal, ", %v", str_val)
+                }
+            }
+        } else {
+            values := expr.values.([dynamic]VarReassign)
+            for val, i in values {
+                reassigned, reassigned_alloced := gen_expr(self, val.name)
+                defer if reassigned_alloced do delete(reassigned)
+
+                value, value_alloced := gen_expr(self, val.value)
+                defer if value_alloced do delete(value)
+
+                if i == 0 {
+                    fmt.sbprintf(&literal, ".%v = %v", reassigned, value)
+                } else {
+                    fmt.sbprintf(&literal, ", .%v = %v", reassigned, value)
+                }
             }
         }
+
 
         fmt.sbprint(&literal, "}")
         return strings.to_string(literal), true

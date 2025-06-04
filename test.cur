@@ -4,7 +4,12 @@ vec2 :: struct {
 }
 
 main :: fn() void {
-    // each element in the literal is
-    // type checked
-    pos := vec2{10.5, 15.3};
+    one := vec2{10.5, 15.3};
+    // or
+    two := vec2{
+        .y = 15.3,
+        .x = 10.5,
+    };
+    // or
+    three: vec2 = {10.5, 15.3};
 }

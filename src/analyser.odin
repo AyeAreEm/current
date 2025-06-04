@@ -177,35 +177,38 @@ type_of_expr :: proc(analyser: ^Analyser, expr: ^Expr) -> ^Type {
 
 get_field :: proc(analyser: ^Analyser, type: Type, field: string, cursor_index: int) -> Expr {
     #partial switch t in type {
+    case TypeDef:
+        typedef := symtab_find(analyser, t.name, t.cursors_idx)
+        #partial switch def in typedef {
+        case StructDecl:
+            for f, i in def.fields {
+                decl := f.(VarDecl)
+                if strings.compare(field, decl.name.literal) == 0 {
+                    return Ident{
+                        literal = decl.name.literal,
+                        type = decl.type,
+                    }
+                }
+            }
+
+            elog(analyser, cursor_index, "%v does not have field %v", type, field)
+        case:
+            fmt.eprintln("compiler error: get_field unreachable type: %v", type)
+            os.exit(1)
+        }
     case String:
-        index := 0
-        found := false
         for f, i in String_fields {
             if strings.compare(field, f.literal) == 0 {
-                found = true
-                index = i
-                break
+                return f
             }
-        }
-
-        if found {
-            return String_fields[index]
         }
 
         elog(analyser, cursor_index, "string does not have field %v", field)
     case Array:
-        index := 0
-        found := false
         for f, i in Array_fields {
             if strings.compare(field, f.literal) == 0 {
-                found = true
-                index = i
-                break
+                return f
             }
-        }
-
-        if found {
-            return Array_fields[index]
         }
 
         elog(analyser, cursor_index, "array does not have field %v", field)
@@ -271,16 +274,20 @@ analyse_elog :: proc(self: ^Analyser, i: int, format: string, args: ..any) -> ! 
 }
 
 analyse_array_literal :: proc(self: ^Analyser, literal: ^Literal) {
+    if _, ok := literal.values.([dynamic]VarReassign); ok {
+        elog(self, literal.cursors_idx, "array literal cannot have named fields")
+    }
+
     #partial switch &array in literal.type {
     case Array:
         if array_len, ok := array.len.?; ok {
             length, _ := evaluate_expr(self, array_len)
 
-            if len(literal.values) != cast(int)length {
-                elog(self, literal.cursors_idx, "array length {}, literal length {}", length, len(literal.values))
+            if len(literal.values.([dynamic]Expr)) != cast(int)length {
+                elog(self, literal.cursors_idx, "array length {}, literal length {}", length, len(literal.values.([dynamic]Expr)))
             }
         } else {
-            length := fmt.aprintf("%v", len(literal.values))
+            length := fmt.aprintf("%v", len(literal.values.([dynamic]Expr)))
 
             array.len = new(Expr)
             array.len.?^ = IntLit{
@@ -290,7 +297,7 @@ analyse_array_literal :: proc(self: ^Analyser, literal: ^Literal) {
             }
         }
 
-        for &val, i in literal.values {
+        for &val, i in literal.values.([dynamic]Expr) {
             valtype := type_of_expr(self, &val)
             if !tc_equals(self, array.type^, valtype) {
                 elog(self, literal.cursors_idx, "array element %v type is %v, but expected %v", i + 1, valtype^, array.type^)
@@ -303,23 +310,45 @@ analyse_typedef_literal :: proc(self: ^Analyser, literal: ^Literal) {
     typedef := symtab_find(self, literal.type.(TypeDef).name, literal.cursors_idx)
     #partial switch t in typedef {
     case StructDecl:
-        if len(literal.values) != len(t.fields) {
-            elog(self, literal.cursors_idx, "expected %v elements, got %v", len(t.fields), len(literal.values))
-        }
+        switch &values in literal.values {
+        case [dynamic]Expr:
+            if len(values) != len(t.fields) {
+                elog(self, literal.cursors_idx, "expected %v elements, got %v", len(t.fields), len(values))
+            }
 
-        for &val, i in literal.values {
-            valtype := type_of_expr(self, &val)
-            fieldtype := type_of_stmnt(self, t.fields[i])
-            if !tc_equals(self, fieldtype, valtype) {
-                elog(self, literal.cursors_idx, "field %v type is %v, but expected %v", i + 1, valtype^, fieldtype)
+            for &val, i in values {
+                valtype := type_of_expr(self, &val)
+                fieldtype := type_of_stmnt(self, t.fields[i])
+                if !tc_equals(self, fieldtype, valtype) {
+                    elog(self, get_cursor_index(val), "field %v type is %v, but expected %v", i + 1, valtype^, fieldtype)
+                }
+            }
+        case [dynamic]VarReassign:
+            if len(values) != len(t.fields) {
+                elog(self, literal.cursors_idx, "expected %v elements, got %v", len(t.fields), len(values))
+            }
+
+            for &val in values {
+                analyse_expr(self, &val.value)
+                value_type := type_of_expr(self, &val.value)
+
+                field := get_field(self, literal.type, val.name.(Ident).literal, literal.cursors_idx)
+                fieldtype := type_of_expr(self, &field)
+
+                if !tc_equals(self, fieldtype^, value_type) {
+                    elog(self, val.cursors_idx, "field %v type is %v, but expected %v", field.(Ident).literal, value_type^, fieldtype^)
+                }
             }
         }
     }
 }
 
 analyse_literal :: proc(self: ^Analyser, literal: ^Literal) {
-    for &value in literal.values {
-        analyse_expr(self, &value)
+    #partial switch &values in literal.values {
+    case [dynamic]Expr:
+        for &value in values {
+            analyse_expr(self, &value)
+        }
     }
 
     if type_tag_equal(literal.type, Array{}) {
