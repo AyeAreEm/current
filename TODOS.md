@@ -13,6 +13,8 @@
 - Compile Time Execution
 - Result Type (!)
 - Variadic Arguments
+- First Class Vectors
+- First Class Matrices?
 - Standard Library
 
 # In Progress
