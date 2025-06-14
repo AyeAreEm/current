@@ -887,6 +887,10 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: ^FnDecl) {
     defer symtab_pop_scope(self)
 
     for &arg in fn.args {
+        #partial switch t in arg.(ConstDecl).type {
+        case TypeDef:
+            _ = symtab_find(self, t.name, t.cursors_idx)
+        }
         symtab_push(self, arg.(ConstDecl).name.literal, arg)
     }
 

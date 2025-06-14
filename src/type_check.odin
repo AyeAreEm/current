@@ -178,6 +178,7 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
     case Void:
         debug("warning: unexpected comparison between Void and %v", rhs)
     case TypeDef:
+        _ = symtab_find(analyser, l.name, l.cursors_idx)
         #partial switch r in rhs {
         case TypeDef:
             if strings.compare(l.name, r.name) == 0 {
@@ -372,6 +373,11 @@ tc_default_untyped_type :: proc(t: Type) -> Type {
 tc_infer :: proc(analyser: ^Analyser, lhs: ^Type, expr: ^Expr) {
     expr_type := type_of_expr(analyser, expr)
     expr_default_type := tc_default_untyped_type(expr_type^)
+
+    #partial switch t in expr_type^ {
+    case TypeDef:
+        _ = symtab_find(analyser, t.name, t.cursors_idx)
+    }
 
     if expr_default_type != nil {
         lhs^ = expr_default_type

@@ -1393,7 +1393,7 @@ parse_const_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil) -> Stmnt
         }
     }
 
-    // <ident>: <type> ,
+    // <ident>: <type>,
     if self.in_func_decl_args {
         return ConstDecl{
             name = ident,

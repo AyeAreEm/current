@@ -1,15 +1,5 @@
-vec2 :: struct {
-    x: f32;
-    y: f32;
-}
+two :: fn(v: vec) void {}
 
 main :: fn() void {
-    one := vec2{10.5, 15.3};
-    // or
-    two := vec2{
-        .y = 15.3,
-        .x = 10.5,
-    };
-    // or
-    three: vec2 = {10.5, 15.3};
+
 }
