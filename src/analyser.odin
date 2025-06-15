@@ -24,6 +24,28 @@ symtab_find :: proc(analyser: ^Analyser, key: string, location: int) -> Stmnt {
         return scopes[curr_scope][key]
     }
 
+    // if not in symtab, see if it's defined at least
+    // for def in analyser.ast {
+    //     #partial switch d in def {
+    //     case FnDecl:
+    //         if strings.compare(key, d.name.literal) == 0 {
+    //             return d
+    //         }
+    //     case VarDecl:
+    //         if strings.compare(key, d.name.literal) == 0 {
+    //             return d
+    //         }
+    //     case ConstDecl:
+    //         if strings.compare(key, d.name.literal) == 0 {
+    //             return d
+    //         }
+    //     case StructDecl:
+    //         if strings.compare(key, d.name.literal) == 0 {
+    //             return d
+    //         }
+    //     }
+    // }
+
     elog(analyser, location, "use of undefined \"%v\"", key)
 }
 

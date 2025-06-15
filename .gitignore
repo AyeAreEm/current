@@ -5,4 +5,5 @@ current.exe
 test
 test.exe
 output.c
+output.h
 test.dSYM/

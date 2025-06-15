@@ -14,7 +14,7 @@ current_elog :: proc(format: string, args: ..any) -> ! {
 elog :: proc{current_elog, parser_elog, analyse_elog}
 
 debug :: proc(format: string, args: ..any) {
-    fmt.eprint("[DEBUG]: ")
+    fmt.eprint("\x1b[93;1m[DEBUG]\x1b[0m: ")
     fmt.eprintfln(format, ..args)
 }
 

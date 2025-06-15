@@ -1,5 +1,4 @@
 # Todos
-- Parse Definition Names First
 - Enum Definitions
 - Better Error Messages
 - Defining Libraries
@@ -19,6 +18,7 @@
 
 # In Progress
 - For Loops
+- Parse Definition Names First
 - Importing External Libraries
 
 # Completed

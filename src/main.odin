@@ -96,6 +96,7 @@ compile :: proc(compile_flags: CompileFlags, run: bool) {
 
     if !DEBUG_MODE {
         os2.remove("output.c")
+        os2.remove("output.h")
     }
 }
 
@@ -110,7 +111,6 @@ build :: proc(filepath: string, run := false) {
     tokens, cursors := lexer(content)
     assert(len(tokens) == len(cursors), "expected the length of tokens and length of cursors to be the same")
 
-    // TODO: add another pass to get definitions
     ast := [dynamic]Stmnt{}
     parser := parser_init(tokens, filepath, cursors)
     for stmnt := parse(&parser); stmnt != nil; stmnt = parse(&parser) {
@@ -129,6 +129,7 @@ build :: proc(filepath: string, run := false) {
     codegen := codegen_init(ast)
     gen(&codegen);
 
+    os.write_entire_file("output.h", codegen.defs.buf[:])
     os.write_entire_file("output.c", codegen.code.buf[:])
 
     // maybe allocated but near the end of the process

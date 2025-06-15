@@ -3,6 +3,7 @@ package main
 import "core:fmt"
 import "core:strings"
 import "core:math/rand"
+import "core:os"
 
 OptLevel :: enum {
     Zero,
@@ -24,7 +25,10 @@ Codegen :: struct {
     ast: [dynamic]Stmnt,
 
     code: strings.Builder,
+    defs: strings.Builder,
+
     indent_level: u8,
+    in_defs: bool,
 
     def_loc: int,
     generated_generics: [dynamic]string,
@@ -35,15 +39,20 @@ Codegen :: struct {
 codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
     return {
         ast = ast,
+
         code = strings.builder_make(),
+        defs = strings.builder_make(),
+
+        indent_level = 0,
+        in_defs = false,
 
         def_loc = 0,
         generated_generics = make([dynamic]string),
+
         compile_flags = {
             linking = make([dynamic]string),
             optimisation = .Debug,
         },
-        indent_level = 0,
     }
 }
 
@@ -61,6 +70,22 @@ gen_random_name :: proc() -> string {
     }
 
     return strings.to_string(sb)
+}
+
+gen_write :: proc(self: ^Codegen, format: string, args: ..any) {
+    if self.in_defs {
+        fmt.sbprintf(&self.defs, format, ..args)
+    } else {
+        fmt.sbprintf(&self.code, format, ..args)
+    }
+}
+
+gen_writeln :: proc(self: ^Codegen, format: string, args: ..any) {
+    if self.in_defs {
+        fmt.sbprintfln(&self.defs, format, ..args)
+    } else {
+        fmt.sbprintfln(&self.code, format, ..args)
+    }
 }
 
 @(require_results)
@@ -248,12 +273,12 @@ gen_extern :: proc(self: ^Codegen, extern: Extern) {
 
 gen_indent :: proc(self: ^Codegen) {
     for i in 0..<self.indent_level {
-        fmt.sbprint(&self.code, "    ")
+        gen_write(self, "    ")
     }
 }
 
 gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
-    fmt.sbprintln(&self.code, "{")
+    gen_writeln(self, "{{")
     self.indent_level += 1
 
     for statement in block {
@@ -265,7 +290,7 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
         case Block:
             gen_indent(self)
             gen_block(self, stmnt.body)
-            fmt.sbprintln(&self.code)
+            gen_writeln(self, "")
         case FnDecl:
             gen_fn_decl(self, stmnt)
         case StructDecl:
@@ -286,8 +311,7 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             call := gen_fn_call(self, stmnt, true)
             defer delete(call)
 
-            fmt.sbprint(&self.code, call)
-            fmt.sbprintln(&self.code, ';')
+            gen_writeln(self, "%v;", call)
         case If:
             gen_if(self, stmnt)
         case For:
@@ -297,7 +321,7 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
 
     self.indent_level -= 1
     gen_indent(self)
-    fmt.sbprintln(&self.code, "}")
+    gen_writeln(self, "}}")
 }
 
 gen_if :: proc(self: ^Codegen, ifs: If) {
@@ -307,37 +331,37 @@ gen_if :: proc(self: ^Codegen, ifs: If) {
     defer if alloced do delete(condition)
 
     if capture, ok := ifs.capture.?; ok {
-        fmt.sbprintln(&self.code, "{");
+        gen_writeln(self, "{{")
         self.indent_level += 1
 
         proto := gen_decl_proto(self, capture.(ConstDecl))
         defer delete(proto)
 
-        fmt.sbprintfln(&self.code, "%v = %v.some;", proto, condition);
+        gen_writeln(self, "%v = %v.some;", proto, condition)
         gen_indent(self)
-        fmt.sbprintf(&self.code, "if (%v.ok) ", condition)
+        gen_write(self, "if (%v.ok) ", condition)
     } else {
-        fmt.sbprintf(&self.code, "if (%v) ", condition)
+        gen_write(self, "if (%v) ", condition)
     }
 
 
     gen_block(self, ifs.body)
     strings.pop_byte(&self.code)
 
-    fmt.sbprint(&self.code, " else ")
+    gen_write(self, " else ")
     gen_block(self, ifs.els)
 
     if _, ok := ifs.capture.?; ok {
         self.indent_level -= 1
         gen_indent(self)
-        fmt.sbprintln(&self.code, "}");
+        gen_writeln(self, "}}")
     }
 }
 
 gen_for :: proc(self: ^Codegen, forl: For) {
     gen_indent(self)
 
-    fmt.sbprintln(&self.code, "{");
+    gen_writeln(self, "{{")
     self.indent_level += 1
 
     gen_var_decl(self, forl.decl)
@@ -352,12 +376,12 @@ gen_for :: proc(self: ^Codegen, forl: For) {
     defer if value_alloced do delete(value)
 
     gen_indent(self)
-    fmt.sbprintf(&self.code, "for (; %v; %v = %v) ", condition, reassigned, value)
+    gen_write(self, "for (; %v; %v = %v) ", condition, reassigned, value)
     gen_block(self, forl.body)
 
     self.indent_level -= 1
     gen_indent(self)
-    fmt.sbprintln(&self.code, "}");
+    gen_writeln(self, "}}")
 }
 
 // returns allocated string, needs to be freed
@@ -391,12 +415,16 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
 }
 
 gen_struct_decl :: proc(self: ^Codegen, structd: StructDecl) {
-    self.def_loc = len(self.code.buf)
-    gen_indent(self)
+    // self.def_loc = len(self.code.buf)
+    // gen_indent(self)
 
-    fmt.sbprintf(&self.code, "typedef struct %v", structd.name.literal)
+    self.in_defs = true
+
+    gen_write(self, "typedef struct %v", structd.name.literal)
     gen_block(self, structd.fields)
-    fmt.sbprintfln(&self.code, "%v;", structd.name.literal)
+    gen_writeln(self, "%v;", structd.name.literal)
+
+    self.in_defs = false
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
@@ -404,32 +432,41 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
     gen_indent(self)
 
     if strings.compare(fndecl.name.literal, "main") == 0 {
-        fmt.sbprint(&self.code, "int main(")
-    } else {
-        proto := gen_decl_proto(self, fndecl)
-        defer delete(proto)
-
-        fmt.sbprintf(&self.code, "%v(", proto)
+        gen_write(self, "int main() ")
+        gen_block(self, fndecl.body)
+        return
     }
+
+    proto := gen_decl_proto(self, fndecl)
+    defer delete(proto)
+
+    code := strings.builder_make()
+    defer delete(code.buf)
+
+    fmt.sbprintf(&code, "%v(", proto)
 
     for stmnt, i in fndecl.args {
         arg := stmnt.(ConstDecl)
-        proto := gen_decl_proto(self, arg)
-        defer delete(proto)
+        arg_proto := gen_decl_proto(self, arg)
+        defer delete(arg_proto)
 
         if i == 0 {
-            fmt.sbprintf(&self.code, "%v", proto)
+            fmt.sbprintf(&code, "%v", arg_proto)
         } else {
-            fmt.sbprintf(&self.code, ", %v", proto)
+            fmt.sbprintf(&code, ", %v", arg_proto)
         }
     }
-    fmt.sbprint(&self.code, ")")
+    fmt.sbprint(&code, ")")
+
+    self.in_defs = true;
+    gen_writeln(self, "%v;", strings.to_string(code))
+    self.in_defs = false;
 
     if fndecl.has_body {
-        fmt.sbprint(&self.code, " ")
+        gen_write(self, "%v ", strings.to_string(code))
         gen_block(self, fndecl.body)
     } else {
-        fmt.sbprintln(&self.code, ";")
+        gen_writeln(self, "%v;", strings.to_string(code))
     }
 }
 
@@ -1240,6 +1277,9 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
         self.code = sbinsert(&self.code, curoption, self.def_loc)
         self.def_loc += len(curoption)
         append(&self.generated_generics, curoption)
+    case TypeDef:
+        // NOTE: no generics right now, just for forward declaration
+        // TODO: add typedef generics
     }
 }
 
@@ -1328,11 +1368,11 @@ gen_decl_option_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, Fn
 gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
     proto := gen_decl_proto(self, vardecl)
     defer delete(proto)
-    fmt.sbprintf(&self.code, "%v", proto)
+    gen_write(self, "%v", proto)
 
     if vardecl.value == nil {
         if _, ok := vardecl.type.(Array); ok {
-            fmt.sbprint(&self.code, " = ")
+            gen_write(self, " = ")
 
             value, alloced := gen_array_literal(self, Literal{
                 values = [dynamic]Expr{},
@@ -1340,17 +1380,18 @@ gen_var_decl :: proc(self: ^Codegen, vardecl: VarDecl) {
                 cursors_idx = vardecl.cursors_idx
             })
             defer if alloced do delete(value)
-            fmt.sbprintfln(&self.code, "%v;", value)
+
+            gen_writeln(self, "%v;", value)
             return
         }
 
-        fmt.sbprintln(&self.code, ";")
+        gen_writeln(self, ";")
     } else {
-        fmt.sbprint(&self.code, " = ")
+        gen_write(self, " = ")
 
         value, alloced := gen_expr(self, vardecl.value)
         defer if alloced do delete(value)
-        fmt.sbprintfln(&self.code, "%v;", value)
+        gen_writeln(self, "%v;", value)
     }
 }
 
@@ -1362,42 +1403,42 @@ gen_var_reassign :: proc(self: ^Codegen, varre: VarReassign) {
     value, value_alloced := gen_expr(self, varre.value)
     defer if value_alloced do delete(value)
 
-    fmt.sbprintfln(&self.code, "%v = %v;", reassigned, value)
+    gen_writeln(self, "%v = %v;", reassigned, value)
 }
 
 gen_const_decl :: proc(self: ^Codegen, constdecl: ConstDecl) {
     proto := gen_decl_proto(self, constdecl)
     defer delete(proto)
 
-    fmt.sbprintf(&self.code, "%v = ", proto)
+    gen_write(self, "%v = ", proto)
 
     value, alloced := gen_expr(self, constdecl.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&self.code, "%v;", value)
+    gen_writeln(self, "%v;", value)
 }
 
 gen_return :: proc(self: ^Codegen, ret: Return) {
     gen_indent(self)
     if ret.value == nil {
-        fmt.sbprintfln(&self.code, "return;")
+        gen_writeln(self, "return;")
         return
     }
 
     value, alloced := gen_expr(self, ret.value)
     defer if alloced do delete(value)
 
-    fmt.sbprintfln(&self.code, "return %v;", value)
+    gen_writeln(self, "return %v;", value)
 }
 
 gen_continue :: proc(self: ^Codegen) {
     gen_indent(self)
-    fmt.sbprintln(&self.code, "continue;")
+    gen_writeln(self, "continue;")
 }
 
 gen_break :: proc(self: ^Codegen) {
     gen_indent(self)
-    fmt.sbprintln(&self.code, "break;")
+    gen_writeln(self, "break;")
 }
 
 gen_directive :: proc(self: ^Codegen, directive: Directive) {
@@ -1426,85 +1467,14 @@ gen_directive :: proc(self: ^Codegen, directive: Directive) {
     }
 }
 
-gen_c_necessities :: proc(self: ^Codegen) {
-    fmt.sbprintln(&self.code, "#include <stdint.h>")
-    fmt.sbprintln(&self.code, "#include <stddef.h>")
-    fmt.sbprintln(&self.code, "#include <string.h>")
-    fmt.sbprintln(&self.code, "#include <stdbool.h>")
-    fmt.sbprintln(&self.code, 
-`#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__sun) || defined(__CYGWIN__)
-#include <sys/types.h>
-#elif defined(_WIN32) || defined(__MINGW32__)
-#include <BaseTsd.h>
-typedef SSIZE_T ssize_t;
-#endif`
-    )
-
-    fmt.sbprintln(&self.code, "typedef int8_t i8;")
-    fmt.sbprintln(&self.code, "typedef int16_t i16;")
-    fmt.sbprintln(&self.code, "typedef int32_t i32;")
-    fmt.sbprintln(&self.code, "typedef int64_t i64;")
-    fmt.sbprintln(&self.code, "typedef ssize_t isize;")
-    fmt.sbprintln(&self.code, "typedef uint8_t u8;")
-    fmt.sbprintln(&self.code, "typedef uint16_t u16;")
-    fmt.sbprintln(&self.code, "typedef uint32_t u32;")
-    fmt.sbprintln(&self.code, "typedef uint64_t u64;")
-    fmt.sbprintln(&self.code, "typedef size_t usize;")
-    fmt.sbprintln(&self.code, "typedef float f32;")
-    fmt.sbprintln(&self.code, "typedef double f64;")
-    fmt.sbprintln(&self.code, 
-`typedef struct CurString {
-    const char *ptr;
-    usize len;
-} CurString;`
-    )
-    fmt.sbprintln(&self.code, "#define curstr(s) ((CurString){.ptr = s, strlen(s)})")
-    // array
-    fmt.sbprintln(&self.code, 
-`#define CurArray1d(T, Tname, A)\
-typedef struct CurArray1d_##Tname##A {\
-    T *ptr;\
-    const usize len;\
-} CurArray1d_##Tname##A;\
-CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr, usize len) {\
-    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){.len = len};\
-    ret.ptr = ptr;\
-    return ret;\
-}
-#define CurArray2d(T, Tname, A, B)\
-typedef struct CurArray2d_##Tname##B##A {\
-    CurArray1d_##Tname##A* ptr;\
-    const usize len;\
-} CurArray2d_##Tname##B##A;\
-CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, usize len) {\
-    CurArray2d_##Tname##B##A ret = (CurArray2d_##Tname##B##A){.len = len};\
-    ret.ptr = ptr;\
-    return ret;\
-}`
-    )
-    // option
-    fmt.sbprintln(&self.code, 
-`#define CurOption(T, Tname)\
-typedef struct CurOption_##Tname {\
-    T some;\
-    bool ok;\
-} CurOption_##Tname;\
-CurOption_##Tname curoption_##Tname(T some) {\
-    CurOption_##Tname ret;\
-    ret.some = some;\
-    ret.ok = true;\
-    return ret;\
-}\
-CurOption_##Tname curoptionnull_##Tname() {\
-    CurOption_##Tname ret;\
-    ret.ok = false;\
-    return ret;\
-}`
-    )
-}
-
 gen :: proc(self: ^Codegen) {
-    gen_c_necessities(self)
+    // TODO: this won't work if current is called from another directory, fix it
+    defs_slice, _ := os.read_entire_file("./src/current_builtin_defs.txt")
+    defer delete(defs_slice)
+    defs := transmute(string)defs_slice
+
+    fmt.sbprintf(&self.defs, "%v", defs)
+    fmt.sbprintln(&self.code, "#include \"output.h\"")
 
     for statement in self.ast {
         #partial switch stmnt in statement {
@@ -1524,4 +1494,6 @@ gen :: proc(self: ^Codegen) {
             gen_var_reassign(self, stmnt)
         }
     }
+
+    fmt.sbprintln(&self.defs, "#endif // CURRENT_DEFS_H")
 }
