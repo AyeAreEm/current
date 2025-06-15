@@ -199,6 +199,8 @@ type_of_expr :: proc(analyser: ^Analyser, expr: ^Expr) -> ^Type {
 
 get_field :: proc(analyser: ^Analyser, type: Type, field: string, cursor_index: int) -> Expr {
     #partial switch t in type {
+    case Ptr:
+        return get_field(analyser, t.type^, field, cursor_index)
     case TypeDef:
         typedef := symtab_find(analyser, t.name, t.cursors_idx)
         #partial switch def in typedef {
@@ -384,6 +386,7 @@ analyse_field_access :: proc(self: ^Analyser, expr: ^FieldAccess) {
     analyse_expr(self, expr.expr)
 
     type := type_of_expr(self, expr.expr)
+    expr.expr_type = type^
     if !expr.deref {
         field := get_field(self, type^, expr.field.(Ident).literal, expr.cursors_idx)
         expr.field^ = field

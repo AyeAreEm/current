@@ -435,6 +435,8 @@ Ident :: struct {
 FieldAccess :: struct {
     expr: ^Expr,
     field: ^Expr,
+    expr_type: Type,
+
     type: Type,
     deref: bool,
     cursors_idx: int,

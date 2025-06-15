@@ -1,25 +1,23 @@
 extern puts :: fn(s: cstring) i32;
-
-Vec2 :: struct {
-    x: f32;
-    y: f32;
-}
+extern exit :: fn(code: i32) void;
 
 Player :: struct {
-    pos: Vec2;
     health: u8;
 }
 
 player_take_damage :: fn(self: *Player) void {
-    puts(c"game over");
+    self.health -= 1;
+
+    if (self.health == 0) {
+        puts(c"game over");
+        exit(1);
+    }
 }
 
 main :: fn() void {
-    player := Player{
-        .pos = Vec2{0.0, 0.0},
-        .health = 2,
-    };
+    player := Player{3};
 
-    player_take_damage(&player);
-    player_take_damage(&player);
+    for (i := 0; i < 5; i += 1) {
+        player_take_damage(&player);
+    }
 }

@@ -724,7 +724,13 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
         }
 
         field, field_alloced := gen_expr(self, expr.field^)
-        ret := fmt.aprintf("%v.%v", subexpr, field)
+        ret: string
+
+        if _, ok := expr.expr_type.(Ptr); ok {
+            ret = fmt.aprintf("%v->%v", subexpr, field)
+        } else {
+            ret = fmt.aprintf("%v.%v", subexpr, field)
+        }
 
         if subexpr_alloced {
             delete(subexpr)
