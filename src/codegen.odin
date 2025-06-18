@@ -21,6 +21,26 @@ CompileFlags :: struct {
     optimisation: OptLevel,
 }
 
+Dnode :: struct {
+    name: string,
+    us: Stmnt,
+    children: [dynamic]string,
+}
+Dgraph :: struct {
+    children: map[string]Dnode,
+}
+dgraph_init :: proc() -> Dgraph {
+    return {
+        children = make(map[string]Dnode),
+    }
+}
+dgraph_push :: proc(graph: ^Dgraph, node: Dnode) {
+    _, ok := graph.children[node.name]
+    if !ok {
+        graph.children[node.name] = node
+    }
+}
+
 Codegen :: struct {
     ast: [dynamic]Stmnt,
 
@@ -28,9 +48,12 @@ Codegen :: struct {
     defs: strings.Builder,
 
     indent_level: u8,
-    in_defs: bool,
 
+    in_defs: bool,
+    def_deps: Dgraph,
     def_loc: int,
+
+    impl_loc: int,
     generated_generics: [dynamic]string,
 
     compile_flags: CompileFlags,
@@ -44,9 +67,12 @@ codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
         defs = strings.builder_make(),
 
         indent_level = 0,
-        in_defs = false,
 
+        in_defs = false,
+        def_deps = dgraph_init(),
         def_loc = 0,
+
+        impl_loc = 0,
         generated_generics = make([dynamic]string),
 
         compile_flags = {
@@ -415,20 +441,32 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
 }
 
 gen_struct_decl :: proc(self: ^Codegen, structd: StructDecl) {
-    // self.def_loc = len(self.code.buf)
-    // gen_indent(self)
+    children := make([dynamic]string)
 
-    self.in_defs = true
+    for field in structd.fields {
+        f, ok := field.(VarDecl)
+        assert(ok, "expected struct fields to be variable declarations")
 
-    gen_write(self, "typedef struct %v", structd.name.literal)
-    gen_block(self, structd.fields)
-    gen_writeln(self, "%v;", structd.name.literal)
+        if type_tag_equal(f.type, TypeDef{}) {
+            decl, ok := ast_find_decl(self.ast, f.type.(TypeDef).name)
+            if ok {
+                struc := decl.(StructDecl)
+                gen_struct_decl(self, struc)
+                append(&children, struc.name.literal)
+            }
+        }
+    }
 
-    self.in_defs = false
+    dgraph_push(&self.def_deps, Dnode{
+        name = structd.name.literal,
+        us = structd,
+        children = children
+    })
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
-    self.def_loc = len(self.code.buf)
+    self.impl_loc = len(self.code.buf)
+    self.def_loc = len(self.defs.buf)
     gen_indent(self)
 
     if strings.compare(fndecl.name.literal, "main") == 0 {
@@ -1258,8 +1296,8 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
     case Array:
         curarray, add := gen_generic_array_decl(self, t, 1)
         if add {
-            self.code = sbinsert(&self.code, strings.to_string(curarray), self.def_loc)
-            self.def_loc += len(strings.to_string(curarray))
+            self.code = sbinsert(&self.code, strings.to_string(curarray), self.impl_loc)
+            self.impl_loc += len(strings.to_string(curarray))
             append(&self.generated_generics, strings.to_string(curarray))
         } else {
             delete(curarray.buf)
@@ -1280,12 +1318,24 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
             }
         }
 
-        self.code = sbinsert(&self.code, curoption, self.def_loc)
-        self.def_loc += len(curoption)
+        self.code = sbinsert(&self.code, curoption, self.impl_loc)
+        self.impl_loc += len(curoption)
         append(&self.generated_generics, curoption)
     case TypeDef:
         // NOTE: no generics right now, just for forward declaration
         // TODO: add typedef generics
+
+        typedef := fmt.aprintfln("typedef struct %v %v;", t.name, t.name)
+        for generic in self.generated_generics {
+            if strings.compare(typedef, generic) == 0 {
+                delete(typedef)
+                return
+            }
+        }
+
+        self.defs = sbinsert(&self.defs, typedef, self.def_loc)
+        self.def_loc += len(typedef)
+        append(&self.generated_generics, typedef)
     }
 }
 
@@ -1473,6 +1523,42 @@ gen_directive :: proc(self: ^Codegen, directive: Directive) {
     }
 }
 
+gen_resolve_def :: proc(self: ^Codegen, node: Dnode) {
+    for child_name in node.children {
+        gen_resolve_def(self, self.def_deps.children[child_name])
+    }
+
+    statement := node.us
+    #partial switch stmnt in statement {
+    case StructDecl:
+        structd := fmt.aprintf("struct %v", node.name)
+        for generated in self.generated_generics {
+            if strings.compare(generated, structd) == 0 {
+                delete(structd)
+                return
+            }
+        }
+        append(&self.generated_generics, structd)
+
+        self.def_loc = len(self.defs.buf)
+        gen_indent(self)
+
+        self.in_defs = true
+
+        gen_write(self, "struct %v", stmnt.name.literal)
+        gen_block(self, stmnt.fields)
+        gen_writeln(self, ";")
+
+        self.in_defs = false
+    }
+}
+
+gen_resolve_defs ::proc(self: ^Codegen) {
+    for _, def in self.def_deps.children {
+        gen_resolve_def(self, def)
+    }
+}
+
 gen :: proc(self: ^Codegen) {
     // TODO: this won't work if current is called from another directory, fix it
     defs_slice, _ := os.read_entire_file("./src/current_builtin_defs.txt")
@@ -1500,6 +1586,8 @@ gen :: proc(self: ^Codegen) {
             gen_var_reassign(self, stmnt)
         }
     }
+
+    gen_resolve_defs(self)
 
     fmt.sbprintln(&self.defs, "#endif // CURRENT_DEFS_H")
 }

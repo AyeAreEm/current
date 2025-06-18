@@ -19,6 +19,7 @@
 # In Progress
 - For Loops
 - Parse Definition Names First
+- Struct and function dependancy graph
 - Importing External Libraries
 
 # Completed

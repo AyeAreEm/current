@@ -25,26 +25,8 @@ symtab_find :: proc(analyser: ^Analyser, key: string, location: int) -> Stmnt {
     }
 
     // if not in symtab, see if it's defined at least
-    // for def in analyser.ast {
-    //     #partial switch d in def {
-    //     case FnDecl:
-    //         if strings.compare(key, d.name.literal) == 0 {
-    //             return d
-    //         }
-    //     case VarDecl:
-    //         if strings.compare(key, d.name.literal) == 0 {
-    //             return d
-    //         }
-    //     case ConstDecl:
-    //         if strings.compare(key, d.name.literal) == 0 {
-    //             return d
-    //         }
-    //     case StructDecl:
-    //         if strings.compare(key, d.name.literal) == 0 {
-    //             return d
-    //         }
-    //     }
-    // }
+    decl, ok := ast_find_decl(analyser.ast, key)
+    if ok do return decl
 
     elog(analyser, location, "use of undefined \"%v\"", key)
 }
@@ -98,6 +80,31 @@ Analyser :: struct {
     // debug
     filename: string,
     cursors: [dynamic][2]u32,
+}
+
+ast_find_decl :: proc(ast: [dynamic]Stmnt, key: string) -> (Stmnt, bool) {
+    for def in ast {
+        #partial switch d in def {
+        case FnDecl:
+            if strings.compare(key, d.name.literal) == 0 {
+                return d, true
+            }
+        case VarDecl:
+            if strings.compare(key, d.name.literal) == 0 {
+                return d, true
+            }
+        case ConstDecl:
+            if strings.compare(key, d.name.literal) == 0 {
+                return d, true
+            }
+        case StructDecl:
+            if strings.compare(key, d.name.literal) == 0 {
+                return d, true
+            }
+        }
+    }
+
+    return Stmnt{}, false
 }
 
 analyser_init :: proc(ast: [dynamic]Stmnt, filename: string, cursors: [dynamic][2]u32) -> Analyser {
