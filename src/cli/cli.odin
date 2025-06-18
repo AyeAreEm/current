@@ -129,14 +129,6 @@ usage :: proc(cli: Cli) -> ! {
         fmt.println()
         os.exit(0)
     case:
-        if cli.help {
-            fmt.println("USAGE:")
-            fmt.println("    build [filename.cur] | build executable")
-            fmt.println("    run [filename.cur] | build and run executable")
-            fmt.println()
-            os.exit(0)
-        }
-
         fmt.eprintln("USAGE:")
         fmt.eprintln("    build [filename.cur] | build executable")
         fmt.eprintln("    run [filename.cur] | build and run executable")

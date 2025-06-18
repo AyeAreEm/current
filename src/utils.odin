@@ -3,6 +3,7 @@ package main
 import "core:fmt"
 import "core:strings"
 import "core:os"
+import "core:os/os2"
 
 current_elog :: proc(format: string, args: ..any) -> ! {
     fmt.eprintf("\x1b[91;1merror\x1b[0m: ")
@@ -53,3 +54,22 @@ sbinsert :: proc(sb: ^strings.Builder, str: string, index: int) -> strings.Build
     return code
 }
 
+get_c_compiler :: proc() -> string {
+    gcc_state, _, _, _ := os2.process_exec(os2.Process_Desc{
+        command = { "gcc", "-v" },
+    }, context.temp_allocator)
+
+    if gcc_state.exit_code == 0 {
+        return "gcc"
+    }
+
+    clang_state, _, _, _ := os2.process_exec(os2.Process_Desc{
+        command = { "clang", "-v" },
+    }, context.temp_allocator)
+
+    if clang_state.exit_code == 0 {
+        return "clang"
+    }
+
+    elog("gcc or clang not detected, please ensure you have one of these compilers")
+}

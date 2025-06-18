@@ -11,23 +11,7 @@ DEBUG_MODE :: false
 compile :: proc(compile_flags: CompileFlags, run: bool) {
     using compile_flags
 
-    cc: string
-    gcc_state, _, _, _ := os2.process_exec(os2.Process_Desc{
-        command = { "gcc", "-v" },
-    }, context.temp_allocator)
-    if gcc_state.exit_code != 0 {
-        clang_state, _, _, _ := os2.process_exec(os2.Process_Desc{
-            command = { "gcc", "-v" },
-        }, context.temp_allocator)
-
-        if clang_state.exit_code != 0 {
-            elog("gcc or clang not detected, please ensure you have one of these compilers")
-        } else {
-            cc = "clang"
-        }
-    } else {
-        cc = "gcc"
-    }
+    cc := get_c_compiler()
 
     compile_com := make([dynamic]string)
     append(&compile_com, cc)
