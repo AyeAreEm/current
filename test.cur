@@ -1,6 +1,11 @@
+Gun :: struct {
+    name: string;
+}
+
 Player :: struct {
     pos: Vec2;
     health: u8;
+    gun: ?Gun;
 }
 
 Vec2 :: struct {
@@ -8,17 +13,10 @@ Vec2 :: struct {
     y: f32;
 }
 
-A :: struct {
-    b: B;
-}
-
-B :: struct {
-    n: i32;
-}
-
 main :: fn() void {
     player := Player{
         .pos = Vec2{10.0, 15.0},
         .health = 3,
+        .gun = null,
     };
 }

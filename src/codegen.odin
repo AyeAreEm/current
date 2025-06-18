@@ -192,26 +192,6 @@ gen_typename :: proc(self: ^Codegen, types: []Type, typename: ^strings.Builder) 
     }
 }
 
-gen_c_array_decl :: proc(self: ^Codegen, array: Type, str: ^strings.Builder, name: Maybe(string)) {
-    #partial switch subtype in array {
-    case Array:
-        length, length_alloced := gen_expr(self, subtype.len.?^)
-        defer if length_alloced do delete(length)
-
-        gen_c_array_decl(self, subtype.type^, str, nil)
-        if n, ok := name.?; ok {
-            fmt.sbprintf(str, " %v[%v]", n, length)
-        } else {
-            fmt.sbprintf(str, "[%v]", length)
-        }
-    case:
-        t, t_alloc := gen_type(self, array)
-        defer if t_alloc do delete(t)
-
-        fmt.sbprintf(str, "%v", t)
-    }
-}
-
 gen_array_type :: proc(self: ^Codegen, array: Type, str: ^strings.Builder) {
     #partial switch subtype in array {
     case Array:
@@ -238,7 +218,7 @@ gen_ptr_type :: proc(self: ^Codegen, ptr: Type) -> string {
     }
 }
 
-gen_type :: proc(self: ^Codegen, t: Type, declname: Maybe(string) = nil) -> (string, bool) {
+gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
     gen_generic_decl(self, t)
 
     if type_tag_equal(t, Untyped_Int{}) {
@@ -250,11 +230,7 @@ gen_type :: proc(self: ^Codegen, t: Type, declname: Maybe(string) = nil) -> (str
     #partial switch subtype in t {
     case Array:
         ret := strings.builder_make()
-        if name, ok := declname.?; ok {
-            gen_c_array_decl(self, t, &ret, name)
-        } else {
-            gen_array_type(self, t, &ret)
-        }
+        gen_array_type(self, t, &ret)
         return strings.to_string(ret), true
     case Option:
         ret := strings.builder_make()
@@ -453,6 +429,15 @@ gen_struct_decl :: proc(self: ^Codegen, structd: StructDecl) {
                 struc := decl.(StructDecl)
                 gen_struct_decl(self, struc)
                 append(&children, struc.name.literal)
+            }
+        } else if type_tag_equal(f.type, Option{}) {
+            if type_tag_equal(f.type.(Option).type^, TypeDef{}) {
+                decl, ok := ast_find_decl(self.ast, f.type.(Option).type.(TypeDef).name)
+                if ok {
+                    struc := decl.(StructDecl)
+                    gen_struct_decl(self, struc)
+                    append(&children, struc.name.literal)
+                }
             }
         }
     }
@@ -1267,7 +1252,7 @@ gen_generic_array_decl :: proc(self: ^Codegen, type: Type, dimension: int) -> (s
             defer if length_alloc do delete(length)
 
             curarray := strings.builder_make()
-            fmt.sbprintfln(&curarray, "CurArray1d(%v, %v, %v);", type_str, strings.to_string(typename), length)
+            fmt.sbprintfln(&curarray, "CurArray1dDef(%v, %v, %v);", type_str, strings.to_string(typename), length)
 
             for generics in self.generated_generics {
                 if strings.compare(strings.to_string(curarray), generics) == 0 {
@@ -1286,7 +1271,7 @@ gen_generic_array_decl :: proc(self: ^Codegen, type: Type, dimension: int) -> (s
         gen_typename(self, {t}, &typename)
 
         curarray := strings.builder_make()
-        fmt.sbprintf(&curarray, "CurArray%vd(%v, %v", dimension, type_str, strings.to_string(typename))
+        fmt.sbprintf(&curarray, "CurArray%vdDef(%v, %v", dimension, type_str, strings.to_string(typename))
         return curarray, true
     }
 }
@@ -1294,13 +1279,20 @@ gen_generic_array_decl :: proc(self: ^Codegen, type: Type, dimension: int) -> (s
 gen_generic_decl :: proc(self: ^Codegen, type: Type) {
     #partial switch t in type {
     case Array:
-        curarray, add := gen_generic_array_decl(self, t, 1)
+        curarray_def, add := gen_generic_array_decl(self, t, 1)
+        curarray_impl, alloced := strings.replace(strings.to_string(curarray_def), "Def", "Impl", 1)
+
         if add {
-            self.code = sbinsert(&self.code, strings.to_string(curarray), self.impl_loc)
-            self.impl_loc += len(strings.to_string(curarray))
-            append(&self.generated_generics, strings.to_string(curarray))
+            self.defs = sbinsert(&self.defs, strings.to_string(curarray_def), self.def_loc)
+            self.code = sbinsert(&self.code, curarray_impl, self.impl_loc)
+
+            self.def_loc += len(strings.to_string(curarray_def))
+            self.impl_loc += len(curarray_impl)
+
+            append(&self.generated_generics, strings.to_string(curarray_def))
         } else {
-            delete(curarray.buf)
+            delete(curarray_def.buf)
+            if alloced do delete(curarray_impl)
         }
     case Option:
         type_str, type_str_alloc := gen_type(self, t.type^)
@@ -1310,17 +1302,23 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
         defer delete(typename.buf)
         gen_typename(self, {t.type^}, &typename)
 
-        curoption := fmt.aprintfln("CurOption(%v, %v);", type_str, strings.to_string(typename))
+        curoption_def := fmt.aprintfln("CurOptionDef(%v, %v);", type_str, strings.to_string(typename))
+        curoption_impl, alloced := strings.replace(curoption_def, "Def", "Impl", 1)
+
         for generics in self.generated_generics {
-            if strings.compare(curoption, generics) == 0 {
-                delete(curoption)
+            if strings.compare(curoption_def, generics) == 0 {
+                delete(curoption_def)
+                if alloced do delete(curoption_impl)
                 return
             }
         }
 
-        self.code = sbinsert(&self.code, curoption, self.impl_loc)
-        self.impl_loc += len(curoption)
-        append(&self.generated_generics, curoption)
+        self.defs = sbinsert(&self.defs, curoption_def, self.def_loc)
+        self.code = sbinsert(&self.code, curoption_impl, self.impl_loc)
+
+        self.def_loc += len(curoption_def)
+        self.impl_loc += len(curoption_impl)
+        append(&self.generated_generics, curoption_def)
     case TypeDef:
         // NOTE: no generics right now, just for forward declaration
         // TODO: add typedef generics
