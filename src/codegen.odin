@@ -21,26 +21,6 @@ CompileFlags :: struct {
     optimisation: OptLevel,
 }
 
-Dnode :: struct {
-    name: string,
-    us: Stmnt,
-    children: [dynamic]string,
-}
-Dgraph :: struct {
-    children: map[string]Dnode,
-}
-dgraph_init :: proc() -> Dgraph {
-    return {
-        children = make(map[string]Dnode),
-    }
-}
-dgraph_push :: proc(graph: ^Dgraph, node: Dnode) {
-    _, ok := graph.children[node.name]
-    if !ok {
-        graph.children[node.name] = node
-    }
-}
-
 Codegen :: struct {
     ast: [dynamic]Stmnt,
 
@@ -59,7 +39,7 @@ Codegen :: struct {
     compile_flags: CompileFlags,
 }
 
-codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
+codegen_init :: proc(ast: [dynamic]Stmnt, def_deps: Dgraph) -> Codegen {
     return {
         ast = ast,
 
@@ -69,7 +49,7 @@ codegen_init :: proc(ast: [dynamic]Stmnt) -> Codegen {
         indent_level = 0,
 
         in_defs = false,
-        def_deps = dgraph_init(),
+        def_deps = def_deps,
         def_loc = 0,
 
         impl_loc = 0,
@@ -296,7 +276,7 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
         case FnDecl:
             gen_fn_decl(self, stmnt)
         case StructDecl:
-            gen_struct_decl(self, stmnt)
+            // do nothing, defs will be resolved later
         case VarDecl:
             gen_var_decl(self, stmnt)
         case ConstDecl:
@@ -417,36 +397,25 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
 }
 
 gen_struct_decl :: proc(self: ^Codegen, structd: StructDecl) {
-    children := make([dynamic]string)
-
-    for field in structd.fields {
-        f, ok := field.(VarDecl)
-        assert(ok, "expected struct fields to be variable declarations")
-
-        if type_tag_equal(f.type, TypeDef{}) {
-            decl, ok := ast_find_decl(self.ast, f.type.(TypeDef).name)
-            if ok {
-                struc := decl.(StructDecl)
-                gen_struct_decl(self, struc)
-                append(&children, struc.name.literal)
-            }
-        } else if type_tag_equal(f.type, Option{}) {
-            if type_tag_equal(f.type.(Option).type^, TypeDef{}) {
-                decl, ok := ast_find_decl(self.ast, f.type.(Option).type.(TypeDef).name)
-                if ok {
-                    struc := decl.(StructDecl)
-                    gen_struct_decl(self, struc)
-                    append(&children, struc.name.literal)
-                }
-            }
+    struct_def := fmt.aprintf("struct %v", structd.name.literal)
+    for generated in self.generated_generics {
+        if strings.compare(generated, struct_def) == 0 {
+            delete(struct_def)
+            return
         }
     }
+    append(&self.generated_generics, struct_def)
 
-    dgraph_push(&self.def_deps, Dnode{
-        name = structd.name.literal,
-        us = structd,
-        children = children
-    })
+    self.def_loc = len(self.defs.buf)
+    gen_indent(self)
+
+    self.in_defs = true
+
+    gen_write(self, "%v", struct_def)
+    gen_block(self, structd.fields)
+    gen_writeln(self, ";")
+
+    self.in_defs = false
 }
 
 gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
@@ -1529,25 +1498,7 @@ gen_resolve_def :: proc(self: ^Codegen, node: Dnode) {
     statement := node.us
     #partial switch stmnt in statement {
     case StructDecl:
-        structd := fmt.aprintf("struct %v", node.name)
-        for generated in self.generated_generics {
-            if strings.compare(generated, structd) == 0 {
-                delete(structd)
-                return
-            }
-        }
-        append(&self.generated_generics, structd)
-
-        self.def_loc = len(self.defs.buf)
-        gen_indent(self)
-
-        self.in_defs = true
-
-        gen_write(self, "struct %v", stmnt.name.literal)
-        gen_block(self, stmnt.fields)
-        gen_writeln(self, ";")
-
-        self.in_defs = false
+        gen_struct_decl(self, stmnt)
     }
 }
 
@@ -1575,7 +1526,7 @@ gen :: proc(self: ^Codegen) {
         case FnDecl:
             gen_fn_decl(self, stmnt)
         case StructDecl:
-            gen_struct_decl(self, stmnt)
+            // do nothing, defs will be resolved later
         case VarDecl:
             gen_var_decl(self, stmnt)
         case ConstDecl:

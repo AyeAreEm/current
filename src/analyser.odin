@@ -66,6 +66,26 @@ EnvInfo :: struct {
     forl: bool,
 }
 
+Dnode :: struct {
+    name: string,
+    us: Stmnt,
+    children: [dynamic]string,
+}
+Dgraph :: struct {
+    children: map[string]Dnode,
+}
+dgraph_init :: proc() -> Dgraph {
+    return {
+        children = make(map[string]Dnode),
+    }
+}
+dgraph_push :: proc(graph: ^Dgraph, node: Dnode) {
+    _, ok := graph.children[node.name]
+    if !ok {
+        graph.children[node.name] = node
+    }
+}
+
 Analyser :: struct {
     ast: [dynamic]Stmnt,
     symtab: SymTab,
@@ -76,6 +96,8 @@ Analyser :: struct {
         output: bool,
         optimise: bool,
     },
+
+    def_deps: Dgraph,
 
     // debug
     filename: string,
@@ -112,6 +134,7 @@ analyser_init :: proc(ast: [dynamic]Stmnt, filename: string, cursors: [dynamic][
         ast = ast,
         symtab = symtab_init(),
         env_info = EnvInfo{},
+        def_deps = dgraph_init(),
         
         filename = filename,
         cursors = cursors,
@@ -934,6 +957,47 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: ^FnDecl) {
     analyse_block(self, fn.body)
 }
 
+// specifically for dependency tree
+// catching cyclic dependencies and later generating defs in correct order
+analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl) {
+    children := make([dynamic]string)
+
+    for &field in structd.fields {
+        f, _ := &field.(VarDecl)
+
+        if type_tag_equal(f.type, TypeDef{}) {
+            decl, ok := ast_find_decl(self.ast, f.type.(TypeDef).name)
+            if ok {
+                struc := &decl.(StructDecl)
+
+                if structd.name.literal == struc.name.literal {
+                    elog(self, f.cursors_idx, "cyclic dependency between struct \"%v\" and field \"%v\" of type \"%v\"", structd.name.literal, f.name.literal, struc.name.literal)
+                }
+
+                analyse_struct_decl_deps(self, struc)
+                append(&children, struc.name.literal)
+            }
+        } else if type_tag_equal(f.type, Option{}) {
+            // we need to explicitly check if it's an option between we need to generate the underlying type
+
+            if type_tag_equal(f.type.(Option).type^, TypeDef{}) {
+                decl, ok := ast_find_decl(self.ast, f.type.(Option).type.(TypeDef).name)
+                if ok {
+                    struc := &decl.(StructDecl)
+                    analyse_struct_decl_deps(self, struc)
+                    append(&children, struc.name.literal)
+                }
+            }
+        }
+    }
+
+    dgraph_push(&self.def_deps, Dnode{
+        name = structd.name.literal,
+        us = structd^,
+        children = children
+    })
+}
+
 analyse_struct_decl :: proc(self: ^Analyser, structd: ^StructDecl) {
     symtab_push(self, structd.name.literal, structd^)
 
@@ -949,6 +1013,8 @@ analyse_struct_decl :: proc(self: ^Analyser, structd: ^StructDecl) {
     }
 
     analyse_block(self, structd.fields)
+
+    analyse_struct_decl_deps(self, structd)
 }
 
 analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {

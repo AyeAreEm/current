@@ -1,22 +1,5 @@
-Gun :: struct {
-    name: string;
+A :: struct {
+    a: A;
 }
 
-Player :: struct {
-    pos: Vec2;
-    health: u8;
-    gun: ?Gun;
-}
-
-Vec2 :: struct {
-    x: f32;
-    y: f32;
-}
-
-main :: fn() void {
-    player := Player{
-        .pos = Vec2{10.0, 15.0},
-        .health = 3,
-        .gun = null,
-    };
-}
+main :: fn() void { }

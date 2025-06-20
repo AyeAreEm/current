@@ -110,7 +110,7 @@ build :: proc(filepath: string, run := false) {
         }
     }
 
-    codegen := codegen_init(ast)
+    codegen := codegen_init(ast, analyser.def_deps)
     gen(&codegen);
 
     os.write_entire_file("output.h", codegen.defs.buf[:])
