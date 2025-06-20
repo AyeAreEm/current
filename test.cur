@@ -1,5 +1,17 @@
-A :: struct {
-    a: A;
+print_player_name :: fn(player: Player) void {
+    puts(player.name);
 }
 
-main :: fn() void { }
+extern puts :: fn(s: cstring) i32;
+
+Player :: struct {
+    name: cstring;
+}
+
+main :: fn() void {
+    player := Player{
+        .name = c"john",
+    };
+    
+    print_player_name(player);
+}

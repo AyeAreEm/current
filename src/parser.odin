@@ -666,7 +666,7 @@ Block :: struct {
     cursors_idx: int,
 }
 Extern :: struct {
-    body: [dynamic]Stmnt,
+    body: ^Stmnt,
     cursors_idx: int,
 }
 Stmnt :: union {
@@ -1094,7 +1094,7 @@ parse_primary :: proc(self: ^Parser) -> Expr {
                 token_next(self)
                 type := typedef_from_ident(name)
                 return parse_end_literal(self, type)
-            } else if strings.compare(name.literal, "c") == 0 {
+            } else if name.literal == "c" {
                 // c""
                 if token_tag_equal(token, TokenStrLit{}) {
                     token_next(self)
@@ -1965,9 +1965,9 @@ parse_if :: proc(self: ^Parser) -> Stmnt {
 
 parse_extern :: proc(self: ^Parser) -> Stmnt {
     index := self.cursors_idx
-    stmnt := parse(self)
+    stmnt := new(Stmnt); stmnt^ = parse(self)
     return Extern{
-        body = [dynamic]Stmnt{stmnt},
+        body = stmnt,
         cursors_idx = index,
     }
 }

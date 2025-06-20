@@ -38,7 +38,7 @@ args_next :: proc(args: ^[]string) -> string {
 
 is_command :: proc(arg: string) -> bool {
     for com in commands {
-        if strings.compare(arg, com) == 0 {
+        if arg == com {
             return true
         }
     }
@@ -68,7 +68,7 @@ parse_build :: proc(cli: ^Cli, args: ^[]string) {
         elog("unexpected %v, expected filename or help", arg)
     }
 
-    if strings.compare(arg, "help") == 0 {
+    if arg == "help" {
         parse_help(cli, args)
         return
     }
@@ -87,7 +87,7 @@ parse_run :: proc(cli: ^Cli, args: ^[]string) {
         elog("unexpected %v, expected filename or help", arg)
     }
 
-    if strings.compare(arg, "help") == 0 {
+    if arg == "help" {
         parse_help(cli, args)
         return
     }
@@ -102,11 +102,11 @@ parse :: proc() -> (cli: Cli) {
     for i := 0; i < len(args); i += 1 {
         arg := args_next(&args)
 
-        if strings.compare(arg, "build") == 0 {
+        if arg == "build" {
             parse_build(&cli, &args)
-        } else if strings.compare(arg, "run") == 0 {
+        } else if arg == "run" {
             parse_run(&cli, &args)
-        } else if strings.compare(arg, "help") == 0 {
+        } else if arg == "help" {
             parse_help(&cli, &args)
         }
     }

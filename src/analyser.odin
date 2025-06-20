@@ -107,20 +107,40 @@ Analyser :: struct {
 ast_find_decl :: proc(ast: [dynamic]Stmnt, key: string) -> (Stmnt, bool) {
     for def in ast {
         #partial switch d in def {
+        case Extern:
+            #partial switch e in d.body {
+            case FnDecl:
+                if key == e.name.literal {
+                    return e, true
+                }
+            case VarDecl:
+                if key == e.name.literal {
+                    return e, true
+                }
+            case ConstDecl:
+                if key == e.name.literal {
+                    return e, true
+                }
+            case StructDecl:
+                if key == e.name.literal {
+                    return e, true
+                }
+            }
+
         case FnDecl:
-            if strings.compare(key, d.name.literal) == 0 {
+            if key == d.name.literal {
                 return d, true
             }
         case VarDecl:
-            if strings.compare(key, d.name.literal) == 0 {
+            if key == d.name.literal {
                 return d, true
             }
         case ConstDecl:
-            if strings.compare(key, d.name.literal) == 0 {
+            if key == d.name.literal {
                 return d, true
             }
         case StructDecl:
-            if strings.compare(key, d.name.literal) == 0 {
+            if key == d.name.literal {
                 return d, true
             }
         }
@@ -237,7 +257,7 @@ get_field :: proc(analyser: ^Analyser, type: Type, field: string, cursor_index: 
         case StructDecl:
             for f, i in def.fields {
                 decl := f.(VarDecl)
-                if strings.compare(field, decl.name.literal) == 0 {
+                if field == decl.name.literal {
                     return Ident{
                         literal = decl.name.literal,
                         type = decl.type,
@@ -252,7 +272,7 @@ get_field :: proc(analyser: ^Analyser, type: Type, field: string, cursor_index: 
         }
     case String:
         for f, i in String_fields {
-            if strings.compare(field, f.literal) == 0 {
+            if field == f.literal {
                 return f
             }
         }
@@ -260,7 +280,7 @@ get_field :: proc(analyser: ^Analyser, type: Type, field: string, cursor_index: 
         elog(analyser, cursor_index, "string does not have field %v", field)
     case Array:
         for f, i in Array_fields {
-            if strings.compare(field, f.literal) == 0 {
+            if field == f.literal {
                 return f
             }
         }
@@ -949,7 +969,7 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: ^FnDecl) {
         symtab_push(self, arg.(ConstDecl).name.literal, arg)
     }
 
-    if strings.compare(fn.name.literal, "main") == 0 && !type_tag_equal(fn.type, Void{}) {
+    if fn.name.literal == "main" && !type_tag_equal(fn.type, Void{}) {
         elog(self, fn.cursors_idx, "illegal main function, expected return type to be void, got %v", fn.type)
     }
     self.env_info.fn = fn^
@@ -1018,37 +1038,35 @@ analyse_struct_decl :: proc(self: ^Analyser, structd: ^StructDecl) {
 }
 
 analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
-    for statement in extern.body {
-        switch &stmnt in statement {
-        case FnDecl:
-            analyse_fn_decl(self, &stmnt)
-        case VarDecl:
-            analyse_var_decl(self, &stmnt)
-        case VarReassign:
-            analyse_var_reassign(self, &stmnt)
-        case ConstDecl:
-            analyse_const_decl(self, &stmnt)
-        case StructDecl:
-            elog(self, stmnt.cursors_idx, "illegal struct declaration \"%v\", cannot be external", stmnt.name)
-        case Block:
-            elog(self, stmnt.cursors_idx, "illegal use of scope block, not inside a function")
-        case Return:
-            elog(self, stmnt.cursors_idx, "illegal use of return, not inside a function")
-        case Continue:
-            elog(self, stmnt.cursors_idx, "illegal use of continue, not inside a loop")
-        case Break:
-            elog(self, stmnt.cursors_idx, "illegal use of break, not inside a loop")
-        case FnCall:
-            elog(self, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
-        case If:
-            elog(self, stmnt.cursors_idx, "illegal use of if statement, not inside a function")
-        case For:
-            elog(self, stmnt.cursors_idx, "illegal use of for loop, not inside a function")
-        case Extern:
-            elog(self, stmnt.cursors_idx, "illegal use of extern, already inside extern")
-        case Directive:
-            elog(self, get_cursor_index(cast(Stmnt)stmnt), "illegal use of directive, can't be inside extern")
-        }
+    switch &stmnt in extern.body {
+    case FnDecl:
+        analyse_fn_decl(self, &stmnt)
+    case VarDecl:
+        analyse_var_decl(self, &stmnt)
+    case VarReassign:
+        analyse_var_reassign(self, &stmnt)
+    case ConstDecl:
+        analyse_const_decl(self, &stmnt)
+    case StructDecl:
+        elog(self, stmnt.cursors_idx, "illegal struct declaration \"%v\", cannot be external", stmnt.name)
+    case Block:
+        elog(self, stmnt.cursors_idx, "illegal use of scope block, not inside a function")
+    case Return:
+        elog(self, stmnt.cursors_idx, "illegal use of return, not inside a function")
+    case Continue:
+        elog(self, stmnt.cursors_idx, "illegal use of continue, not inside a loop")
+    case Break:
+        elog(self, stmnt.cursors_idx, "illegal use of break, not inside a loop")
+    case FnCall:
+        elog(self, stmnt.cursors_idx, "illegal use of function call \"%v\", not inside a function", stmnt.name)
+    case If:
+        elog(self, stmnt.cursors_idx, "illegal use of if statement, not inside a function")
+    case For:
+        elog(self, stmnt.cursors_idx, "illegal use of for loop, not inside a function")
+    case Extern:
+        elog(self, stmnt.cursors_idx, "illegal use of extern, already inside extern")
+    case Directive:
+        elog(self, get_cursor_index(cast(Stmnt)stmnt), "illegal use of directive, can't be inside extern")
     }
 }
 

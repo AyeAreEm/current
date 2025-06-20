@@ -239,17 +239,15 @@ gen_type :: proc(self: ^Codegen, t: Type) -> (string, bool) {
     return "", false
 }
 gen_extern :: proc(self: ^Codegen, extern: Extern) {
-    for statement in extern.body {
-        #partial switch stmnt in statement {
-        case FnDecl:
-            gen_fn_decl(self, stmnt, true)
-        case VarDecl:
-            gen_var_decl(self, stmnt)
-        case ConstDecl:
-            gen_const_decl(self, stmnt)
-        case VarReassign:
-            gen_var_reassign(self, stmnt)
-        }
+    #partial switch stmnt in extern.body {
+    case FnDecl:
+        gen_fn_decl(self, stmnt, true)
+    case VarDecl:
+        gen_var_decl(self, stmnt)
+    case ConstDecl:
+        gen_const_decl(self, stmnt)
+    case VarReassign:
+        gen_var_reassign(self, stmnt)
     }
 }
 
@@ -399,7 +397,7 @@ gen_decl_proto :: proc(self: ^Codegen, decl: union{VarDecl, ConstDecl, FnDecl}) 
 gen_struct_decl :: proc(self: ^Codegen, structd: StructDecl) {
     struct_def := fmt.aprintf("struct %v", structd.name.literal)
     for generated in self.generated_generics {
-        if strings.compare(generated, struct_def) == 0 {
+        if generated == struct_def {
             delete(struct_def)
             return
         }
@@ -423,7 +421,7 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
     self.def_loc = len(self.defs.buf)
     gen_indent(self)
 
-    if strings.compare(fndecl.name.literal, "main") == 0 {
+    if fndecl.name.literal == "main" {
         gen_write(self, "int main() ")
         gen_block(self, fndecl.body)
         return
@@ -457,7 +455,7 @@ gen_fn_decl :: proc(self: ^Codegen, fndecl: FnDecl, is_extern := false) {
     if fndecl.has_body {
         gen_write(self, "%v ", strings.to_string(code))
         gen_block(self, fndecl.body)
-    } else {
+    } else if !is_extern {
         gen_writeln(self, "%v;", strings.to_string(code))
     }
 }
@@ -1200,7 +1198,7 @@ gen_generic_array_decl :: proc(self: ^Codegen, type: Type, dimension: int) -> (s
                 fmt.sbprintfln(&curarray, ", %v);", parent_len)
 
                 for generics in self.generated_generics {
-                    if strings.compare(strings.to_string(curarray), generics) == 0 {
+                    if strings.to_string(curarray) == generics {
                         return curarray, false
                     }
                 }
@@ -1224,7 +1222,7 @@ gen_generic_array_decl :: proc(self: ^Codegen, type: Type, dimension: int) -> (s
             fmt.sbprintfln(&curarray, "CurArray1dDef(%v, %v, %v);", type_str, strings.to_string(typename), length)
 
             for generics in self.generated_generics {
-                if strings.compare(strings.to_string(curarray), generics) == 0 {
+                if strings.to_string(curarray) == generics {
                     return curarray, false
                 }
             }
@@ -1275,7 +1273,7 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
         curoption_impl, alloced := strings.replace(curoption_def, "Def", "Impl", 1)
 
         for generics in self.generated_generics {
-            if strings.compare(curoption_def, generics) == 0 {
+            if curoption_def == generics {
                 delete(curoption_def)
                 if alloced do delete(curoption_impl)
                 return
@@ -1294,7 +1292,7 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
 
         typedef := fmt.aprintfln("typedef struct %v %v;", t.name, t.name)
         for generic in self.generated_generics {
-            if strings.compare(typedef, generic) == 0 {
+            if typedef == generic {
                 delete(typedef)
                 return
             }

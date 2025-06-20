@@ -229,7 +229,7 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
             append(cursor, [2]u32{row^, col^})
             string_buf := strings.to_string(buf^)
 
-            if strings.compare(string_buf, "_") == 0 {
+            if string_buf == "_" {
                 append(tokens, TokenUnderscore{})
             } else if _, ok := strconv.parse_u64(string_buf); ok {
                 append(tokens, TokenIntLit{strings.clone(string_buf)})

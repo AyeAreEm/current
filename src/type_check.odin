@@ -181,7 +181,7 @@ tc_equals :: proc(analyser: ^Analyser, lhs: Type, rhs: ^Type) -> bool {
         _ = symtab_find(analyser, l.name, l.cursors_idx)
         #partial switch r in rhs {
         case TypeDef:
-            if strings.compare(l.name, r.name) == 0 {
+            if l.name == r.name {
                 return true
             }
         }
