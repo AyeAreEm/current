@@ -6,7 +6,7 @@ import "core:strings"
 import "core:os/os2"
 import "cli"
 
-DEBUG_MODE :: true
+DEBUG_MODE :: false
 
 compile :: proc(compile_flags: CompileFlags, run: bool) {
     using compile_flags

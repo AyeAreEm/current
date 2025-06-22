@@ -977,9 +977,10 @@ analyse_fn_decl :: proc(self: ^Analyser, fn: ^FnDecl) {
     analyse_block(self, fn.body)
 }
 
-// specifically for dependency tree
-// catching cyclic dependencies and later generating defs in correct order
-analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl) {
+// catching cyclic dependencies and finding all children
+// remember to free visited
+analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl, visited: ^map[string]bool) {
+    visited[structd.name.literal] = true
     children := make([dynamic]string)
 
     for &field in structd.fields {
@@ -987,16 +988,15 @@ analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl) {
 
         if type_tag_equal(f.type, TypeDef{}) {
             decl, ok := ast_find_decl(self.ast, f.type.(TypeDef).name)
-            if ok {
-                struc := &decl.(StructDecl)
+            if !ok do continue;
 
-                if structd.name.literal == struc.name.literal {
-                    elog(self, f.cursors_idx, "cyclic dependency between struct \"%v\" and field \"%v\" of type \"%v\"", structd.name.literal, f.name.literal, struc.name.literal)
-                }
-
-                analyse_struct_decl_deps(self, struc)
-                append(&children, struc.name.literal)
+            struc := &decl.(StructDecl)
+            if visit, ok := visited[struc.name.literal]; ok && visit {
+                elog(self, f.cursors_idx, "cyclic dependency between struct \"%v\" and field \"%v\" of type \"%v\"", structd.name.literal, f.name.literal, struc.name.literal)
             }
+
+            analyse_struct_decl_deps(self, struc, visited)
+            append(&children, struc.name.literal)
         } else if type_tag_equal(f.type, Option{}) {
             // we need to explicitly check if it's an option between we need to generate the underlying type
 
@@ -1004,7 +1004,7 @@ analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl) {
                 decl, ok := ast_find_decl(self.ast, f.type.(Option).type.(TypeDef).name)
                 if ok {
                     struc := &decl.(StructDecl)
-                    analyse_struct_decl_deps(self, struc)
+                    analyse_struct_decl_deps(self, struc, visited)
                     append(&children, struc.name.literal)
                 }
             }
@@ -1034,7 +1034,10 @@ analyse_struct_decl :: proc(self: ^Analyser, structd: ^StructDecl) {
 
     analyse_block(self, structd.fields)
 
-    analyse_struct_decl_deps(self, structd)
+    visited: map[string]bool
+    defer delete(visited)
+
+    analyse_struct_decl_deps(self, structd, &visited)
 }
 
 analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
