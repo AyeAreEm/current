@@ -51,5 +51,4 @@ Link with relative path to filename
 ```c
 #link "./foo.o";
 #link "./bar.a";
-#link "./baz.a";
 ```

@@ -1,16 +1,16 @@
-A :: struct {
-    b: B;
+Vec2 :: struct {
+    x: i32;
+    y: i32;
 }
 
-B :: struct {
-    c: C;
+Bullet :: struct {
+    pos: Vec2;
 }
 
-C :: struct {
-    a: A;
+Player :: struct {
+    pos: Vec2;
+    bullet: Bullet;
 }
-// this will error because of circular dependency
 
 main :: fn() void {
-
 }

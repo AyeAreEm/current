@@ -995,7 +995,11 @@ analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl, visited:
                 elog(self, f.cursors_idx, "cyclic dependency between struct \"%v\" and field \"%v\" of type \"%v\"", structd.name.literal, f.name.literal, struc.name.literal)
             }
 
-            analyse_struct_decl_deps(self, struc, visited)
+            new_visited := make(map[string]bool)
+            defer delete(new_visited)
+            copy_map(visited^, &new_visited)
+
+            analyse_struct_decl_deps(self, struc, &new_visited)
             append(&children, struc.name.literal)
         } else if type_tag_equal(f.type, Option{}) {
             // we need to explicitly check if it's an option between we need to generate the underlying type
@@ -1020,6 +1024,8 @@ analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl, visited:
 
 analyse_struct_decl :: proc(self: ^Analyser, structd: ^StructDecl) {
     symtab_push(self, structd.name.literal, structd^)
+    symtab_new_scope(self)
+    defer symtab_pop_scope(self)
 
     for field in structd.fields {
         #partial switch f in field {
