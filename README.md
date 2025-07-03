@@ -1,5 +1,5 @@
 # Current
-- NOTE: this language is still being development. expect bugs as features<br>
+- NOTE: this language is still in development. expect bugs as features<br>
 
 ## Description
 Current is a statically typed compiled programming language with manual memory management<br>

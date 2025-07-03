@@ -376,6 +376,8 @@ analyse_array_literal :: proc(self: ^Analyser, literal: ^Literal) {
             if !tc_equals(self, array.type^, valtype) {
                 elog(self, literal.cursors_idx, "array element %v type is %v, but expected %v", i + 1, valtype^, array.type^)
             }
+
+            tc_number_within_bounds(self, array.type^, val)
         }
     }
 }

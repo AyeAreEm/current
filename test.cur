@@ -1,28 +1,9 @@
-Vec2 :: struct {
-    x: i32;
-    y: i32;
-}
-
-Bullet :: struct {
-    pos: Vec2;
-}
-
-Player :: struct {
-    pos: Vec2;
-    bullet: Bullet;
-}
-
 main :: fn() void {
-    player := Player {
-        .pos = {
-            .x = 0,
-            .y = 0,
-        },
-        .bullet = {
-            .pos = {
-                .x = 10,
-                .y = 15,
-            },
-        },
-    };
+    // these now properly error again
+
+    foo: [3]i8 = {255, 1, 2};
+    //              ^ bigger than i8 max (127)
+
+    bar: [_]i32;
+    // unable to infer size without literal
 }
