@@ -393,6 +393,7 @@ analyse_typedef_literal :: proc(self: ^Analyser, literal: ^Literal) {
             for &val, i in values {
                 valtype := type_of_expr(self, &val)
                 fieldtype := type_of_stmnt(self, t.fields[i])
+
                 if !tc_equals(self, fieldtype, valtype) {
                     elog(self, get_cursor_index(val), "field %v type is %v, but expected %v", i + 1, valtype^, fieldtype)
                 }
@@ -403,11 +404,16 @@ analyse_typedef_literal :: proc(self: ^Analyser, literal: ^Literal) {
             }
 
             for &val in values {
-                analyse_expr(self, &val.value)
                 value_type := type_of_expr(self, &val.value)
 
                 field := get_field(self, literal.type, val.name.(Ident).literal, literal.cursors_idx)
                 fieldtype := type_of_expr(self, &field)
+
+                if value_type^ == nil {
+                    value_type^ = fieldtype^
+                    analyse_expr(self, &val.value)
+                    continue;
+                }
 
                 if !tc_equals(self, fieldtype^, value_type) {
                     elog(self, val.cursors_idx, "field %v type is %v, but expected %v", field.(Ident).literal, value_type^, fieldtype^)
@@ -422,6 +428,10 @@ analyse_literal :: proc(self: ^Analyser, literal: ^Literal) {
     case [dynamic]Expr:
         for &value in values {
             analyse_expr(self, &value)
+        }
+    case [dynamic]VarReassign:
+        for &value in values {
+            analyse_expr(self, &value.value)
         }
     }
 
