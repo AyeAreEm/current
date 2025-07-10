@@ -14,5 +14,5 @@ Day :: enum {
 }
 
 main :: fn() void {
-    day: Day = Day.Mon;
+    day: Day;
 }
