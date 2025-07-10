@@ -282,6 +282,7 @@ typedef_from_ident :: proc(ident: Ident) -> TypeDef {
 Keyword :: enum {
     Fn,
     Struct,
+    Enum,
     Return,
     Continue,
     Break,
@@ -296,6 +297,7 @@ Keyword :: enum {
 keyword_map := map[string]Keyword{
     "fn" = .Fn,
     "struct" = .Struct,
+    "enum" = .Enum,
     "return" = .Return,
     "continue" = .Continue,
     "break" = .Break,
@@ -393,17 +395,17 @@ parser_get_directive :: proc(self: ^Parser, word: string) -> Directive {
 }
 
 IntLit :: struct {
-    literal: string,
+    literal: u64,
     type: Type,
     cursors_idx: int,
 }
 FloatLit :: struct {
-    literal: string,
+    literal: u64,
     type: Type,
     cursors_idx: int,
 }
 CharLit :: struct {
-    literal: string,
+    literal: u8,
     type: Type,
     cursors_idx: int,
 }
@@ -617,6 +619,11 @@ StructDecl :: struct {
     fields: [dynamic]Stmnt,
     cursors_idx: int,
 }
+EnumDecl :: struct {
+    name: Ident,
+    fields: [dynamic]Stmnt,
+    cursors_idx: int,
+}
 VarDecl :: struct {
     name: Ident,
     type: Type,
@@ -672,6 +679,7 @@ Extern :: struct {
 Stmnt :: union {
     FnDecl,
     StructDecl,
+    EnumDecl,
     VarDecl,
     VarReassign,
     Return,
@@ -829,6 +837,8 @@ get_cursor_index :: proc(item: union {Stmnt, Expr}) -> int {
             return stmnt.cursors_idx
         case StructDecl:
             return stmnt.cursors_idx
+        case EnumDecl:
+            return stmnt.cursors_idx
         case FnCall:
             return stmnt.cursors_idx
         case ConstDecl:
@@ -857,6 +867,7 @@ convert_ident :: proc(self: ^Parser, using token: TokenIdent) -> union {Type, Ke
 Parser :: struct {
     tokens: [dynamic]Token,
     in_func_decl_args: bool,
+    in_enum_decl: bool,
 
     // debug
     filename: string,
@@ -868,6 +879,7 @@ parser_init :: proc(tokens: [dynamic]Token, filename: string, cursors: [dynamic]
     return {
         tokens = tokens, // NOTE: does this do a copy? surely not
         in_func_decl_args = false,
+        in_enum_decl = false,
 
         filename = filename,
         cursors = cursors,
@@ -891,6 +903,19 @@ parse_struct_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
     fields := parse_block(self)
 
     return StructDecl{
+        name = name,
+        fields = fields,
+        cursors_idx = index,
+    }
+}
+
+parse_enum_decl :: proc(self: ^Parser, name: Ident) -> Stmnt {
+    index := self.cursors_idx
+    self.in_enum_decl = true
+    fields := parse_block(self)
+    self.in_enum_decl = false
+
+    return EnumDecl{
         name = name,
         fields = fields,
         cursors_idx = index,
@@ -1388,6 +1413,9 @@ parse_const_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil) -> Stmnt
             case .Struct:
                 token_next(self) // no nil check, checked when peeked
                 return parse_struct_decl(self, ident)
+            case .Enum:
+                token_next(self) // no nil check, checked when peeked
+                return parse_enum_decl(self, ident)
             case .True, .False, .Null:
             case:
                 elog(self, index, "unexpected token %v", tok)
@@ -1397,13 +1425,13 @@ parse_const_decl :: proc(self: ^Parser, ident: Ident, type: Type = nil) -> Stmnt
 
     // <ident>: <type>,
     if self.in_func_decl_args {
+        // TODO: implement default function arguments
         return ConstDecl{
             name = ident,
             type = type,
             value = nil,
             cursors_idx = index,
         }
-        // TODO: implement default function arguments
     }
 
     expr := parse_expr(self)
@@ -1593,10 +1621,7 @@ parse_type :: proc(self: ^Parser) -> Type {
         } else if subtype, ok := converted_ident.(Keyword); ok {
             elog(self, self.cursors_idx, "expected a type, got %v", tok.ident)
         } else {
-            type = TypeDef{
-                name = converted_ident.(Ident).literal,
-                cursors_idx = self.cursors_idx,
-            }
+            type = typedef_from_ident(converted_ident.(Ident))
         }
     }
 
@@ -1871,6 +1896,18 @@ parse_ident :: proc(self: ^Parser, ident: Ident) -> Stmnt {
         stmnt := parse_fn_call(self, ident).(FnCall)
         token_expect(self, TokenSemiColon{})
         return stmnt
+    case TokenSemiColon:
+        if self.in_enum_decl {
+            token_next(self) // no nil check, already checked when peeked
+            return ConstDecl{
+                name = ident,
+                type = I32{},
+                value = nil,
+                cursors_idx = self.cursors_idx,
+            }
+        } else {
+            elog(self, self.cursors_idx, "unexpected token %v", tok)
+        }
     case:
         elog(self, self.cursors_idx, "unexpected token %v", tok)
     }

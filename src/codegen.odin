@@ -275,6 +275,8 @@ gen_block :: proc(self: ^Codegen, block: [dynamic]Stmnt) {
             gen_fn_decl(self, stmnt)
         case StructDecl:
             // do nothing, defs will be resolved later
+        case EnumDecl:
+            // do nothing, defs will be resolved later
         case VarDecl:
             gen_var_decl(self, stmnt)
         case ConstDecl:
@@ -412,6 +414,38 @@ gen_struct_decl :: proc(self: ^Codegen, structd: StructDecl) {
     gen_write(self, "%v", struct_def)
     gen_block(self, structd.fields)
     gen_writeln(self, ";")
+
+    self.in_defs = false
+}
+
+gen_enum_decl :: proc(self: ^Codegen, enumd: EnumDecl) {
+    enum_def := fmt.aprintf("enum %v", enumd.name.literal)
+    for generated in self.generated_generics {
+        if generated == enum_def {
+            delete(enum_def)
+            return
+        }
+    }
+    append(&self.generated_generics, enum_def)
+
+    self.def_loc = len(self.defs.buf)
+    gen_indent(self)
+
+    self.in_defs = true
+
+    gen_writeln(self, "%v {{", enum_def)
+    self.indent_level += 1
+    for field in enumd.fields {
+        f := field.(ConstDecl)
+
+        expr, alloced := gen_expr(self, f.value)
+        defer if alloced do delete(expr)
+
+        gen_indent(self)
+        gen_writeln(self, "%v = %v,", f.name.literal, expr)
+    }
+    self.indent_level -= 1
+    gen_writeln(self, "}};")
 
     self.in_defs = false
 }
@@ -598,7 +632,8 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
             curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
             return curoption, true
         }
-        return expr.literal, false
+
+        return fmt.aprintf("%v", internal_int_cast(expr.type, expr.literal)), true
     case FloatLit:
         if opt, ok := expr.type.(Option); ok && opt.gen_option{
             typename := strings.builder_make()
@@ -612,7 +647,8 @@ gen_expr :: proc(self: ^Codegen, expression: Expr) -> (string, bool) {
             curoption := fmt.aprintf("curoption_%v(%v)", strings.to_string(typename), value)
             return curoption, true
         }
-        return expr.literal, false
+
+        return fmt.aprintf("%v", internal_int_cast(expr.type, expr.literal)), true
     case CharLit:
         if opt, ok := expr.type.(Option); ok && opt.gen_option {
             typename := strings.builder_make()
@@ -1289,8 +1325,15 @@ gen_generic_decl :: proc(self: ^Codegen, type: Type) {
     case TypeDef:
         // NOTE: no generics right now, just for forward declaration
         // TODO: add typedef generics
+        typedef: string
 
-        typedef := fmt.aprintfln("typedef struct %v %v;", t.name, t.name)
+        stmnt, _ := ast_find_decl(self.ast, t.name)
+        if _, ok := stmnt.(StructDecl); ok {
+            typedef = fmt.aprintfln("typedef struct %v %v;", t.name, t.name)
+        } else if _, ok := stmnt.(EnumDecl); ok {
+            typedef = fmt.aprintfln("typedef enum %v %v;", t.name, t.name)
+        }
+
         for generic in self.generated_generics {
             if typedef == generic {
                 delete(typedef)
@@ -1497,6 +1540,8 @@ gen_resolve_def :: proc(self: ^Codegen, node: Dnode) {
     #partial switch stmnt in statement {
     case StructDecl:
         gen_struct_decl(self, stmnt)
+    case EnumDecl:
+        gen_enum_decl(self, stmnt)
     }
 }
 

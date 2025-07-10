@@ -125,6 +125,10 @@ ast_find_decl :: proc(ast: [dynamic]Stmnt, key: string) -> (Stmnt, bool) {
                 if key == e.name.literal {
                     return e, true
                 }
+            case EnumDecl:
+                if key == e.name.literal {
+                    return e, true
+                }
             }
 
         case FnDecl:
@@ -140,6 +144,10 @@ ast_find_decl :: proc(ast: [dynamic]Stmnt, key: string) -> (Stmnt, bool) {
                 return d, true
             }
         case StructDecl:
+            if key == d.name.literal {
+                return d, true
+            }
+        case EnumDecl:
             if key == d.name.literal {
                 return d, true
             }
@@ -318,6 +326,8 @@ type_of_stmnt :: proc(using analyser: ^Analyser, statement: Stmnt) -> Type {
         return stmnt.type
     case StructDecl:
         elog(analyser, stmnt.cursors_idx, "unexpected struct declaration")
+    case EnumDecl:
+        elog(analyser, stmnt.cursors_idx, "unexpected enum declaration")
     case Continue:
         elog(analyser, stmnt.cursors_idx, "unexpected continue statement")
     case Break:
@@ -361,11 +371,9 @@ analyse_array_literal :: proc(self: ^Analyser, literal: ^Literal) {
                 elog(self, literal.cursors_idx, "array length {}, literal length {}", length, len(literal.values.([dynamic]Expr)))
             }
         } else {
-            length := fmt.aprintf("%v", len(literal.values.([dynamic]Expr)))
-
             array.len = new(Expr)
             array.len.?^ = IntLit{
-                literal = length,
+                literal = cast(u64)len(literal.values.([dynamic]Expr)),
                 type = Usize{},
                 cursors_idx = 0,
             }
@@ -534,14 +542,7 @@ analyse_expr :: proc(self: ^Analyser, expr: ^Expr) {
     case FloatLit:
         return
     case CharLit:
-        length := 0
-        for elem in ex.literal {
-            length += 1
-        }
-
-        if length > 1 {
-            elog(self, ex.cursors_idx, "character literal cannot be more than one character")
-        }
+        return
     case StrLit:
         ex.len = len(ex.literal)
     case CstrLit:
@@ -963,6 +964,8 @@ analyse_block :: proc(self: ^Analyser, block: [dynamic]Stmnt) {
             elog(self, stmnt.cursors_idx, "illegal function declaration \"%v\" inside another function", stmnt.name)
         case StructDecl:
             elog(self, stmnt.cursors_idx, "illegal struct declaration \"%v\" inside a function", stmnt.name)
+        case EnumDecl:
+            elog(self, stmnt.cursors_idx, "illegal enum declaration \"%v\" inside a function", stmnt.name)
         }
     }
 }
@@ -1002,17 +1005,30 @@ analyse_struct_decl_deps :: proc(self: ^Analyser, structd: ^StructDecl, visited:
             decl, ok := ast_find_decl(self.ast, f.type.(TypeDef).name)
             if !ok do continue;
 
-            struc := &decl.(StructDecl)
-            if visit, ok := visited[struc.name.literal]; ok && visit {
-                elog(self, f.cursors_idx, "cyclic dependency between struct \"%v\" and field \"%v\" of type \"%v\"", structd.name.literal, f.name.literal, struc.name.literal)
-            }
-
             new_visited := make(map[string]bool)
             defer delete(new_visited)
             copy_map(visited^, &new_visited)
 
-            analyse_struct_decl_deps(self, struc, &new_visited)
-            append(&children, struc.name.literal)
+            name: Ident
+            if struc, is_struc := &decl.(StructDecl); is_struc {
+                name = struc.name
+
+                if visit, ok := visited[name.literal]; ok && visit {
+                    elog(self, f.cursors_idx, "cyclic dependency between struct \"%v\" and field \"%v\" of type \"%v\"", structd.name.literal, f.name.literal, name.literal)
+                }
+
+                analyse_struct_decl_deps(self, struc, &new_visited)
+            } else if enu, is_enu := &decl.(EnumDecl); is_enu {
+                name = enu.name
+
+                dgraph_push(&self.def_deps, Dnode{
+                    name = name.literal,
+                    us = enu^,
+                    children = [dynamic]string{}
+                })
+            }
+
+            append(&children, name.literal)
         } else if type_tag_equal(f.type, Option{}) {
             // we need to explicitly check if it's an option between we need to generate the underlying type
 
@@ -1058,6 +1074,30 @@ analyse_struct_decl :: proc(self: ^Analyser, structd: ^StructDecl) {
     analyse_struct_decl_deps(self, structd, &visited)
 }
 
+analyse_enum_decl :: proc(self: ^Analyser, enumd: ^EnumDecl) {
+    symtab_push(self, enumd.name.literal, enumd^)
+    symtab_new_scope(self)
+    defer symtab_pop_scope(self)
+
+    counter := 0
+    for &field in enumd.fields {
+        #partial switch &f in field {
+        case ConstDecl:
+            if f.value == nil {
+                f.value = IntLit{
+                    literal = cast(u64)counter,
+                    type = Untyped_Int{},
+                    cursors_idx = f.cursors_idx,
+                }
+                counter += 1
+            } else {
+                val, _ := evaluate_expr(self, &f.value)
+                counter = cast(int)val
+            }
+        }
+    }
+}
+
 analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
     switch &stmnt in extern.body {
     case FnDecl:
@@ -1070,6 +1110,8 @@ analyse_extern :: proc(self: ^Analyser, extern: ^Extern) {
         analyse_const_decl(self, &stmnt)
     case StructDecl:
         elog(self, stmnt.cursors_idx, "illegal struct declaration \"%v\", cannot be external", stmnt.name)
+    case EnumDecl:
+        elog(self, stmnt.cursors_idx, "illegal enum declaration \"%v\", cannot be external", stmnt.name)
     case Block:
         elog(self, stmnt.cursors_idx, "illegal use of scope block, not inside a function")
     case Return:
@@ -1158,6 +1200,8 @@ analyse :: proc(self: ^Analyser) {
             analyse_fn_decl(self, &stmnt)
         case StructDecl:
             analyse_struct_decl(self, &stmnt)
+        case EnumDecl:
+            analyse_enum_decl(self, &stmnt)
         case VarDecl:
             analyse_var_decl(self, &stmnt)
         case VarReassign:

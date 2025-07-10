@@ -391,63 +391,63 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
     case IntLit:
         #partial switch t in type {
         case F32:
-            value, _ := strconv.parse_f64(expr.literal)
-            if value > auto_cast F32_MAX {
+            value := cast(f64)expr.literal
+            if cast(f64)expr.literal > auto_cast F32_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in f32", value)
             }
         case F64:
-            value, _ := strconv.parse_f64(expr.literal)
+            value := cast(f64)expr.literal
             if value > auto_cast F64_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in f64", value)
             }
         case U8:
-            value, _ := strconv.parse_u64(expr.literal)
+            value := expr.literal
             if value > auto_cast U8_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in u8", value)
             }
         case U16:
-            value, _ := strconv.parse_u64(expr.literal)
+            value := expr.literal
             if value > auto_cast U16_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in u16", value)
             }
         case U32:
-            value, _ := strconv.parse_u64(expr.literal)
+            value := expr.literal
             if value > auto_cast U32_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in u32", value)
             }
         case U64:
-            value, _ := strconv.parse_u64(expr.literal)
+            value := expr.literal
             if value > auto_cast U64_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in u64", value)
             }
         case Usize:
-            value, _ := strconv.parse_u64(expr.literal)
+            value := expr.literal
             if value > auto_cast U64_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in usize", value)
             }
         case I8:
-            value, _ := strconv.parse_i64(expr.literal)
+            value := cast(i64)expr.literal
             if value > auto_cast I8_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in i8", value)
             }
         case I16:
-            value, _ := strconv.parse_i64(expr.literal)
+            value := cast(i64)expr.literal
             if value > auto_cast I16_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in i16", value)
             }
         case I32:
-            value, _ := strconv.parse_i64(expr.literal)
+            value := cast(i64)expr.literal
             if value > auto_cast I32_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in i32", value)
             }
         case I64:
-            value, _ := strconv.parse_i64(expr.literal)
+            value := cast(i64)expr.literal
             if value > auto_cast I64_MAX {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in i64", value)
             }
         case Isize:
-            value, _ := strconv.parse_u64(expr.literal)
-            if value > auto_cast U64_MAX {
+            value := cast(i64)expr.literal
+            if value > auto_cast ISIZE_MIN {
                 elog(analyser, get_cursor_index(expression), "literal \"%v\" cannot be represented in isize", value)
             }
         }
@@ -456,28 +456,28 @@ tc_number_within_bounds :: proc(analyser: ^Analyser, type: Type, expression: Exp
         case IntLit:
             #partial switch t in type {
             case I8:
-                value, _ := strconv.parse_i64(ex.literal)
-                if -value < auto_cast I8_MIN {
+                value := cast(i64)ex.literal
+                if value < auto_cast I8_MIN {
                     elog(analyser, get_cursor_index(expression), "literal \"-%v\" cannot be represented in i8", value)
                 }
             case I16:
-                value, _ := strconv.parse_i64(ex.literal)
-                if -value < auto_cast I16_MIN {
+                value := cast(i64)ex.literal
+                if value < auto_cast I16_MIN {
                     elog(analyser, get_cursor_index(expression), "literal \"-%v\" cannot be represented in i16", value)
                 }
             case I32:
-                value, _ := strconv.parse_i64(ex.literal)
-                if -value < auto_cast I32_MIN {
+                value := cast(i64)ex.literal
+                if value < auto_cast I32_MIN {
                     elog(analyser, get_cursor_index(expression), "literal \"-%v\" cannot be represented in i32", value)
                 }
             case I64:
-                value, _ := strconv.parse_i64(ex.literal)
-                if -value < auto_cast I64_MIN {
+                value := cast(i64)ex.literal
+                if value < auto_cast I64_MIN {
                     elog(analyser, get_cursor_index(expression), "literal \"-%v\" cannot be represented in i64", value)
                 }
             case Isize:
-                value, _ := strconv.parse_i64(ex.literal)
-                if -value < auto_cast ISIZE_MIN {
+                value := cast(i64)ex.literal
+                if value < auto_cast ISIZE_MIN {
                     elog(analyser, get_cursor_index(expression), "literal \"-%v\" cannot be represented in isize", value)
                 }
             }

@@ -1,9 +1,18 @@
+Something :: struct {
+    day: Day;
+}
+
+// add enums, no literals
+Day :: enum {
+    Mon;
+    Tue;
+    Wed;
+    Thur;
+    Fri;
+    Sat;
+    Sun;
+}
+
 main :: fn() void {
-    // these now properly error again
-
-    foo: [3]i8 = {255, 1, 2};
-    //              ^ bigger than i8 max (127)
-
-    bar: [_]i32;
-    // unable to infer size without literal
+    day: Day = Day.Mon;
 }

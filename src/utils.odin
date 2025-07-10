@@ -1,3 +1,4 @@
+#+feature dynamic-literals
 package main
 
 import "core:fmt"
@@ -77,5 +78,41 @@ get_c_compiler :: proc() -> string {
 copy_map :: proc(dst: map[$K]$V, source: ^map[K]V) {
     for k, v in dst {
         source[k] = v
+    }
+}
+
+internal_int_cast :: proc(type: Type, value: u64) -> union{
+    f32, f64, u8, u16, u32, u64, uint, i8, i16, i32, i64, int
+} {
+    #partial switch t in type {
+    case F32:
+        return cast(f32)value
+    case F64:
+        return cast(f64)value
+
+    case U8:
+        return cast(u8)value
+    case U16:
+        return cast(u16)value
+    case U32:
+        return cast(u32)value
+    case U64:
+        return cast(u64)value
+    case Usize:
+        return cast(uint)value
+
+    case I8:
+        return cast(i8)value
+    case I16:
+        return cast(i16)value
+    case I32:
+        return cast(i32)value
+    case I64:
+        return cast(i64)value
+    case Isize:
+        return cast(int)value
+
+    case:
+        return value
     }
 }

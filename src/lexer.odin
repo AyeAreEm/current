@@ -9,13 +9,13 @@ TokenIdent :: struct {
     ident: string,
 }
 TokenIntLit :: struct {
-    literal: string,
+    literal: u64,
 }
 TokenFloatLit :: struct {
-    literal: string,
+    literal: u64,
 }
 TokenCharLit :: struct {
-    literal: string,
+    literal: u8,
 }
 TokenStrLit :: struct {
     literal: string,
@@ -231,10 +231,10 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
 
             if string_buf == "_" {
                 append(tokens, TokenUnderscore{})
-            } else if _, ok := strconv.parse_u64(string_buf); ok {
-                append(tokens, TokenIntLit{strings.clone(string_buf)})
-            } else if _, ok := strconv.parse_f64(string_buf); ok {
-                append(tokens, TokenFloatLit{strings.clone(string_buf)})
+            } else if val, ok := strconv.parse_u64(string_buf); ok {
+                append(tokens, TokenIntLit{val})
+            } else if val, ok := strconv.parse_f64(string_buf); ok {
+                append(tokens, TokenFloatLit{cast(u64)val})
             } else {
                 if is_directive^ {
                     append(tokens, TokenDirective{strings.clone(string_buf)})
@@ -359,7 +359,7 @@ lexer :: proc(source: string) -> (tokens: [dynamic]Token, cursor: [dynamic][2]u3
 
                 append(&cursor, [2]u32{row, col})
                 append(&tokens, TokenCharLit{
-                    literal = strings.clone(string_buf),
+                    literal = string_buf[0],
                 })
                 clear(&buf.buf)
             } else {
