@@ -4,69 +4,49 @@
 #include <stdint.h>
 
 typedef enum TokenKind {
-    TkIdent,
-    TkIntLit,
-    TkFloatLit,
-    TkCharLit,
-    TkStrLit,
-    TkDirective,
+    TokIdent,
+    TokIntLit,
+    TokFloatLit,
+    TokCharLit,
+    TokStrLit,
+    TokDirective,
 
-    TkColon,
-    TkSemiColon,
+    TokColon,
+    TokSemiColon,
 
-    TkEqual,
-    TkLeftAngle,
-    TkRightAngle,
+    TokEqual,
+    TokLeftAngle,
+    TokRightAngle,
 
-    TkLeftBracket,
-    TkRightBracket,
+    TokLeftBracket,
+    TokRightBracket,
 
-    TkLeftCurl,
-    TkRightCurl,
+    TokLeftCurl,
+    TokRightCurl,
 
-    TkLeftSquare,
-    TkRightSquare,
+    TokLeftSquare,
+    TokRightSquare,
 
-    TkComma,
-    TkDot,
-    TkCaret,
+    TokComma,
+    TokDot,
+    TokCaret,
 
-    TkPlus,
-    TkMinus,
-    TkStar,
-    TkSlash,
-    TkBackSlash,
+    TokPlus,
+    TokMinus,
+    TokStar,
+    TokSlash,
+    TokBackSlash,
 
-    TkAmpersand,
-    TkExclaim,
+    TokAmpersand,
+    TokExclaim,
 
-    TkUnderscore,
+    TokUnderscore,
 
-    TkQuestion,
+    TokQuestion,
 
-    TkNone,
+    TokNone,
 } TokenKind;
-
-typedef struct TokenIdent {
-    const char *ident;
-} TokenIdent;
-
-typedef struct TokenIntLit {
-    uint64_t literal;
-} TokenIntLit;
-
-typedef TokenIntLit TokenFloatLit;
-
-typedef struct TokenCharLit {
-    char literal;
-} TokenCharLit;
-
-typedef struct TokenStrLit {
-    const char *literal;
-} TokenStrLit;
-
-// #<literal>
-typedef TokenStrLit TokenDirective;
+const char *tokenkind_stringify(TokenKind kind);
 
 typedef struct Token {
     TokenKind kind;
@@ -89,9 +69,14 @@ Token token_strlit(const char *s);
 Token token_directive(const char *s);
 void print_tokens(Token *tokens);
 
+typedef struct Cursor {
+    uint32_t row;
+    uint32_t col;
+} Cursor;
+
 typedef struct Lexer {
     Token *tokens;
-    uint32_t **cursors; // vec(uint32_t[2])
+    Cursor *cursors;
 } Lexer;
 
 Lexer lexer(const char *source);

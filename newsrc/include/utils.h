@@ -20,13 +20,18 @@
         (str)[(tail_idx)] = '\0';\
     } while (0);\
 
+void vprintfln(const char *fmt, va_list args);
+
 void printfln(const char *fmt, ...);
+
+void veprintf(const char *fmt, va_list args);
+void veprintfln(const char *fmt, va_list args);
 
 void eprintf(const char *fmt, ...);
 void eprintfln(const char *fmt, ...);
 
 void debug(const char *msg, ...);
-void elog(const char *msg, ...);
+void comp_elog(const char *msg, ...);
 
 // returns false if failed
 bool read_file(const char *filename, char **buf);
@@ -43,4 +48,12 @@ char *strclone(const char *str);
 // sets str[0] = 0 and *len = 0.
 // len can be NULL
 void strclear(char *str, size_t *tail_idx);
+
+bool streq(const char *s1, const char *s2);
+
+// errors and exits when NULL
+void *ealloc(size_t size);
+
+// erroors and exits when NULL
+void *erealloc(void *mem, size_t size);
 #endif // UTILS_H

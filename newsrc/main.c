@@ -1,21 +1,38 @@
-#include "include/lexer.h"
-#include "include/utils.h"
-#include "include/cli.h"
-
 #define STB_DS_IMPLEMENTATION
 #include "include/stb_ds.h"
+#include "include/lexer.h"
+#include "include/stmnts.h"
+#include "include/utils.h"
+#include "include/cli.h"
+#include "include/parser.h"
+
+void print_ast(Stmnt *ast, Cursor *cursors) {
+    for (size_t i = 0; i < arrlenu(ast); i++) {
+        print_stmnt(ast[i], cursors, 0);
+    }
+}
 
 void build(char *filepath) {
     char *content;
     bool content_ok = read_file(filepath, &content);
     if (!content_ok) {
-        elog("failed to read %s", filepath);
+        comp_elog("failed to read %s", filepath);
     }
 
     Lexer lex = lexer(content);
-    if (arrlen(lex.tokens) != arrlen(lex.cursors)) elog("expected length of tokens and length of cursors to be the same");
-
+    if (arrlen(lex.tokens) != arrlen(lex.cursors)) comp_elog("expected length of tokens and length of cursors to be the same");
     print_tokens(lex.tokens);
+    for (size_t i = 0; i < arrlenu(lex.cursors); i++) {
+        printfln("%u:%u", lex.cursors[i].row, lex.cursors[i].col);
+    }
+    printfln("");
+
+    Stmnt *ast = NULL;
+    Parser parser = parser_init(lex, filepath);
+    for (Stmnt stmnt = parse(&parser); stmnt.kind != SkNone; stmnt = parse(&parser)) {
+        arrpush(ast, stmnt);
+    }
+    print_ast(ast, parser.cursors);
 
     free(content);
 }

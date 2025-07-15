@@ -15,4 +15,5 @@ Day :: enum {
 
 main :: fn() void {
     day: Day;
+    count := 10;
 }

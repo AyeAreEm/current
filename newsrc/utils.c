@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include "include/utils.h"
 
-static void vprintfln(const char *fmt, va_list args) {
+void vprintfln(const char *fmt, va_list args) {
     vprintf(fmt, args); 
     printf("\n");
 }
@@ -19,11 +19,11 @@ void printfln(const char *fmt, ...) {
     va_end(args);
 }
 
-static void veprintf(const char *fmt, va_list args) {
+void veprintf(const char *fmt, va_list args) {
     vfprintf(stderr, fmt, args);
 }
 
-static void veprintfln(const char *fmt, va_list args) {
+void veprintfln(const char *fmt, va_list args) {
     veprintf(fmt, args);
     fprintf(stderr, "\n");
 }
@@ -82,7 +82,7 @@ void debug(const char *msg, ...) {
     va_end(args);
 }
 
-void elog(const char *msg, ...) {
+void comp_elog(const char *msg, ...) {
     eprintf(TERM_RED "error" TERM_END ": ");
 
     va_list args;
@@ -143,7 +143,7 @@ bool parse_u64(const char *str, uint64_t *n) {
     str_head += index;
 
     *n = value;
-    return strlen(str) == 0;
+    return str_head == strlen(str);
 }
 
 bool parse_f64(const char *str, double *n) {
@@ -170,4 +170,24 @@ void strclear(char *str, size_t *tail_idx) {
     } else {
         str[0] = '\0';
     }
+}
+
+bool streq(const char *s1, const char *s2) {
+    return strcmp(s1, s2) == 0;
+}
+
+void *ealloc(size_t size) {
+    void *mem = malloc(size);
+    if (!mem) {
+        comp_elog("failed to allocate memory");
+    }
+    return mem;
+}
+
+void *erealloc(void *mem, size_t size) {
+    mem = realloc(mem, size);
+    if (!mem) {
+        comp_elog("failed to reallocate memory");
+    }
+    return mem;
 }

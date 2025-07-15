@@ -1,6 +1,5 @@
 #include <stdarg.h>
 #include <stdlib.h>
-#include <string.h>
 #include "include/cli.h"
 #include "include/utils.h"
 
@@ -16,7 +15,7 @@ static Cli cli_init() {
 
 static char *cli_args_next(char ***argv, int *argc) {
     if (*argc == 0) {
-        elog("expected another argument");
+        comp_elog("expected another argument");
     }
 
     char *arg = (*argv)[0];
@@ -27,35 +26,35 @@ static char *cli_args_next(char ***argv, int *argc) {
 
 static bool cli_is_command(const char *arg) {
     for (int i = 0; i < CommandCOUNT; i++) {
-        if (strcmp(arg, cli_commands[i]) == 0) return true;
+        if (streq(arg, cli_commands[i])) return true;
     }
     return false;
 }
 
 static void cli_parse_help(Cli *cli, char ***argv, int *argc) {
     if (cli->help) {
-        elog("unexpected help, help option already set");
+        comp_elog("unexpected help, help option already set");
     }
     cli->help = true;
 
     if (*argc != 0) {
         char *arg = cli_args_next(argv, argc);
-        elog("unexpected %s option after help", arg);
+        comp_elog("unexpected %s option after help", arg);
     }
 }
 
 static void cli_parse_build(Cli *cli, char ***argv, int *argc) {
     if (cli->command != -1) {
-        elog("unexpected build, %s option already set", cli_commands[cli->command]);
+        comp_elog("unexpected build, %s option already set", cli_commands[cli->command]);
     }
 
     cli->command = CommandBuild;
     char *arg = cli_args_next(argv, argc);
     if (cli_is_command(arg)) {
-        elog("unexpected %s, expected filename or help", arg);
+        comp_elog("unexpected %s, expected filename or help", arg);
     }
 
-    if (strcmp(arg, "help") == 0) {
+    if (streq(arg, "help")) {
         cli_parse_help(cli, argv, argc);
         return;
     }
@@ -65,16 +64,16 @@ static void cli_parse_build(Cli *cli, char ***argv, int *argc) {
 
 static void cli_parse_run(Cli *cli, char ***argv, int *argc) {
     if (cli->command != -1) {
-        elog("unexpected run, %s option already set", cli_commands[cli->command]);
+        comp_elog("unexpected run, %s option already set", cli_commands[cli->command]);
     }
 
     cli->command = CommandRun;
     char *arg = cli_args_next(argv,argc);
     if (cli_is_command(arg)) {
-        elog("unexpected %s, expected filename or help", arg);
+        comp_elog("unexpected %s, expected filename or help", arg);
     }
 
-    if (strcmp(arg, "help") == 0) {
+    if (streq(arg, "help")) {
         cli_parse_help(cli, argv, argc);
         return;
     }
@@ -118,11 +117,11 @@ Cli cli_parse(char **argv, int argc) {
     for (int i = 0; i < argc; i++) {
         char *arg = cli_args_next(&argv, &argc);
 
-        if (strcmp(arg, "build") == 0) {
+        if (streq(arg, "build")) {
             cli_parse_build(&cli, &argv, &argc);
-        } else if (strcmp(arg, "run") == 0) {
+        } else if (streq(arg, "run")) {
             cli_parse_run(&cli, &argv, &argc);
-        } else if (strcmp(arg, "help") == 0) {
+        } else if (streq(arg, "help")) {
             cli_parse_help(&cli, &argv, &argc);
         }
     }
