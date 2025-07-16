@@ -18,7 +18,7 @@
         PUSH((str), (len), (tail_idx), (ch));\
         assert((tail_idx) < (len));\
         (str)[(tail_idx)] = '\0';\
-    } while (0);\
+    } while (0)\
 
 void vprintfln(const char *fmt, va_list args);
 

@@ -273,7 +273,7 @@ Lexer lexer(const char *source) {
         if (in_block_comment && ch == '*' && AT(source, strlen(source), i + 1) == '/') {
             ignore_index = i + 1;
             in_block_comment = false;
-            col += 1;
+            move_cursor(ch, &row, &col);
             continue;
         } else if (in_block_comment) {
             move_cursor(ch, &row, &col);
@@ -306,7 +306,7 @@ Lexer lexer(const char *source) {
             {
                 buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 is_directive = true;
-                col += 1;
+                move_cursor(ch, &row, &col);
             } break;
             case '\'':
             {
@@ -317,9 +317,9 @@ Lexer lexer(const char *source) {
                     arrpush(lex.tokens, token_charlit(buf[0]));
                     strclear(buf, &buf_len);
                 } else {
-                    resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                     in_quotes = true;
-                    col += 1;
+                    move_cursor(ch, &row, &col);
                 }
             } break;
             case '"':
@@ -331,9 +331,9 @@ Lexer lexer(const char *source) {
                     arrpush(lex.tokens, token_strlit(strclone(buf)));
                     strclear(buf, &buf_len);
                 } else {
-                    resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                     in_double_quotes = true;
-                    col += 1;
+                    move_cursor(ch, &row, &col);
                 }
             } break;
             case '.':
@@ -341,90 +341,91 @@ Lexer lexer(const char *source) {
                 uint64_t u64 = 0;
                 if (parse_u64(buf, &u64)) {
                     PUSH(buf, BUF_CAP, buf_len, ch);
+                    move_cursor(ch, &row, &col);
                     col += 1;
                 } else {
-                    resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                     push_token(&lex, (Token){.kind = TokDot}, &row, &col);
                 }
             } break;
             case '?':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokQuestion}, &row, &col);
             } break;
             case ':':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokColon}, &row, &col);
             } break;
             case '(':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokLeftBracket}, &row, &col);
             } break;
             case ')':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokRightBracket}, &row, &col);
             } break;
             case '{':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokLeftCurl}, &row, &col);
             } break;
             case '}':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokRightCurl}, &row, &col);
             } break;
             case '<':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokLeftAngle}, &row, &col);
             } break;
             case '>':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokRightAngle}, &row, &col);
             } break;
             case '[':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokLeftSquare}, &row, &col);
             } break;
             case ']':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokRightSquare}, &row, &col);
             } break;
             case '=':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokEqual}, &row, &col);
             } break;
             case '!':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokExclaim}, &row, &col);
             } break;
             case ';':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokSemiColon}, &row, &col);
             } break;
             case ',':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokComma}, &row, &col);
             } break;
             case '+':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokPlus}, &row, &col);
             } break;
             case '-':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokMinus}, &row, &col);
             } break;
             case '*':
@@ -432,20 +433,20 @@ Lexer lexer(const char *source) {
                 if (AT(source, strlen(source), i + 1) == '/') {
                     ignore_index = i + 1;
                     in_block_comment = false;
-                    col += 1;
+                    move_cursor(ch, &row, &col);
                 } else {
-                    resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                     push_token(&lex, (Token){.kind = TokStar}, &row, &col);
                 }
             } break;
             case '^':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokCaret}, &row, &col);
             } break;
             case '&':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokAmpersand}, &row, &col);
             } break;
             case '/':
@@ -454,24 +455,24 @@ Lexer lexer(const char *source) {
                 if (next == '/') {
                     ignore_index = i + 1;
                     in_single_line_comment = true;
-                    col += 1;
+                    move_cursor(ch, &row, &col);
                 } else if (next == '*') {
                     ignore_index = i + 1;
                     in_block_comment = true;
                 } else {
-                    resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                     push_token(&lex, (Token){.kind = TokSlash}, &row, &col);
                 }
             } break;
             case '\\':
             {
-                resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                 push_token(&lex, (Token){.kind = TokBackSlash}, &row, &col);
             } break;
             default:
             {
                 STRPUSH(buf, BUF_CAP, buf_len, ch);
-                col += 1;
+                move_cursor(ch, &row, &col);
             } break;
         }
     }

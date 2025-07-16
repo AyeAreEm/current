@@ -1,19 +1,19 @@
-Something :: struct {
-    day: Day;
-}
+#link "libc";
 
-// add enums, no literals
-Day :: enum {
-    Mon;
-    Tue;
-    Wed;
-    Thur;
-    Fri;
-    Sat;
-    Sun;
-}
+extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    day: Day;
-    count := 10;
+    greetings := [_]cstring{c"hello", c"hi", c"hey"};
+
+/* 
+    the greetings variable can also be declared in these ways:
+    greetings := [3]cstring{c"hello", c"hi", c"hey"};
+    greetings: [3]cstring = {c"hello", c"hi", c"hey"};
+    greetings: [_]cstring = {c"hello", c"hi", c"hey"};
+*/
+
+    greetings[0] = c"wassup";
+    puts(greetings[0]);
+    puts(greetings[1]);
+    puts(greetings[2]);
 }

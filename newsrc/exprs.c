@@ -318,7 +318,11 @@ static strb literal_stringify(Expr expr, Cursor *cursors) {
 
     for (size_t i = 0; i < len; i++) {
         strb val = expr_stringify(expr.literal.exprs[i], cursors);
-        strbprintf(&buf, "%s", val);
+        if (i == 0) {
+            strbprintf(&buf, "%s", val);
+        } else {
+            strbprintf(&buf, ", %s", val);
+        }
         strbfree(val);
     }
     strbpush(&buf, '}');
@@ -405,7 +409,7 @@ static strb strlit_stringify(Expr expr, Cursor *cursors) {
 }
 
 static strb cstrlit_stringify(Expr expr, Cursor *cursors) {
-    assert(expr.kind == EkStrLit);
+    assert(expr.kind == EkCstrLit);
 
     strb buf = NULL;
     strbprintf(&buf, "c\"%s\"", expr.cstrlit);

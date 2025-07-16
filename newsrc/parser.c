@@ -225,6 +225,11 @@ Expr parse_end_literal(Parser *parser, Type type) {
             continue;
         }
 
+        expect(parser, TokComma);
+        if (peek(parser).kind == TokRightCurl) {
+            break;
+        }
+
         if (is_stmnts) {
             expect(parser, TokDot);
             Token tok = expect(parser, TokIdent);
@@ -250,6 +255,7 @@ Expr parse_end_literal(Parser *parser, Type type) {
         lit.literal.exprs = exprs;
     }
 
+    expect(parser, TokRightCurl);
     return lit;
 }
 
@@ -1279,7 +1285,7 @@ Stmnt parse_for(Parser *parser) {
 Stmnt parse_directive(Parser *parser) {
     Token tok = next(parser);
 
-    assert(tok.kind == TokIdent);
+    assert(tok.kind == TokDirective);
     Directive directive = parser_get_directive(parser, tok.ident);
     Stmnt d = stmnt_directive(directive, parser->cursors_idx);
 
@@ -1301,7 +1307,6 @@ Stmnt parse_directive(Parser *parser) {
 
 Stmnt parse(Parser *parser) {
     Token tok = peek(parser);
-
     if (tok.kind == TokNone) return stmnt_none();
 
     switch (tok.kind) {

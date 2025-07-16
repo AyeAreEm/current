@@ -1,10 +1,13 @@
 #define STB_DS_IMPLEMENTATION
+#include <stdbool.h>
 #include "include/stb_ds.h"
 #include "include/lexer.h"
 #include "include/stmnts.h"
 #include "include/utils.h"
 #include "include/cli.h"
 #include "include/parser.h"
+
+const bool DEBUG_MODE = false;
 
 void print_ast(Stmnt *ast, Cursor *cursors) {
     for (size_t i = 0; i < arrlenu(ast); i++) {
@@ -21,18 +24,21 @@ void build(char *filepath) {
 
     Lexer lex = lexer(content);
     if (arrlen(lex.tokens) != arrlen(lex.cursors)) comp_elog("expected length of tokens and length of cursors to be the same");
-    print_tokens(lex.tokens);
-    for (size_t i = 0; i < arrlenu(lex.cursors); i++) {
-        printfln("%u:%u", lex.cursors[i].row, lex.cursors[i].col);
+
+    if (DEBUG_MODE) {
+        print_tokens(lex.tokens);
+        printfln("");
     }
-    printfln("");
 
     Stmnt *ast = NULL;
     Parser parser = parser_init(lex, filepath);
     for (Stmnt stmnt = parse(&parser); stmnt.kind != SkNone; stmnt = parse(&parser)) {
         arrpush(ast, stmnt);
     }
-    print_ast(ast, parser.cursors);
+
+    if (DEBUG_MODE) {
+        print_ast(ast, parser.cursors);
+    }
 
     free(content);
 }

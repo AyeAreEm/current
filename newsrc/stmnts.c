@@ -306,6 +306,7 @@ void print_fncall(Stmnt stmnt, Cursor *cursors, int indent) {
     };
     strb fncall = expr_stringify(expr, cursors);
 
+    print_indent(indent);
     printfln("%s; (%u:%u)", fncall, cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
     strbfree(fncall);
 }
