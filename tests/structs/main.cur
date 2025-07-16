@@ -1,0 +1,30 @@
+Vec2 :: struct {
+    x: i32;
+    y: i32;
+}
+
+print_vec2 :: fn(v: Vec2) {
+    // nothing
+}
+
+main :: fn() void {
+    pos1 := Vec2{
+        .x = 10,
+        .y = 15,
+    };
+
+    pos2: Vec2 = {
+        .x = 10,
+        .y = 15,
+    };
+
+    pos3 :: Vec2{
+        .x = 10,
+        .y = 15,
+    };
+
+    pos4: Vec2: {
+        .x = 10,
+        .y = 15,
+    };
+}

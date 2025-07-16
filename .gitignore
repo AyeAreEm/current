@@ -7,3 +7,5 @@ test.exe
 output.c
 output.h
 test.dSYM/
+tests/directives/*.o
+tests/functions/*.o

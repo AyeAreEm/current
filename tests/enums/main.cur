@@ -1,0 +1,10 @@
+Dir :: enum {
+    North :: 1;
+    East;
+    South;
+    West;
+}
+
+main :: fn() void {
+    dir: Dir;
+}

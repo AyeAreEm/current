@@ -1,5 +1,5 @@
 # Todos
-- Enum Definitions
+- Enum Literals
 - Better Error Messages
 - Defining Libraries
 - Importing Libraries
@@ -56,3 +56,4 @@
 - Break Statement
 - Struct Definitions
 - Struct Literals
+- Enum Definitions
