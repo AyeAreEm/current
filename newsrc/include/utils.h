@@ -7,9 +7,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TERM_RED  "\x1B[91;1m"
-#define TERM_YELLOW  "\x1B[93;1m"
-#define TERM_END  "\x1B[0m"
+#define TERM_RED     "\x1b[31m"
+#define TERM_GREEN   "\x1b[32m"
+#define TERM_YELLOW  "\x1b[33m"
+#define TERM_BLUE    "\x1b[34m"
+#define TERM_MAGENTA "\x1b[35m"
+#define TERM_CYAN    "\x1b[36m"
+#define TERM_END     "\x1b[0m"
+
+#define TEST(cond) (printf("%s:%d %s\n", __FILE_NAME__, __LINE__, (cond) ? TERM_GREEN "PASSED" TERM_END : TERM_RED "FAILED" TERM_END))
 
 #define AT(xs, len, index) (assert((index) < (len)), (xs)[(index)])
 #define PUSH(xs, len, tail_idx, item) (assert((tail_idx) < (len)), (xs)[(tail_idx)++] = (item))

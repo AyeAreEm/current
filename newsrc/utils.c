@@ -154,10 +154,11 @@ bool parse_f64(const char *str, double *n) {
 }
 
 char *strclone(const char *str) {
-    char *s = malloc(strlen(str));
+    char *s = malloc(strlen(str) + sizeof(char));
     for (size_t i = 0; i < strlen(str); i++) {
         s[i] = str[i];
     }
+    s[strlen(str)] = '\0';
     return s;
 }
 
