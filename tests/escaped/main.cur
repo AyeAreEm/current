@@ -1,0 +1,17 @@
+main :: fn() {
+    foo := "\"";
+    foor = "\\";
+    foor = "\n";
+    foor = "\r";
+    foor = "\t";
+    foor = "\v";
+    foor = "\f";
+    foor = "\a";
+    foor = "\b";
+    foor = "\e";
+    y := '\'';
+    y = '\\';
+    y = '\n';
+    y = '\t';
+    y = '\v';
+}

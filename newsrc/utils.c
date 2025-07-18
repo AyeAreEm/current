@@ -177,6 +177,28 @@ bool streq(const char *s1, const char *s2) {
     return strcmp(s1, s2) == 0;
 }
 
+bool strhas(const char *hay, const char *needle) {
+    size_t needle_idx = 0;
+    size_t needle_len = strlen(needle);
+    size_t hay_len = strlen(needle);
+
+    if (needle_len > hay_len) {
+        return false;
+    }
+
+    for (size_t i = 0; i < hay_len; i++) {
+        if (hay[i] != needle[needle_idx]) {
+            needle_idx = 0;
+            continue;
+        }
+
+        needle_idx++;
+        if (needle_idx == needle_len) return true;
+    }
+
+    return false;
+}
+
 void *ealloc(size_t size) {
     void *mem = malloc(size);
     if (!mem) {

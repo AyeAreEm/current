@@ -1,5 +1,6 @@
 #include "include/stb_ds.h"
 #include "include/lexer.h"
+#include "include/strb.h"
 #include "include/utils.h"
 
 #define BUF_CAP 255
@@ -63,131 +64,74 @@ const char *tokenkind_stringify(TokenKind kind) {
     return "";
 }
 
+// returns strb, needs to be freed
+strb token_stringify(Token tok) {
+    strb s = NULL;
+
+    switch (tok.kind) {
+        case TokIdent:
+        {
+            strbprintf(&s, "Ident(%s)", tok.ident);
+        } break;
+        case TokIntLit:
+        {
+            strbprintf(&s, "IntLit(%lu)", tok.intlit);
+        } break;
+        case TokFloatLit:
+        {
+            strbprintf(&s, "FloatLit(%f)", tok.floatlit);
+        } break;
+        case TokCharLit:
+        {
+            strbprintf(&s, "CharLit('%c')", tok.charlit);
+        } break;
+        case TokStrLit:
+        {
+            strbprintf(&s, "StrLit(\"%s\")", tok.strlit);
+        } break;
+        case TokDirective:
+        {
+            strbprintf(&s, "Directive(\"%s\")", tok.directive);
+        } break;
+        case TokColon:
+        case TokSemiColon:
+        case TokEqual:
+        case TokLeftAngle:
+        case TokRightAngle:
+        case TokLeftBracket:
+        case TokRightBracket:
+        case TokLeftCurl:
+        case TokRightCurl:
+        case TokLeftSquare:
+        case TokRightSquare:
+        case TokComma:
+        case TokDot:
+        case TokCaret:
+        case TokPlus:
+        case TokMinus:
+        case TokStar:
+        case TokSlash:
+        case TokBackSlash:
+        case TokAmpersand:
+        case TokExclaim:
+        case TokUnderscore:
+        case TokQuestion:
+        case TokNone:
+        {
+            const char *kind = tokenkind_stringify(tok.kind);
+            strbprintf(&s, "%s", kind);
+        } break;
+    }
+
+    return s;
+}
+
 void print_tokens(Token *tokens) {
     for (size_t i = 0; i < arrlen(tokens); i++) {
         Token tok = tokens[i];
-        switch (tok.kind) {
-            case TokIdent:
-            {
-                printfln("Ident(\"%s\")", tok.ident);
-            } break;
-            case TokIntLit:
-            {
-                printfln("IntLit(%lu)", tok.intlit);
-            } break;
-            case TokFloatLit:
-            {
-                printfln("FloatLit(%f)", (double)tok.floatlit);
-            } break;
-            case TokCharLit:
-            {
-                printfln("CharLit(%c)", tok.charlit);
-            } break;
-            case TokStrLit:
-            {
-                printfln("StrLit(\"%s\")", tok.strlit);
-            } break;
-            case TokDirective:
-            {
-                printfln("Directive(\"%s\")", tok.directive);
-            } break;
-            case TokColon:
-            {
-                printfln("Colon");
-            } break;
-            case TokSemiColon:
-            {
-                printfln("SemiColon");
-            } break;
-            case TokEqual:
-            {
-                printfln("Equal");
-            } break;
-            case TokLeftAngle:
-            {
-                printfln("LeftAngle");
-            } break;
-            case TokRightAngle:
-            {
-                printfln("RightAngle");
-            } break;
-            case TokLeftBracket:
-            {
-                printfln("LeftBracket");
-            } break;
-            case TokRightBracket:
-            {
-                printfln("RightBracket");
-            } break;
-            case TokLeftCurl:
-            {
-                printfln("LeftCurl");
-            } break;
-            case TokRightCurl:
-            {
-                printfln("RightCurl");
-            } break;
-            case TokLeftSquare:
-            {
-                printfln("LeftSquare");
-            } break;
-            case TokRightSquare:
-            {
-                printfln("RightSquare");
-            } break;
-            case TokComma:
-            {
-                printfln("Comma");
-            } break;
-            case TokDot:
-            {
-                printfln("Dot");
-            } break;
-            case TokCaret:
-            {
-                printfln("Caret");
-            } break;
-            case TokPlus:
-            {
-                printfln("Plus");
-            } break;
-            case TokMinus:
-            {
-                printfln("Minus");
-            } break;
-            case TokStar:
-            {
-                printfln("Star");
-            } break;
-            case TokSlash:
-            {
-                printfln("Slash");
-            } break;
-            case TokBackSlash:
-            {
-                printfln("BackSlash");
-            } break;
-            case TokAmpersand:
-            {
-                printfln("Ampersand");
-            } break;
-            case TokExclaim:
-            {
-                printfln("Exclaim");
-            } break;
-            case TokUnderscore:
-            {
-                printfln("Underscore");
-            } break;
-            case TokQuestion:
-            {
-                printfln("Question");
-            } break;
-            case TokNone:
-            {
-                printfln("None");
-            } break;
-        }
+        strb s = token_stringify(tok);
+        printfln("%s", s);
+        strbfree(s);
     }
 }
 
@@ -237,6 +181,41 @@ static void push_token(Lexer *lex, Token tok, uint32_t *row, uint32_t *col) {
     arrpush(lex->tokens, tok);
 }
 
+// exits with 1 if failed
+static char strtochar(const char *s) {
+    if (strlen(s) == 1) {
+        return s[0];
+    }
+
+    if (streq(s, "\\\\")) {
+        return '\\';
+    } else if (streq(s, "\\'")) {
+        return '\'';
+    } else if (streq(s, "\\\"")) {
+        return '\"';
+    } else if (streq(s, "\\n")) {
+        return '\n';
+    } else if (streq(s, "\\r")) {
+        return '\r';
+    } else if (streq(s, "\\t")) {
+        return '\t';
+    } else if (streq(s, "\\v")) {
+        return '\v';
+    } else if (streq(s, "\\f")) {
+        return '\v';
+    } else if (streq(s, "\\a")) {
+        return '\v';
+    } else if (streq(s, "\\b")) {
+        return '\v';
+    } else if (streq(s, "\\e")) {
+        return '\v';
+    }
+
+    // TODO: support \x, etc
+
+    exit(1);
+}
+
 Lexer lexer(const char *source) {
     Lexer lex = {
         .tokens = NULL,
@@ -251,6 +230,7 @@ Lexer lexer(const char *source) {
     int ignore_index = -1;
     bool in_single_line_comment = false;
     bool in_block_comment = false;
+    bool escaped = false;
     bool in_quotes = false;
     bool in_double_quotes = false;
     bool is_directive = false;
@@ -280,13 +260,20 @@ Lexer lexer(const char *source) {
             continue;
         }
 
-        if (in_quotes && ch != '\'') {
+        if (escaped) {
+            escaped = false;
             STRPUSH(buf, BUF_CAP, buf_len, ch);
             move_cursor(ch, &row, &col);
             continue;
         }
 
-        if (in_double_quotes && ch != '"') {
+        if (in_quotes && ch != '\'' && ch != '\\') {
+            STRPUSH(buf, BUF_CAP, buf_len, ch);
+            move_cursor(ch, &row, &col);
+            continue;
+        }
+
+        if (in_double_quotes && ch != '"' && ch != '\\') {
             STRPUSH(buf, BUF_CAP, buf_len, ch);
             move_cursor(ch, &row, &col);
             continue;
@@ -310,11 +297,10 @@ Lexer lexer(const char *source) {
             } break;
             case '\'':
             {
-                // TODO: handle escaped '
                 if (in_quotes) {
                     in_quotes = false;
                     arrpush(lex.cursors, cursor(row, col));
-                    arrpush(lex.tokens, token_charlit(buf[0]));
+                    arrpush(lex.tokens, token_charlit(strtochar(buf)));
                     strclear(buf, &buf_len);
                 } else {
                     buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
@@ -324,7 +310,6 @@ Lexer lexer(const char *source) {
             } break;
             case '"':
             {
-                // TODO: handle escaped "
                 if (in_double_quotes) {
                     in_double_quotes = false;
                     arrpush(lex.cursors, cursor(row, col));
@@ -466,8 +451,14 @@ Lexer lexer(const char *source) {
             } break;
             case '\\':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokBackSlash}, &row, &col);
+                if (in_double_quotes || in_quotes) {
+                    escaped = true;
+                    STRPUSH(buf, BUF_CAP, buf_len, ch);
+                    move_cursor(ch, &row, &col);
+                } else {
+                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                    push_token(&lex, (Token){.kind = TokBackSlash}, &row, &col);
+                }
             } break;
             default:
             {

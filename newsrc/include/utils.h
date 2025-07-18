@@ -57,6 +57,8 @@ void strclear(char *str, size_t *tail_idx);
 
 bool streq(const char *s1, const char *s2);
 
+bool strhas(const char *hay, const char *needle);
+
 // errors and exits when NULL
 void *ealloc(size_t size);
 

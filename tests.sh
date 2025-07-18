@@ -33,6 +33,11 @@ directives() {
     echo directives exit code: $?
 }
 
+escaped() {
+    ./current run tests/escaped/main.cur
+    echo escaped exit code: $?
+}
+
 all() {
     functions
     structs
@@ -40,6 +45,7 @@ all() {
     consts
     enums
     directives
+    escaped
 }
 
 if [ "$option" == "functions" ]; then
@@ -54,6 +60,10 @@ elif [ "$option" == "enums" ]; then
     enums
 elif [ "$option" == "directives" ]; then
     directives
+elif [ "$option" == "escaped" ]; then
+    escaped
 elif [ "$option" == "all" ]; then
     all
+else
+    echo invalid option $option
 fi

@@ -2,6 +2,7 @@
 #define LEXER_H
 
 #include <stdint.h>
+#include "strb.h"
 
 typedef enum TokenKind {
     TokIdent,
@@ -68,6 +69,9 @@ Token token_charlit(char s);
 Token token_strlit(const char *s);
 Token token_directive(const char *s);
 void print_tokens(Token *tokens);
+
+// returns strb, needs to be freed
+strb token_stringify(Token tok);
 
 typedef struct Cursor {
     uint32_t row;
