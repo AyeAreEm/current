@@ -394,6 +394,12 @@ CREDITS
 #include <stddef.h>
 #include <string.h>
 
+// parts added by AyeAreEm
+#define Arr(T) T*
+#define Hm(T) arr(T)
+#define StrHm(T) hm(T)
+// end
+
 #ifndef STBDS_NO_SHORT_NAMES
 #define arrlen      stbds_arrlen
 #define arrlenu     stbds_arrlenu

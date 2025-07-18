@@ -7,7 +7,6 @@
 #include "include/strb.h"
 #include "include/types.h"
 #include "include/stb_ds.h"
-#include "include/utils.h"
 
 Expr expr_none() {
     return (Expr){.kind = EkNone};
@@ -138,7 +137,7 @@ Expr expr_unop(Unop v, Type t, size_t index) {
     };
 }
 
-Expr expr_group(Expr *v, Type t, size_t index) {
+Expr expr_group(Arr(Expr) v, Type t, size_t index) {
     return (Expr){
         .kind = EkGrouping,
         .cursors_idx = index,
@@ -165,7 +164,7 @@ Expr expr_arrayindex(ArrayIndex v, Type t, size_t index) {
     };
 }
 
-static strb ident_stringify(Expr expr, Cursor *cursors) {
+static strb ident_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkIdent);
 
     strb buf = NULL;
@@ -174,7 +173,7 @@ static strb ident_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb fncall_stringify(Expr expr, Cursor *cursors) {
+static strb fncall_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkFnCall);
 
     strb ident = expr_stringify(*expr.fncall.name, cursors);
@@ -193,7 +192,7 @@ static strb fncall_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb arrayindex_stringify(Expr expr, Cursor *cursors) {
+static strb arrayindex_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkArrayIndex);
 
     strb ident = expr_stringify(*expr.arrayidx.accessing, cursors);
@@ -208,7 +207,7 @@ static strb arrayindex_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb fieldaccess_stringify(Expr expr, Cursor *cursors) {
+static strb fieldaccess_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkFieldAccess);
 
     strb ident = expr_stringify(*expr.fieldacc.accessing, cursors);
@@ -228,7 +227,7 @@ static strb fieldaccess_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb binop_stringify(Expr expr, Cursor *cursors) {
+static strb binop_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkBinop);
 
     strb left = expr_stringify(*expr.binop.left, cursors);
@@ -277,7 +276,7 @@ static strb binop_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb unop_stringify(Expr expr, Cursor *cursors) {
+static strb unop_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkUnop);
 
     strb left = expr_stringify(*expr.unop.val, cursors);
@@ -302,7 +301,7 @@ static strb unop_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb literal_stringify(Expr expr, Cursor *cursors) {
+static strb literal_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkLiteral);
 
     strb buf = NULL;
@@ -329,7 +328,7 @@ static strb literal_stringify(Expr expr, Cursor *cursors) {
 
     return buf;
 }
-static strb grouping_stringify(Expr expr, Cursor *cursors) {
+static strb grouping_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkGrouping);
 
     strb buf = NULL;
@@ -344,7 +343,7 @@ static strb grouping_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb intlit_stringify(Expr expr, Cursor *cursors) {
+static strb intlit_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkIntLit);
 
     strb buf = NULL;
@@ -373,7 +372,7 @@ static strb intlit_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb floatlit_stringify(Expr expr, Cursor *cursors) {
+static strb floatlit_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkFloatLit);
 
     strb buf = NULL;
@@ -390,7 +389,7 @@ static strb floatlit_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb charlit_stringify(Expr expr, Cursor *cursors) {
+static strb charlit_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkCharLit);
 
     strb buf = NULL;
@@ -399,7 +398,7 @@ static strb charlit_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb strlit_stringify(Expr expr, Cursor *cursors) {
+static strb strlit_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkStrLit);
 
     strb buf = NULL;
@@ -408,7 +407,7 @@ static strb strlit_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb cstrlit_stringify(Expr expr, Cursor *cursors) {
+static strb cstrlit_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkCstrLit);
 
     strb buf = NULL;
@@ -417,7 +416,7 @@ static strb cstrlit_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb type_stringify(Expr expr, Cursor *cursors) {
+static strb type_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkType);
 
     strb buf = NULL;
@@ -426,7 +425,7 @@ static strb type_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb true_stringify(Expr expr, Cursor *cursors) {
+static strb true_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkTrue);
 
     strb buf = NULL;
@@ -435,7 +434,7 @@ static strb true_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb false_stringify(Expr expr, Cursor *cursors) {
+static strb false_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkTrue);
 
     strb buf = NULL;
@@ -444,7 +443,7 @@ static strb false_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb null_stringify(Expr expr, Cursor *cursors) {
+static strb null_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkTrue);
 
     strb buf = NULL;
@@ -453,7 +452,7 @@ static strb null_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-static strb none_stringify(Expr expr, Cursor *cursors) {
+static strb none_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkNone);
 
     strb buf = NULL;
@@ -462,7 +461,7 @@ static strb none_stringify(Expr expr, Cursor *cursors) {
     return buf;
 }
 
-strb expr_stringify(Expr expr, Cursor *cursors) {
+strb expr_stringify(Expr expr, Arr(Cursor) cursors) {
     switch (expr.kind) {
         case EkFnCall:
             return fncall_stringify(expr, cursors);

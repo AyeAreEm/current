@@ -47,8 +47,8 @@ typedef struct Literal {
     LitKind kind;
 
     union {
-        Expr *exprs;
-        Stmnt *vars; // VarReassign
+        Arr(Expr) exprs;
+        Arr(Stmnt) vars; // VarReassign
     };
 } Literal;
 
@@ -65,7 +65,7 @@ typedef struct ArrayIndex {
 
 typedef struct FnCall {
     Expr *name;
-    Expr *args;
+    Arr(Expr) args;
 } FnCall;
 
 typedef enum BinopKind {
@@ -120,7 +120,7 @@ typedef struct Expr {
         Binop binop;
         Unop unop;
 
-        Expr *group;
+        Arr(Expr) group;
         FieldAccess fieldacc;
         ArrayIndex arrayidx;
     };
@@ -141,9 +141,9 @@ Expr expr_ident(const char *v, Type t, size_t index);
 Expr expr_fncall(FnCall v, Type t, size_t index);
 Expr expr_binop(Binop v, Type t, size_t index);
 Expr expr_unop(Unop v, Type t, size_t index);
-Expr expr_group(Expr *v, Type t, size_t index);
+Expr expr_group(Arr(Expr) v, Type t, size_t index);
 Expr expr_fieldaccess(FieldAccess v, Type t, size_t index);
 Expr expr_arrayindex(ArrayIndex v, Type t, size_t index);
-char *expr_stringify(Expr expr, Cursor *cursors);
+char *expr_stringify(Expr expr, Arr(Cursor) cursors);
 
 #endif // EXPRS_H

@@ -2,6 +2,7 @@
 #define LEXER_H
 
 #include <stdint.h>
+#include "stb_ds.h"
 #include "strb.h"
 
 typedef enum TokenKind {
@@ -79,8 +80,8 @@ typedef struct Cursor {
 } Cursor;
 
 typedef struct Lexer {
-    Token *tokens;
-    Cursor *cursors;
+    Arr(Token) tokens;
+    Arr(Cursor) cursors;
 } Lexer;
 
 Lexer lexer(const char *source);

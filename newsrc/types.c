@@ -166,4 +166,3 @@ const char *typekind_stringify(TypeKind t) {
         case TkTypeId: return "TypeId";
     }
 }
-

@@ -1,9 +1,9 @@
 #ifndef STMNTS_H
 #define STMNTS_H
 
+#include <stddef.h>
 #include "exprs.h"
 #include "lexer.h"
-#include <stddef.h>
 
 typedef struct Stmnt Stmnt;
 
@@ -29,14 +29,14 @@ typedef enum StmntKind {
 typedef struct FnDecl {
     Expr name;
     Type type;
-    Stmnt *args;
-    Stmnt *body;
+    Arr(Stmnt) args;
+    Arr(Stmnt) body;
     bool has_body;
 } FnDecl;
 
 typedef struct StructDecl {
     Expr name;
-    Stmnt *fields;
+    Arr(Stmnt) fields;
 } StructDecl;
 
 typedef StructDecl EnumDecl;
@@ -70,15 +70,15 @@ typedef struct If {
         Stmnt *constdecl;
     } capture;
 
-    Stmnt *body;
-    Stmnt *els;
+    Arr(Stmnt) body;
+    Arr(Stmnt) els;
 } If;
 
 typedef struct For {
     Stmnt *decl;
     Expr condition;
     Stmnt *reassign;
-    Stmnt *body;
+    Arr(Stmnt) body;
 } For;
 
 typedef enum DirectiveKind {
@@ -119,7 +119,7 @@ typedef struct Stmnt {
         For forf;
         Stmnt *externf;
 
-        Stmnt *block;
+        Arr(Stmnt) block;
         Directive directive;
     };
 } Stmnt;
@@ -137,9 +137,9 @@ Stmnt stmnt_break(size_t index);
 Stmnt stmnt_fncall(FnCall v, size_t index);
 Stmnt stmnt_if(If v, size_t index);
 Stmnt stmnt_for(For v, size_t index);
-Stmnt stmnt_block(Stmnt *v, size_t index);
+Stmnt stmnt_block(Arr(Stmnt) v, size_t index);
 Stmnt stmnt_extern(Stmnt *v, size_t index);
 Stmnt stmnt_directive(Directive v, size_t index);
-void print_stmnt(Stmnt stmnt, Cursor *cursors, int indent);
+void print_stmnt(Stmnt stmnt, Arr(Cursor) cursors, int indent);
 
 #endif // STMNTS_H

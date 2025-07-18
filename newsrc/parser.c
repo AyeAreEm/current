@@ -196,8 +196,8 @@ Expr parse_end_literal(Parser *parser, Type type) {
     }, type, (size_t)parser->cursors_idx);
 
     bool is_stmnts = false;
-    Expr *exprs = NULL;
-    Stmnt *stmnts = NULL;
+    Arr(Expr) exprs = NULL;
+    Arr(Stmnt) stmnts = NULL;
 
     bool first = true;
     while (peek(parser).kind != TokRightCurl) {
@@ -500,7 +500,7 @@ Expr parse_primary(Parser *parser) {
 
 Expr parse_end_fn_call(Parser *parser, Expr ident) {
     size_t index = (size_t)parser->cursors_idx;
-    Expr *args = NULL;
+    Arr(Expr) args = NULL;
 
     Token tok = peek(parser);
     if (tok.kind != TokRightBracket) {
@@ -866,7 +866,7 @@ Stmnt *parse_block(Parser *parser, TokenKind start, TokenKind end) {
         expect(parser, start);
     }
 
-    Stmnt *block = NULL;
+    Arr(Stmnt) block = NULL;
 
     Token tok = peek(parser);
     if (tok.kind == end && start != TokNone) {
@@ -1194,7 +1194,7 @@ Stmnt parse_if(Parser *parser) {
     }
 
     Stmnt *body = parse_block_curls(parser);
-    Stmnt *else_block = NULL;
+    Arr(Stmnt) else_block = NULL;
 
     Token tok = peek(parser);
     if (tok.kind == TokIdent) {

@@ -11,13 +11,13 @@
 #include "stmnts.h"
 
 typedef struct Parser {
-    Token *tokens;
+    Arr(Token) tokens;
     bool in_func_decl_args;
     bool in_enum_decl;
 
     // debug
     const char *filename;
-    Cursor *cursors; // vec(uint32_t[2])
+    Arr(Cursor) cursors;
     long cursors_idx;
 } Parser;
 

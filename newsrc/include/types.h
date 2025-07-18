@@ -44,13 +44,10 @@ typedef enum TypeKind {
     TkTypeId,
 } TypeKind;
 
-// TODO: String Fields
-
 typedef struct Array {
     Type *of;
     Expr *len; // if NULL, infer len
 } Array;
-// TODO: Array Fields
 
 typedef struct Option {
     Type *subtype;
@@ -89,5 +86,7 @@ Type type_array(Array v, CONSTNESS constant, size_t index);
 Type type_ptr(Type *v, CONSTNESS constant, size_t index);
 Type type_option(Option v, CONSTNESS constant, size_t index);
 Type type_typedef(const char *v, CONSTNESS constant, size_t index);
+
+void setup_type_fields();
 
 #endif // TYPES_H

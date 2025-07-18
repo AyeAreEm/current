@@ -1,11 +1,14 @@
-#define STB_DS_IMPLEMENTATION
 #include <stdbool.h>
-#include "include/stb_ds.h"
+#include "include/exprs.h"
 #include "include/lexer.h"
 #include "include/stmnts.h"
 #include "include/utils.h"
 #include "include/cli.h"
 #include "include/parser.h"
+#include "include/types.h"
+
+#define STB_DS_IMPLEMENTATION
+#include "include/stb_ds.h"
 
 const bool DEBUG_MODE = false;
 
@@ -30,7 +33,7 @@ void build(char *filepath) {
         printfln("");
     }
 
-    Stmnt *ast = NULL;
+    Arr(Stmnt) ast = NULL;
     Parser parser = parser_init(lex, filepath);
     for (Stmnt stmnt = parse(&parser); stmnt.kind != SkNone; stmnt = parse(&parser)) {
         arrpush(ast, stmnt);
@@ -43,7 +46,10 @@ void build(char *filepath) {
     free(content);
 }
 
+
 int main(int argc, char **argv) {
+    setup_type_fields();
+
     Cli args = cli_parse(argv, argc);
 
     switch (args.command) {
