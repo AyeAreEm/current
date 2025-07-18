@@ -396,8 +396,8 @@ CREDITS
 
 // parts added by AyeAreEm
 #define Arr(T) T*
-#define Hm(T) arr(T)
-#define StrHm(T) hm(T)
+#define Hm(T) Arr(T)
+#define StrHm(T) Hm(T)
 // end
 
 #ifndef STBDS_NO_SHORT_NAMES
