@@ -47,7 +47,7 @@ Expr expr_from_keyword(Parser *parser, Keyword kw) {
         }
         default:
             elog(parser, parser->cursors_idx, "expected an expression, got keyword %s", keyword_stringify(kw));
-            return (Expr){}; // just to silence warning, elog exits
+            return expr_none(); // just to silence warning, elog exits
     }
 }
 
@@ -187,6 +187,7 @@ Stmnt parse_var_reassign(Parser *parser, Expr ident, bool expect_semicolon) {
     return stmnt_varreassign((VarReassign){
         .type = type_none(),
         .name = ident,
+        .value = expr,
     }, (size_t)parser->cursors_idx);
 }
 
@@ -491,11 +492,10 @@ Expr parse_primary(Parser *parser) {
         } break;
         default:
             elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
-            return (Expr){}; // silence warning
     }
 
     elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
-    return (Expr){}; // silence warning
+    return expr_none(); // silence warning
 }
 
 Expr parse_end_fn_call(Parser *parser, Expr ident) {
@@ -730,7 +730,6 @@ Expr parse_expr(Parser *parser) {
 // expects [ already nexted
 // <expr>[
 Expr parse_array_index(Parser *parser, Expr expr) {
-    size_t intlit_index = (size_t)parser->cursors_idx;
     Expr *index = ealloc(sizeof(Expr)); *index = parse_expr(parser);
     expect(parser, TokRightSquare);
 
@@ -874,7 +873,7 @@ Stmnt *parse_block(Parser *parser, TokenKind start, TokenKind end) {
         return block;
     }
 
-    for (Stmnt stmnt = parse(parser); stmnt.kind != SkNone; stmnt = parse(parser)) {
+    for (Stmnt stmnt = parser_parse(parser); stmnt.kind != SkNone; stmnt = parser_parse(parser)) {
         arrpush(block, stmnt);
 
         tok = peek(parser);
@@ -903,6 +902,7 @@ Stmnt parse_fn_decl(Parser *parser, Expr ident) {
     parser->in_func_decl_args = false;
 
     Type type = parse_type(parser);
+    if (type.kind == TkNone) elog(parser, parser->cursors_idx, "expected return type in function declaration");
     FnDecl fndecl = {
         .name = ident,
         .args = args,
@@ -918,7 +918,7 @@ Stmnt parse_fn_decl(Parser *parser, Expr ident) {
         return stmnt_fndecl(fndecl, index);
     } else if (tok.kind == TokSemiColon) {
         next(parser);
-        fndecl.body = NULL; // CAUTION: fndecl body can be NULL
+        fndecl.body = NULL;
         fndecl.has_body = false;
 
         return stmnt_fndecl(fndecl, index);
@@ -1050,10 +1050,10 @@ Stmnt parse_decl(Parser *parser, Expr ident) {
 
         if (tok.kind == TokColon) {
             next(parser);
-            return parse_const_decl(parser, ident, type_none());
+            return parse_const_decl(parser, ident, type);
         } else if (tok.kind == TokEqual) {
             next(parser);
-            return parse_var_decl(parser, ident, type_none(), true);
+            return parse_var_decl(parser, ident, type, true);
         } else if (tok.kind == TokSemiColon) {
             next(parser);
             if (type.kind == TkNone) {
@@ -1081,8 +1081,6 @@ Stmnt parse_decl(Parser *parser, Expr ident) {
 
 Stmnt parse_ident(Parser *parser, Expr ident) {
     assert(ident.kind == EkIdent);
-
-    size_t ident_idx = (size_t)parser->cursors_idx;
 
     Token tok = peek(parser);
     if (tok.kind == TokNone) return stmnt_none();
@@ -1208,7 +1206,7 @@ Stmnt parse_if(Parser *parser) {
     return stmnt_if((If){
         .condition = cond,
         .body = body,
-        .capture = capture,
+        .capture.ident = capture,
         .capturekind = CkIdent,
         .els = else_block,
     }, index);
@@ -1216,7 +1214,7 @@ Stmnt parse_if(Parser *parser) {
 
 Stmnt parse_extern(Parser *parser) {
     size_t index = (size_t)parser->cursors_idx;
-    Stmnt *stmnt = ealloc(sizeof(Stmnt)); *stmnt = parse(parser);
+    Stmnt *stmnt = ealloc(sizeof(Stmnt)); *stmnt = parser_parse(parser);
     return stmnt_extern(stmnt, index);
 }
 
@@ -1268,7 +1266,6 @@ Stmnt parse_for(Parser *parser) {
         expect(parser, TokRightBracket);
 
         Stmnt *body = parse_block_curls(parser);
-        For f;
         return stmnt_for((For){
             .decl = vardecl,
             .condition = cond,
@@ -1305,7 +1302,7 @@ Stmnt parse_directive(Parser *parser) {
     return d;
 }
 
-Stmnt parse(Parser *parser) {
+Stmnt parser_parse(Parser *parser) {
     Token tok = peek(parser);
     if (tok.kind == TokNone) return stmnt_none();
 

@@ -1,7 +1,7 @@
 #include "include/utils.h"
 #include "include/types.h"
 
-Type type_none() {
+Type type_none(void) {
     return (Type){.kind = TkNone};
 }
 

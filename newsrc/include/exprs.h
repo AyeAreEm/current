@@ -120,13 +120,13 @@ typedef struct Expr {
         Binop binop;
         Unop unop;
 
-        Arr(Expr) group;
+        Expr *group;
         FieldAccess fieldacc;
         ArrayIndex arrayidx;
     };
 } Expr;
 
-Expr expr_none();
+Expr expr_none(void);
 Expr expr_true(size_t index);
 Expr expr_false(size_t index);
 Expr expr_null(Type t, size_t index);

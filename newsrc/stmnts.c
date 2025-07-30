@@ -9,7 +9,7 @@
 #include "include/types.h"
 #include "include/utils.h"
 
-Stmnt stmnt_none() {
+Stmnt stmnt_none(void) {
     return (Stmnt){
         .kind = SkNone,
     };
@@ -196,6 +196,7 @@ void print_enum_decl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 
 void print_directive(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind == SkDirective);
+    print_indent(indent);
 
     uint32_t c1 = cursors[stmnt.cursors_idx].row;
     uint32_t c2 = cursors[stmnt.cursors_idx].col;
@@ -286,12 +287,14 @@ void print_return(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 void print_continue(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind = SkContinue);
 
+    print_indent(indent);
     printfln("Continue; (%u:%u)", cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
 }
 
 void print_break(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind = SkBreak);
 
+    print_indent(indent);
     printfln("Break; (%u:%u)", cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
 }
 
@@ -315,6 +318,7 @@ void print_if(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind = SkIf);
 
     strb cond = expr_stringify(stmnt.iff.condition, cursors);
+    print_indent(indent);
     printfln("If (%s) [CAPTURE DEBUG NOT IMPL]; (%u:%u)", cond, cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
 
     strbfree(cond);
@@ -324,6 +328,7 @@ void print_for(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind = SkFor);
 
     strb cond = expr_stringify(stmnt.forf.condition, cursors);
+    print_indent(indent);
     printfln("For (no; %s; no); (%u:%u)", cond, cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
     strbfree(cond);
 }

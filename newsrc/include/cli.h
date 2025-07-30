@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 typedef enum Command {
+    CommandNone = -1,
     CommandBuild = 0,
     CommandRun,
     CommandCOUNT,

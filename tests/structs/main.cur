@@ -3,7 +3,7 @@ Vec2 :: struct {
     y: i32;
 }
 
-print_vec2 :: fn(v: Vec2) {
+print_vec2 :: fn(v: Vec2) void {
     // nothing
 }
 

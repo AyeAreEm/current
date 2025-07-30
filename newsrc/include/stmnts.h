@@ -124,7 +124,7 @@ typedef struct Stmnt {
     };
 } Stmnt;
 
-Stmnt stmnt_none();
+Stmnt stmnt_none(void);
 Stmnt stmnt_fndecl(FnDecl v, size_t index);
 Stmnt stmnt_structdecl(StructDecl v, size_t index);
 Stmnt stmnt_enumdecl(EnumDecl v, size_t index);

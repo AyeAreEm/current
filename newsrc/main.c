@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdbool.h>
 #include "include/exprs.h"
 #include "include/lexer.h"
@@ -5,7 +6,7 @@
 #include "include/utils.h"
 #include "include/cli.h"
 #include "include/parser.h"
-#include "include/types.h"
+#include "include/sema.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "include/stb_ds.h"
@@ -35,7 +36,7 @@ void build(char *filepath) {
 
     Arr(Stmnt) ast = NULL;
     Parser parser = parser_init(lex, filepath);
-    for (Stmnt stmnt = parse(&parser); stmnt.kind != SkNone; stmnt = parse(&parser)) {
+    for (Stmnt stmnt = parser_parse(&parser); stmnt.kind != SkNone; stmnt = parser_parse(&parser)) {
         arrpush(ast, stmnt);
     }
 
@@ -43,12 +44,15 @@ void build(char *filepath) {
         print_ast(ast, parser.cursors);
     }
 
+    Sema sema = sema_init(ast, filepath, lex.cursors);
+    sema_analyse(&sema);
+
     free(content);
 }
 
 
 int main(int argc, char **argv) {
-    setup_type_fields();
+    stbds_rand_seed(time(NULL));
 
     Cli args = cli_parse(argv, argc);
 

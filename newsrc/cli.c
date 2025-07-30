@@ -5,10 +5,10 @@
 
 const char *cli_commands[CommandCOUNT] = { "build", "run" };
 
-static Cli cli_init() {
+static Cli cli_init(void) {
     return (Cli){
         .help = false,
-        .command = -1,
+        .command = CommandNone,
         .filename = "",
     };
 }
@@ -44,7 +44,7 @@ static void cli_parse_help(Cli *cli, char ***argv, int *argc) {
 }
 
 static void cli_parse_build(Cli *cli, char ***argv, int *argc) {
-    if (cli->command != -1) {
+    if (cli->command != CommandNone) {
         comp_elog("unexpected build, %s option already set", cli_commands[cli->command]);
     }
 
@@ -63,7 +63,7 @@ static void cli_parse_build(Cli *cli, char ***argv, int *argc) {
 }
 
 static void cli_parse_run(Cli *cli, char ***argv, int *argc) {
-    if (cli->command != -1) {
+    if (cli->command != CommandNone) {
         comp_elog("unexpected run, %s option already set", cli_commands[cli->command]);
     }
 

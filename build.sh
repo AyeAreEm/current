@@ -3,16 +3,19 @@
 option="$1"
 
 build() {
-    gcc -o current    \
-    newsrc/cli.c      \
-    newsrc/exprs.c    \
-    newsrc/keywords.c \
-    newsrc/lexer.c    \
-    newsrc/main.c     \
-    newsrc/parser.c   \
-    newsrc/stmnts.c   \
-    newsrc/strb.c     \
-    newsrc/types.c    \
+    gcc -Wall -Wextra -Wpedantic -o current     \
+    newsrc/cli.c       \
+    newsrc/eval.c      \
+    newsrc/exprs.c     \
+    newsrc/keywords.c  \
+    newsrc/lexer.c     \
+    newsrc/main.c      \
+    newsrc/parser.c    \
+    newsrc/sema.c      \
+    newsrc/stmnts.c    \
+    newsrc/strb.c      \
+    newsrc/typecheck.c \
+    newsrc/types.c     \
     newsrc/utils.c
 }
 

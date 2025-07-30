@@ -62,7 +62,7 @@ typedef struct Token {
     };
 } Token;
 
-Token token_none();
+Token token_none(void);
 Token token_ident(const char *s);
 Token token_intlit(uint64_t n);
 Token token_floatlit(double n);

@@ -96,7 +96,7 @@ void comp_elog(const char *msg, ...) {
 
 // returns false if failed
 bool parse_u64(const char *str, uint64_t *n) {
-    if (strcmp(str, " ") == 0) return false;
+    if (strcmp(str, "") == 0) return false;
 
     size_t str_head = 0;
     uint64_t value = 0;
@@ -105,7 +105,7 @@ bool parse_u64(const char *str, uint64_t *n) {
         str_head += 1;
     }
 
-    int base = 10;
+    unsigned int base = 10;
     if (strlen(str) > 2 && str[str_head] == '0') {
         switch (str[str_head + 1]) {
             case 'b':

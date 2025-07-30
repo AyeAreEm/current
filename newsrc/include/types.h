@@ -74,7 +74,7 @@ typedef struct Type {
 
 Type type_map(const char *t);
 const char *typekind_stringify(TypeKind t);
-Type type_none();
+Type type_none(void);
 Type type_void(CONSTNESS constant, size_t index);
 Type type_bool(CONSTNESS constant, size_t index);
 Type type_char(CONSTNESS constant, size_t index);
@@ -86,7 +86,5 @@ Type type_array(Array v, CONSTNESS constant, size_t index);
 Type type_ptr(Type *v, CONSTNESS constant, size_t index);
 Type type_option(Option v, CONSTNESS constant, size_t index);
 Type type_typedef(const char *v, CONSTNESS constant, size_t index);
-
-void setup_type_fields();
 
 #endif // TYPES_H

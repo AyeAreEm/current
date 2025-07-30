@@ -1,14 +1,14 @@
-main :: fn() {
+main :: fn() void {
     foo := "\"";
-    foor = "\\";
-    foor = "\n";
-    foor = "\r";
-    foor = "\t";
-    foor = "\v";
-    foor = "\f";
-    foor = "\a";
-    foor = "\b";
-    foor = "\e";
+    foo = "\\";
+    foo = "\n";
+    foo = "\r";
+    foo = "\t";
+    foo = "\v";
+    foo = "\f";
+    foo = "\a";
+    foo = "\b";
+    foo = "\e";
     y := '\'';
     y = '\\';
     y = '\n';

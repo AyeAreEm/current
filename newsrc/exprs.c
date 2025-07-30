@@ -8,7 +8,7 @@
 #include "include/types.h"
 #include "include/stb_ds.h"
 
-Expr expr_none() {
+Expr expr_none(void) {
     return (Expr){.kind = EkNone};
 }
 
@@ -16,7 +16,7 @@ Expr expr_true(size_t index) {
     return (Expr){
         .kind = EkTrue,
         .cursors_idx = index,
-        .type = type_bool(TYPECONST, index),
+        .type = type_bool(TYPEVAR, index),
     };
 }
 
@@ -24,7 +24,7 @@ Expr expr_false(size_t index) {
     return (Expr){
         .kind = EkFalse,
         .cursors_idx = index,
-        .type = type_bool(TYPECONST, index),
+        .type = type_bool(TYPEVAR, index),
     };
 }
 
@@ -69,7 +69,7 @@ Expr expr_charlit(uint8_t v, size_t index) {
     return (Expr){
         .kind = EkCharLit,
         .cursors_idx = index,
-        .type = type_char(TYPECONST, index),
+        .type = type_char(TYPEVAR, index),
         .charlit = v,
     };
 }
@@ -78,7 +78,7 @@ Expr expr_strlit(const char *v, size_t index) {
     return (Expr){
         .kind = EkStrLit,
         .cursors_idx = index,
-        .type = type_string(TYPECONST, index),
+        .type = type_string(TYPEVAR, index),
         .strlit = v,
     };
 }
@@ -87,7 +87,7 @@ Expr expr_cstrlit(const char *v, size_t index) {
     return (Expr){
         .kind = EkCstrLit,
         .cursors_idx = index,
-        .type = type_cstring(TYPECONST, index),
+        .type = type_cstring(TYPEVAR, index),
         .cstrlit = v,
     };
 }
@@ -305,7 +305,7 @@ static strb literal_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkLiteral);
 
     strb buf = NULL;
-    strbpush(&buf, '{');
+    strbprintf(&buf, "%s{", typekind_stringify(expr.type.kind));
 
     size_t len;
     if (expr.literal.kind == LitkExprs) {
@@ -343,7 +343,7 @@ static strb grouping_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb intlit_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb intlit_stringify(Expr expr) {
     assert(expr.kind == EkIntLit);
 
     strb buf = NULL;
@@ -372,7 +372,7 @@ static strb intlit_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb floatlit_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb floatlit_stringify(Expr expr) {
     assert(expr.kind == EkFloatLit);
 
     strb buf = NULL;
@@ -389,7 +389,7 @@ static strb floatlit_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb charlit_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb charlit_stringify(Expr expr) {
     assert(expr.kind == EkCharLit);
 
     strb buf = NULL;
@@ -398,7 +398,7 @@ static strb charlit_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb strlit_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb strlit_stringify(Expr expr) {
     assert(expr.kind == EkStrLit);
 
     strb buf = NULL;
@@ -407,7 +407,7 @@ static strb strlit_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb cstrlit_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb cstrlit_stringify(Expr expr) {
     assert(expr.kind == EkCstrLit);
 
     strb buf = NULL;
@@ -416,7 +416,7 @@ static strb cstrlit_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb type_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb type_stringify(Expr expr) {
     assert(expr.kind == EkType);
 
     strb buf = NULL;
@@ -425,7 +425,7 @@ static strb type_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb true_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb true_stringify(Expr expr) {
     assert(expr.kind == EkTrue);
 
     strb buf = NULL;
@@ -434,7 +434,7 @@ static strb true_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb false_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb false_stringify(Expr expr) {
     assert(expr.kind == EkTrue);
 
     strb buf = NULL;
@@ -443,7 +443,7 @@ static strb false_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb null_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb null_stringify(Expr expr) {
     assert(expr.kind == EkTrue);
 
     strb buf = NULL;
@@ -452,7 +452,7 @@ static strb null_stringify(Expr expr, Arr(Cursor) cursors) {
     return buf;
 }
 
-static strb none_stringify(Expr expr, Arr(Cursor) cursors) {
+static strb none_stringify(Expr expr) {
     assert(expr.kind == EkNone);
 
     strb buf = NULL;
@@ -480,25 +480,25 @@ strb expr_stringify(Expr expr, Arr(Cursor) cursors) {
         case EkGrouping:
             return grouping_stringify(expr, cursors);
         case EkIntLit:
-            return intlit_stringify(expr, cursors);
+            return intlit_stringify(expr);
         case EkFloatLit:
-            return floatlit_stringify(expr, cursors);
+            return floatlit_stringify(expr);
         case EkCharLit:
-            return charlit_stringify(expr, cursors);
+            return charlit_stringify(expr);
         case EkStrLit:
-            return strlit_stringify(expr, cursors);
+            return strlit_stringify(expr);
         case EkCstrLit:
-            return cstrlit_stringify(expr, cursors);
+            return cstrlit_stringify(expr);
         case EkType:
-            return type_stringify(expr, cursors);
+            return type_stringify(expr);
         case EkTrue:
-            return true_stringify(expr, cursors);
+            return true_stringify(expr);
         case EkFalse:
-            return false_stringify(expr, cursors);
+            return false_stringify(expr);
         case EkNull:
-            return null_stringify(expr, cursors);
+            return null_stringify(expr);
         case EkNone:
-            return none_stringify(expr, cursors);
+            return none_stringify(expr);
         default:
             break;
     }

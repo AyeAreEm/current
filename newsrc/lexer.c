@@ -5,7 +5,7 @@
 
 #define BUF_CAP 255
 
-Token token_none() {
+Token token_none(void) {
     return (Token){.kind = TokNone};
 }
 Token token_ident(const char *s) {
@@ -127,7 +127,7 @@ strb token_stringify(Token tok) {
 }
 
 void print_tokens(Token *tokens) {
-    for (size_t i = 0; i < arrlen(tokens); i++) {
+    for (size_t i = 0; i < arrlenu(tokens); i++) {
         Token tok = tokens[i];
         strb s = token_stringify(tok);
         printfln("%s", s);
@@ -238,7 +238,7 @@ Lexer lexer(const char *source) {
     for (size_t i = 0; i < strlen(source); i++) {
         const char ch = source[i];
 
-        if (ignore_index != -1 && i == ignore_index)  {
+        if (ignore_index != -1 && i == (size_t)ignore_index)  {
             ignore_index = -1;
             move_cursor(ch, &row, &col);
             continue;
@@ -327,7 +327,6 @@ Lexer lexer(const char *source) {
                 if (parse_u64(buf, &u64)) {
                     PUSH(buf, BUF_CAP, buf_len, ch);
                     move_cursor(ch, &row, &col);
-                    col += 1;
                 } else {
                     buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                     push_token(&lex, (Token){.kind = TokDot}, &row, &col);

@@ -75,9 +75,9 @@ get_c_compiler :: proc() -> string {
     elog("gcc or clang not detected, please ensure you have one of these compilers")
 }
 
-copy_map :: proc(dst: map[$K]$V, source: ^map[K]V) {
-    for k, v in dst {
-        source[k] = v
+copy_map :: proc(source: map[$K]$V, dst: ^map[K]V) {
+    for k, v in source {
+        dst[k] = v
     }
 }
 
