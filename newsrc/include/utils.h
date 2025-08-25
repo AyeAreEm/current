@@ -7,6 +7,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__sun) || defined(__CYGWIN__)
+#include <sys/types.h>
+#elif defined(_WIN32) || defined(__MINGW32__)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #define TERM_RED     "\x1b[31m"
 #define TERM_GREEN   "\x1b[32m"
 #define TERM_YELLOW  "\x1b[33m"
@@ -40,7 +47,10 @@ void debug(const char *msg, ...);
 void comp_elog(const char *msg, ...);
 
 // returns false if failed
-bool read_file(const char *filename, char **buf);
+bool read_entire_file(const char *filename, char **buf);
+
+// return false if failed
+bool write_entire_file(const char *filename, const char *content);
 
 // returns false if failed
 bool parse_u64(const char *str, uint64_t *n);
@@ -57,7 +67,14 @@ void strclear(char *str, size_t *tail_idx);
 
 bool streq(const char *s1, const char *s2);
 
-bool strhas(const char *hay, const char *needle);
+int strhas(const char *hay, const char *needle);
+
+// from and to must be of the same size
+bool strreplace(char *s, const char *from, const char *to);
+
+char *strltrim(char *str);
+char *strrtrim(char *str);
+char *strtrim(char *str);
 
 // errors and exits when NULL
 void *ealloc(size_t size);

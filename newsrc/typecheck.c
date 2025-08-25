@@ -6,6 +6,7 @@
 #include "include/exprs.h"
 #include "include/sema.h"
 #include "include/stmnts.h"
+#include "include/strb.h"
 #include "include/types.h"
 #include "include/utils.h"
 
@@ -76,9 +77,12 @@ bool tc_array_equals(Sema *sema, Type lhs, Type *rhs) {
 // rhs is a pointer because it might be correct if wrapped in an option
 bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
     switch (lhs.kind) {
-        case TkVoid:
-            debug("warning: unexpected comparsion between Void and %s", typekind_stringify(rhs->kind));
+        case TkVoid: {
+            strb t = string_from_type(*rhs);
+            debug("warning: unexpected comparsion between Void and %s", t);
+            strbfree(t);
             return false;
+         }
         case TkTypeDef:
             symtab_find(sema, lhs.typedeff, lhs.cursors_idx);
             if (rhs->kind == TkTypeDef && streq(lhs.typedeff, rhs->typedeff)) {
@@ -285,15 +289,27 @@ void tc_return(Sema *sema, Stmnt *stmnt) {
     if (ret->value.kind == EkNone) {
         if (fndecl.type.kind == TkVoid) return;
 
-        elog(sema, stmnt->cursors_idx, "mismatch types, %s vs %s", typekind_stringify(fndecl.type.kind), typekind_stringify(ret->type.kind));
+        strb t1 = string_from_type(fndecl.type);
+        strb t2 = string_from_type(ret->type);
+        elog(sema, stmnt->cursors_idx, "mismatch types, %s vs %s", t1, t2);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t1); strbfree(t2);
     }
 
     if (!tc_equals(sema, ret->type, &ret->value.type)) {
-        elog(sema, stmnt->cursors_idx, "mismatch types, expected return type %s, got %s", typekind_stringify(ret->type.kind), typekind_stringify(ret->value.type.kind));
+        strb t1 = string_from_type(ret->type);
+        strb t2 = string_from_type(ret->value.type);
+        elog(sema, stmnt->cursors_idx, "mismatch types, expected return type %s, got %s", t1, t2);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t1); strbfree(t2);
     }
 
     if (!tc_equals(sema, fndecl.type, &ret->type)) {
-        elog(sema, stmnt->cursors_idx, "mismatch types, funciton type %s, got %s", typekind_stringify(fndecl.type.kind), typekind_stringify(ret->type.kind));
+        strb t1 = string_from_type(fndecl.type);
+        strb t2 = string_from_type(ret->type);
+        elog(sema, stmnt->cursors_idx, "mismatch types, funciton type %s, got %s", t1, t2);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t1); strbfree(t2);
     }
 }
 
@@ -338,7 +354,11 @@ void tc_var_decl(Sema *sema, Stmnt *stmnt) {
     } else {
         Type *exprtype = resolve_expr_type(sema, &vardecl->value);
         if (!tc_equals(sema, vardecl->type, exprtype)) {
-            elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", vardecl->name.ident, typekind_stringify(vardecl->type.kind), typekind_stringify(exprtype->kind));
+            strb t1 = string_from_type(vardecl->type);
+            strb t2 = string_from_type(*exprtype);
+            elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", vardecl->name.ident, t1, t2);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t1); strbfree(t2);
         }
     }
 
@@ -399,7 +419,11 @@ void tc_const_decl(Sema *sema, Stmnt *stmnt) {
     if (constdecl->type.kind == TkNone) {
         tc_infer(sema, &constdecl->type, &constdecl->value);
     } else if (!tc_equals(sema, constdecl->type, valtype)) {
-        elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", constdecl->name.ident, typekind_stringify(constdecl->type.kind), typekind_stringify(valtype->kind));
+        strb t1 = string_from_type(constdecl->type);
+        strb t2 = string_from_type(*valtype);
+        elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", constdecl->name.ident, t1, t2);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t1); strbfree(t2);
     }
 
     tc_make_constant(&constdecl->type);
@@ -525,9 +549,13 @@ bool tc_is_unsigned(Sema *sema, Expr expr) {
         case TkI64:
         case TkIsize:
             return false;
-        default:
-            elog(sema, expr.cursors_idx, "expected an integer type, got %s", typekind_stringify(type->kind));
+        default: {
+            strb t = string_from_type(*type);
+            elog(sema, expr.cursors_idx, "expected an integer type, got %s", t);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t);
             return false;
+        }
     }
 }
 

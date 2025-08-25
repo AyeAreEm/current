@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
@@ -43,7 +44,7 @@ void eprintfln(const char *fmt, ...) {
 }
 
 // returns false if failed
-bool read_file(const char *filename, char **buf) {
+bool read_entire_file(const char *filename, char **buf) {
     long length = 0;
     FILE *fd = fopen(filename, "rb");
     if (!fd) return false;
@@ -68,6 +69,19 @@ bool read_file(const char *filename, char **buf) {
     (*buf)[(size_t)length + 1] = '\0';
 
     fclose(fd);
+    return true;
+}
+
+// return false if failed
+bool write_entire_file(const char *filename, const char *content) {
+    FILE *fd = fopen(filename, "w");
+    if (!fd) return false;
+
+    if (fprintf(fd, "%s", content) < 0) {
+        fclose(fd);
+        return false;
+    }
+
     return true;
 }
 
@@ -177,13 +191,13 @@ bool streq(const char *s1, const char *s2) {
     return strcmp(s1, s2) == 0;
 }
 
-bool strhas(const char *hay, const char *needle) {
+int strhas(const char *hay, const char *needle) {
     size_t needle_idx = 0;
     size_t needle_len = strlen(needle);
-    size_t hay_len = strlen(needle);
+    size_t hay_len = strlen(hay);
 
     if (needle_len > hay_len) {
-        return false;
+        return -1;
     }
 
     for (size_t i = 0; i < hay_len; i++) {
@@ -193,10 +207,45 @@ bool strhas(const char *hay, const char *needle) {
         }
 
         needle_idx++;
-        if (needle_idx == needle_len) return true;
+        if (needle_idx == needle_len)
+            return i - needle_idx + 1;
     }
 
-    return false;
+    return -1;
+}
+
+// from and to must be of the same size
+bool strreplace(char *s, const char *from, const char *to) {
+    if (strlen(from) != strlen(to)) {
+        return false;
+    }
+
+    int index = strhas(s, from);
+    if (index == -1) {
+        return false;
+    }
+
+    for (size_t i = 0; i < strlen(to); i++) {
+        s[index + i] = to[i];
+    }
+
+    return true;
+}
+
+char *strltrim(char *str) {
+    while (isspace(*str)) str++;
+    return str;
+}
+
+char *strrtrim(char *str) {
+    char *end = str + strlen(str);
+    while (isspace(*--end));
+    *(end+1) = '\0';
+    return str;
+}
+
+char *strtrim(char *str) {
+    return strrtrim(strltrim(str));
 }
 
 void *ealloc(size_t size) {

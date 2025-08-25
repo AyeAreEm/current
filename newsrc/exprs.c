@@ -305,7 +305,9 @@ static strb literal_stringify(Expr expr, Arr(Cursor) cursors) {
     assert(expr.kind == EkLiteral);
 
     strb buf = NULL;
-    strbprintf(&buf, "%s{", typekind_stringify(expr.type.kind));
+    strb t = string_from_type(expr.type);
+    strbprintf(&buf, "%s{", t);
+    strbfree(t);
 
     size_t len;
     if (expr.literal.kind == LitkExprs) {
@@ -420,7 +422,8 @@ static strb type_stringify(Expr expr) {
     assert(expr.kind == EkType);
 
     strb buf = NULL;
-    strbprintf(&buf, "%s", typekind_stringify(expr.type_expr.kind));
+    strb t = string_from_type(expr.type_expr);
+    strbprintf(&buf, "%s", t);
 
     return buf;
 }
@@ -435,7 +438,7 @@ static strb true_stringify(Expr expr) {
 }
 
 static strb false_stringify(Expr expr) {
-    assert(expr.kind == EkTrue);
+    assert(expr.kind == EkFalse);
 
     strb buf = NULL;
     strbprintf(&buf, "False");
@@ -444,7 +447,7 @@ static strb false_stringify(Expr expr) {
 }
 
 static strb null_stringify(Expr expr) {
-    assert(expr.kind == EkTrue);
+    assert(expr.kind == EkNull);
 
     strb buf = NULL;
     strbprintf(&buf, "Null");

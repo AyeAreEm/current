@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "strb.h"
 
 typedef struct Type Type;
 typedef struct Expr Expr;
@@ -72,8 +73,8 @@ typedef struct Type {
 #define TYPECONST true
 #define TYPEVAR   false
 
-Type type_map(const char *t);
-const char *typekind_stringify(TypeKind t);
+Type type_from_string(const char *t);
+strb string_from_type(Type t);
 Type type_none(void);
 Type type_void(CONSTNESS constant, size_t index);
 Type type_bool(CONSTNESS constant, size_t index);

@@ -57,6 +57,31 @@ void strbprintf(strb *s, const char *fmt, ...) {
     va_end(args);
 }
 
+void strbprintfln(strb *s, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vstrbprintf(s, fmt, args);
+    strbpush(s, '\n');
+    va_end(args);
+}
+
+// warning: this frees sb and returns a new strb
+strb strbinsert(strb sb, const char *str, size_t index) {
+    assert(strlen(sb) >= index);
+
+    strb newsb = NULL;
+    for (size_t i = 0; i < index; i++) {
+        strbpush(&newsb, sb[i]);
+    }
+    strbpushs(&newsb, str);
+    for (size_t i = index; i < strlen(sb); i++) {
+        strbpush(&newsb, sb[i]);
+    }
+    strbfree(sb);
+
+    return newsb;
+}
+
 void strbfree(strb s) {
     if (s) {
         free(strbh(s));

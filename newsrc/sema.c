@@ -7,6 +7,7 @@
 #include "include/stb_ds.h"
 #include "include/sema.h"
 #include "include/stmnts.h"
+#include "include/strb.h"
 #include "include/types.h"
 #include "include/utils.h"
 #include "include/typecheck.h"
@@ -345,20 +346,23 @@ static Expr get_field(Sema *sema, Type type, const char *fieldname, size_t curso
         case TkTypeDef: {
             Stmnt typedeff = symtab_find(sema, type.typedeff, cursor_idx);
 
-            switch (typedeff.kind) {
-                case SkStructDecl:
-                    for (size_t i = 0; i < arrlenu(typedeff.structdecl.fields); i++) {
-                        Stmnt decl = typedeff.structdecl.fields[i];
-                        assert(decl.kind == SkVarDecl);
-                        if (decl_has_name(decl, fieldname)) {
-                            return expr_ident(fieldname, decl.vardecl.type, cursor_idx);
-                        }
+            if (typedeff.kind == SkStructDecl) {
+                for (size_t i = 0; i < arrlenu(typedeff.structdecl.fields); i++) {
+                    Stmnt decl = typedeff.structdecl.fields[i];
+                    assert(decl.kind == SkVarDecl);
+                    if (decl_has_name(decl, fieldname)) {
+                        return expr_ident(fieldname, decl.vardecl.type, cursor_idx);
                     }
-                    elog(sema, cursor_idx, "%s does not have field \"%s\" ", typekind_stringify(type.kind), fieldname);
-                    break;
-                default:
-                    comp_elog("get_field unreachable type: %s", typekind_stringify(type.kind));
-                    break;
+                }
+                strb t = string_from_type(type);
+                elog(sema, cursor_idx, "%s does not have field \"%s\" ", t, fieldname);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t);
+            } else {
+                strb t = string_from_type(type);
+                comp_elog("get_field unreachable type: %s", t);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t);
             }
         } break;
         default:
@@ -387,7 +391,10 @@ void sema_field_access(Sema *sema, Expr *expr) {
     if (expr->fieldacc.accessing->type.kind == TkPtr) {
         expr->type = *deref_ptr(type);
     } else {
-        elog(sema, expr->cursors_idx, "cannot derefernce %s, not a pointer", typekind_stringify(expr->fieldacc.accessing->type.kind));
+        strb t = string_from_type(expr->fieldacc.accessing->type);
+        elog(sema, expr->cursors_idx, "cannot derefernce %s, not a pointer", t);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t);
     }
 }
 
@@ -400,7 +407,10 @@ void sema_array_index(Sema *sema, Expr *expr) {
     if (arrtype->kind == TkArray) {
         expr->type = *arrtype->array.of;
     } else {
-        elog(sema, expr->cursors_idx, "cannot index into %s, not an array", typekind_stringify(arrtype->kind));
+        strb t = string_from_type(*arrtype);
+        elog(sema, expr->cursors_idx, "cannot index into %s, not an array", t);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t);
     }
 
     sema_expr(sema, expr->arrayidx.index);
@@ -433,7 +443,11 @@ void sema_array_literal(Sema *sema, Expr *expr) {
     for (size_t i = 0; i < arrlenu(expr->literal.exprs); i++) {
         Type *valtype = resolve_expr_type(sema, &expr->literal.exprs[i]);
         if (!tc_equals(sema, *array->of, valtype)) {
-            elog(sema, expr->cursors_idx, "array element %zu type is %s, but expected %s", i + 1, typekind_stringify(valtype->kind), typekind_stringify(array->of->kind));
+            strb t1 = string_from_type(*valtype);
+            strb t2 = string_from_type(*array->of);
+            elog(sema, expr->cursors_idx, "array element %zu type is %s, but expected %s", i + 1, t1, t2);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t1); strbfree(t2);
         }
 
         tc_number_within_bounds(sema, *array->of, expr->literal.exprs[i]);
@@ -457,7 +471,11 @@ void sema_typedef_literal(Sema *sema, Expr *expr) {
             Type fieldtype = type_of_stmnt(sema, typedeff.structdecl.fields[i]);
 
             if (!tc_equals(sema, fieldtype, valtype)) {
-                elog(sema, expr->literal.exprs[i].cursors_idx, "field %zu type is %s, but expected %s", i + 1, typekind_stringify(valtype->kind), typekind_stringify(fieldtype.kind));
+                strb t1 = string_from_type(*valtype);
+                strb t2 = string_from_type(fieldtype);
+                elog(sema, expr->literal.exprs[i].cursors_idx, "field %zu type is %s, but expected %s", i + 1, t1, t2);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t1); strbfree(t2);
             }
         }
     } else if (expr->literal.kind == LitkVars) {
@@ -476,7 +494,11 @@ void sema_typedef_literal(Sema *sema, Expr *expr) {
             }
 
             if (!tc_equals(sema, field.type, valtype)) {
-                elog(sema, expr->literal.vars[i].cursors_idx, "field %s type is %s, but expected %s", field.ident, typekind_stringify(valtype->kind), typekind_stringify(field.type.kind));
+                strb t1 = string_from_type(*valtype);
+                strb t2 = string_from_type(field.type);
+                elog(sema, expr->literal.vars[i].cursors_idx, "field %s type is %s, but expected %s", field.ident, t1, t2);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t1); strbfree(t2);
             }
         }
     }
@@ -527,7 +549,11 @@ void sema_fn_call(Sema *sema, Expr *expr) {
         Type *carg_type = resolve_expr_type(sema, &expr->fncall.args[i]);
 
         if (!tc_equals(sema, darg_type, carg_type)) {
-            elog(sema, expr->cursors_idx, "mismatch types, argument %zu is expected to be of type %s, got %s", i + 1, typekind_stringify(darg_type.kind), typekind_stringify(carg_type->kind));
+            strb t1 = string_from_type(darg_type);
+            strb t2 = string_from_type(*carg_type);
+            elog(sema, expr->cursors_idx, "mismatch types, argument %zu is expected to be of type %s, got %s", i + 1, t1, t2);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t1); strbfree(t2);
         }
     }
 }
@@ -559,7 +585,10 @@ void sema_unop(Sema *sema, Expr *expr) {
         Type *type = resolve_expr_type(sema, expr->unop.val);
 
         if (!tc_equals(sema, type_bool(TYPEVAR, 0), type)) {
-            elog(sema, expr->cursors_idx, "expected a boolean after '!' operator, got %s", typekind_stringify(type->kind));
+            strb t = string_from_type(*type);
+            elog(sema, expr->cursors_idx, "expected a boolean after '!' operator, got %s", t);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t);
         }
     } else {
         // NOTE: no need to dealloc
@@ -611,16 +640,28 @@ void sema_binop(Sema *sema, Expr *expr) {
     }
 
     if (!tc_equals(sema, *lt, rt)) {
-        elog(sema, expr->cursors_idx, "mismatch types, %s %s %s", typekind_stringify(lt->kind), binopstr, typekind_stringify(rt->kind));
+        strb t1 = string_from_type(*lt);
+        strb t2 = string_from_type(*rt);
+        elog(sema, expr->cursors_idx, "mismatch types, %s %s %s", t1, binopstr, t2);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t1); strbfree(t2);
     }
 
     if (expr->binop.kind == BkEquals || expr->binop.kind == BkInequals) {
         if (!tc_can_compare_equality(*lt, *rt)) {
-            elog(sema, expr->cursors_idx, "cannot compare equality of %s and %s", typekind_stringify(lt->kind), typekind_stringify(rt->kind));
+            strb t1 = string_from_type(*lt);
+            strb t2 = string_from_type(*rt);
+            elog(sema, expr->cursors_idx, "cannot compare equality of %s and %s", t1, t2);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t1); strbfree(t2);
         }
     } else if (expr->binop.kind == BkLess || expr->binop.kind == BkLessEqual || expr->binop.kind == BkGreater || expr->binop.kind == BkGreaterEqual) {
         if (!tc_can_compare_order(*lt, *rt)) {
-            elog(sema, expr->cursors_idx, "cannot compare order of %s and %s", typekind_stringify(lt->kind), typekind_stringify(rt->kind));
+            strb t1 = string_from_type(*lt);
+            strb t2 = string_from_type(*rt);
+            elog(sema, expr->cursors_idx, "cannot compare order of %s and %s", t1, t2);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t1); strbfree(t2);
         }
     } else if (expr->binop.kind == BkPlus || expr->binop.kind == BkMinus || expr->binop.kind == BkMultiply || expr->binop.kind == BkDivide) {
         if (lt->kind == TkUntypedInt && rt->kind == TkUntypedInt) {
@@ -712,7 +753,11 @@ void sema_var_decl(Sema *sema, Stmnt *stmnt) {
         } else if (vardecl->type.kind != TkNone) {
             // <name>: <type> = <type>{...};
             if (!tc_equals(sema, vardecl->type, &vardecl->value.type)) {
-                elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", vardecl->name.ident, typekind_stringify(vardecl->type.kind), typekind_stringify(vardecl->value.type.kind));
+                strb t1 = string_from_type(vardecl->type);
+                strb t2 = string_from_type(vardecl->value.type);
+                elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", vardecl->name.ident, t1, t2);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t1); strbfree(t2);
             }
         } else {
             // <name> := <type>{...};
@@ -737,7 +782,11 @@ void sema_var_reassign(Sema *sema, Stmnt *stmnt) {
     if (stmnt->varreassign.name.kind == EkFieldAccess || stmnt->varreassign.name.kind == EkArrayIndex) {
         stmnt->varreassign.type = stmnt->varreassign.name.type;
         if (!tc_equals(sema, stmnt->varreassign.type, &stmnt->varreassign.value.type)) {
-            elog(sema, stmnt->cursors_idx, "mismatch types, variable type %s, expression type %s", typekind_stringify(stmnt->varreassign.type.kind), typekind_stringify(stmnt->varreassign.value.type.kind));
+            strb t1 = string_from_type(stmnt->varreassign.type);
+            strb t2 = string_from_type(stmnt->varreassign.value.type);
+            elog(sema, stmnt->cursors_idx, "mismatch types, variable type %s, expression type %s", t1, t2);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t1); strbfree(t2);
         }
         return;
     }
@@ -753,7 +802,11 @@ void sema_var_reassign(Sema *sema, Stmnt *stmnt) {
     }
 
     if (!tc_equals(sema, stmnt->varreassign.type, &stmnt->varreassign.value.type)) {
-        elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", stmnt->varreassign.name.ident, typekind_stringify(stmnt->varreassign.type.kind), typekind_stringify(stmnt->varreassign.value.type.kind));
+        strb t1 = string_from_type(stmnt->varreassign.type);
+        strb t2 = string_from_type(stmnt->varreassign.value.type);
+        elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", stmnt->varreassign.name.ident, t1, t2);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t1); strbfree(t2);
     }
 }
 
@@ -773,7 +826,11 @@ void sema_const_decl(Sema *sema, Stmnt *stmnt) {
         } else if (constdecl->type.kind != TkNone) {
             // <name>: <type> = <type>{...};
             if (!tc_equals(sema, constdecl->type, &constdecl->value.type)) {
-                elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", constdecl->name.ident, typekind_stringify(constdecl->type.kind), typekind_stringify(constdecl->value.type.kind));
+                strb t1 = string_from_type(constdecl->type);
+                strb t2 = string_from_type(constdecl->value.type);
+                elog(sema, stmnt->cursors_idx, "mismatch types, variable \"%s\" type %s, expression type %s", constdecl->name.ident, t1, t2);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t1); strbfree(t2);
             }
         } else {
             // <name> := <type>{...};
@@ -794,7 +851,10 @@ void sema_if(Sema *sema, Stmnt *stmnt) {
 
     sema_expr(sema, &iff->condition);
     if (!tc_equals(sema, type_bool(TYPEVAR, 0), &iff->condition.type)) {
-        elog(sema, stmnt->cursors_idx, "condition must be bool or option, got %s", typekind_stringify(iff->condition.type.kind));
+        strb t = string_from_type(iff->condition.type);
+        elog(sema, stmnt->cursors_idx, "condition must be bool or option, got %s", t);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t); 
     }
 
     Stmnt *captured = ealloc(sizeof(Stmnt)); *captured = stmnt_none();
@@ -832,7 +892,10 @@ void sema_for(Sema *sema, Stmnt *stmnt) {
     sema_expr(sema, &forf->condition);
 
     if (!tc_equals(sema, type_bool(TYPEVAR, 0), &forf->condition.type)) {
-        elog(sema,forf->condition.cursors_idx, "condition must be bool, got %s", typekind_stringify(forf->condition.type.kind));
+        strb t = string_from_type(forf->condition.type);
+        elog(sema,forf->condition.cursors_idx, "condition must be bool, got %s", t);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t); 
     }
     sema_var_reassign(sema, forf->reassign);
 
@@ -929,7 +992,10 @@ void sema_fn_decl(Sema *sema, Stmnt *stmnt) {
     }
 
     if (streq("main", stmnt->fndecl.name.ident) && stmnt->fndecl.type.kind != TkVoid) {
-        elog(sema, stmnt->cursors_idx, "illegal main function, expected return type to be void, got %s", typekind_stringify(stmnt->fndecl.type.kind));
+        strb t = string_from_type(stmnt->fndecl.type);
+        elog(sema, stmnt->cursors_idx, "illegal main function, expected return type to be void, got %s", t);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t); 
     }
     sema->envinfo.fn = *stmnt;
     sema_block(sema, stmnt->fndecl.body);
@@ -1095,11 +1161,19 @@ void sema_enum_decl(Sema *sema, Stmnt *stmnt) {
 
         if (f->constdecl.value.kind == EkNone) {
             f->constdecl.value = expr_intlit(counter, type_integer(TkUntypedInt, TYPECONST, f->cursors_idx), f->cursors_idx);
-            counter += 1;
+            counter++;
         } else {
+            f->constdecl.type.kind = TkI32;
             counter = eval_expr(sema, &f->constdecl.value);
+            counter++;
         }
     }
+
+    dgraph_push(&sema->dgraph, (Dnode){
+        .name = stmnt->enumdecl.name.ident,
+        .us = *stmnt,
+        .children = NULL,
+    });
 
     symtab_pop_scope(sema);
 }

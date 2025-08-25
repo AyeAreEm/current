@@ -147,22 +147,25 @@ void print_fndecl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
         Stmnt arg = stmnt.fndecl.args[i];
         assert(arg.kind == SkConstDecl);
 
-        const char *type = typekind_stringify(arg.constdecl.type.kind);
+        strb type = string_from_type(arg.constdecl.type);
         if (i == 0) {
             strbprintf(&args, "%s %s", type, arg.constdecl.name.ident);
         } else {
             strbprintf(&args, ", %s %s", type, arg.constdecl.name.ident);
         }
+        strbfree(type);
     }
 
+    strb fndecltype = string_from_type(stmnt.fndecl.type);
     printfln(
         "Fn %s(%s) %s (%u:%u)",
         stmnt.fndecl.name.ident,
         args,
-        typekind_stringify(stmnt.fndecl.type.kind),
+        fndecltype,
         cursors[stmnt.cursors_idx].row,
         cursors[stmnt.cursors_idx].col
     );
+    strbfree(fndecltype);
 
     strbfree(args);
 
@@ -251,37 +254,40 @@ void print_varreassign(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 void print_constdecl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind = SkConstDecl);
 
-    const char *type = typekind_stringify(stmnt.constdecl.type.kind);
+    strb type = string_from_type(stmnt.constdecl.type);
     strb value = expr_stringify(stmnt.constdecl.value, cursors);
 
     print_indent(indent);
     printfln("Const %s %s = %s; (%u:%u)", type, stmnt.constdecl.name.ident, value, cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
     
     strbfree(value);
+    strbfree(type);
 }
 
 void print_vardecl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind = SkVarDecl);
 
-    const char *type = typekind_stringify(stmnt.vardecl.type.kind);
+    strb type = string_from_type(stmnt.vardecl.type);
     strb value = expr_stringify(stmnt.vardecl.value, cursors);
 
     print_indent(indent);
     printfln("Var %s %s = %s; (%u:%u)", type, stmnt.vardecl.name.ident, value, cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
     
     strbfree(value);
+    strbfree(type);
 }
 
 void print_return(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
     assert(stmnt.kind = SkReturn);
 
-    const char *type = typekind_stringify(stmnt.returnf.type.kind);
+    strb type = string_from_type(stmnt.returnf.type);
     strb value = expr_stringify(stmnt.returnf.value, cursors);
 
     print_indent(indent);
     printfln("Return %s %s; (%u:%u)", type, value, cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
 
     strbfree(value);
+    strbfree(type);
 }
 
 void print_continue(Stmnt stmnt, Arr(Cursor) cursors, int indent) {

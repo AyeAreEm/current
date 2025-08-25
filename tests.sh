@@ -38,6 +38,16 @@ escaped() {
     echo escaped exit code: $?
 }
 
+arrays() {
+    ./current run tests/arrays/main.cur
+    echo escaped exit code: $?
+}
+
+options() {
+    ./current run tests/options/main.cur
+    echo escaped exit code: $?
+}
+
 all() {
     functions
     structs
@@ -46,6 +56,8 @@ all() {
     enums
     directives
     escaped
+    arrays
+    options
 }
 
 if [ "$option" == "functions" ]; then
@@ -62,6 +74,10 @@ elif [ "$option" == "directives" ]; then
     directives
 elif [ "$option" == "escaped" ]; then
     escaped
+elif [ "$option" == "arrays" ]; then
+    arrays
+elif [ "$option" == "options" ]; then
+    options
 elif [ "$option" == "all" ]; then
     all
 else

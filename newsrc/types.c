@@ -1,5 +1,8 @@
+#include "include/strb.h"
 #include "include/utils.h"
+#include <assert.h>
 #include "include/types.h"
+#include "include/exprs.h"
 
 Type type_none(void) {
     return (Type){.kind = TkNone};
@@ -97,7 +100,7 @@ Type type_typedef(const char *v, CONSTNESS constant, size_t index) {
     };
 }
 
-Type type_map(const char *t) {
+Type type_from_string(const char *t) {
     if (streq(t, "void")) {
         return (Type){.kind = TkVoid};
     } else if (streq(t, "bool")) {
@@ -137,32 +140,94 @@ Type type_map(const char *t) {
     return (Type){.kind = TkNone};
 }
 
-const char *typekind_stringify(TypeKind t) {
-    switch (t) {
-        case TkTypeDef: return "TypeDef";
-        case TkArray: return "Array";
-        case TkChar: return "Char";
-        case TkPtr: return "Ptr";
-        case TkOption: return "Option";
-        case TkI8: return "I8";
-        case TkI16: return "I16";
-        case TkI32: return "I32";
-        case TkI64: return "I64";
-        case TkIsize: return "Isize";
-        case TkU8: return "U8";
-        case TkU16: return "U16";
-        case TkU32: return "U32";
-        case TkU64: return "U64";
-        case TkUsize: return "Usize";
-        case TkF32: return "F32";
-        case TkF64: return "F64";
-        case TkBool: return "Bool";
-        case TkVoid: return "Void";
-        case TkString: return "String";
-        case TkCstring: return "Cstring";
-        case TkUntypedInt: return "UntypedInt";
-        case TkUntypedFloat: return "UntypedFloat";
-        case TkNone: return "None";
-        case TkTypeId: return "TypeId";
+strb string_from_type(Type t) {
+    strb ret = NULL;
+
+    switch (t.kind) {
+        case TkNone:
+            break;
+
+        case TkTypeDef:
+            strbprintf(&ret, "%s", t.typedeff);
+            break;
+
+        case TkPtr: {
+            strb sub = string_from_type(*t.ptr_to);
+            strbprintf(&ret, "*%s", sub);
+        } break;
+        case TkArray: {
+            strb sub = string_from_type(*t.array.of);
+            strbprintf(&ret, "[%ld]%s", t.array.len->intlit, sub);
+        } break;
+        case TkOption: {
+            strb sub = string_from_type(*t.option.subtype);
+            strbprintf(&ret, "?%s", sub);
+        } break;
+
+        case TkTypeId:
+            strbprintf(&ret, "typeid");
+            break;
+
+        case TkVoid:
+            strbprintf(&ret, "void");
+            break;
+        case TkBool:
+            strbprintf(&ret, "bool");
+            break;
+
+        case TkChar:
+            strbprintf(&ret, "char");
+            break;
+        case TkString:
+            strbprintf(&ret, "string");
+            break;
+        case TkCstring:
+            strbprintf(&ret, "cstring");
+            break;
+
+        case TkUntypedInt:
+            strbprintf(&ret, "untyped_int");
+            break;
+        case TkUntypedFloat:
+            strbprintf(&ret, "untyped_float");
+            break;
+        case TkF32:
+            strbprintf(&ret, "f32");
+            break;
+        case TkF64:
+            strbprintf(&ret, "f64");
+            break;
+        case TkU8:
+            strbprintf(&ret, "u8");
+            break;
+        case TkU16:
+            strbprintf(&ret, "u16");
+            break;
+        case TkU32:
+            strbprintf(&ret, "u32");
+            break;
+        case TkU64:
+            strbprintf(&ret, "u64");
+            break;
+        case TkUsize:
+            strbprintf(&ret, "usize");
+            break;
+        case TkI8:
+            strbprintf(&ret, "i8");
+            break;
+        case TkI16:
+            strbprintf(&ret, "i16");
+            break;
+        case TkI32:
+            strbprintf(&ret, "i32");
+            break;
+        case TkI64:
+            strbprintf(&ret, "i64");
+            break;
+        case TkIsize:
+            strbprintf(&ret, "isize");
+            break;
     }
+
+    return ret;
 }

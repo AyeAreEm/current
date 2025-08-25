@@ -7,11 +7,12 @@
 #include "include/cli.h"
 #include "include/parser.h"
 #include "include/sema.h"
+#include "include/gen.h"
 
 #define STB_DS_IMPLEMENTATION
 #include "include/stb_ds.h"
 
-const bool DEBUG_MODE = false;
+const bool DEBUG_MODE = true;
 
 void print_ast(Stmnt *ast, Cursor *cursors) {
     for (size_t i = 0; i < arrlenu(ast); i++) {
@@ -21,7 +22,7 @@ void print_ast(Stmnt *ast, Cursor *cursors) {
 
 void build(char *filepath) {
     char *content;
-    bool content_ok = read_file(filepath, &content);
+    bool content_ok = read_entire_file(filepath, &content);
     if (!content_ok) {
         comp_elog("failed to read %s", filepath);
     }
@@ -40,20 +41,23 @@ void build(char *filepath) {
         arrpush(ast, stmnt);
     }
 
+    Sema sema = sema_init(ast, filepath, lex.cursors);
+    sema_analyse(&sema);
+
     if (DEBUG_MODE) {
         print_ast(ast, parser.cursors);
     }
 
-    Sema sema = sema_init(ast, filepath, lex.cursors);
-    sema_analyse(&sema);
+    Gen gen = gen_init(ast, sema.dgraph);
+    gen_generate(&gen);
+
+    write_entire_file("output.h", gen.defs);
+    write_entire_file("output.c", gen.code);
 
     free(content);
 }
 
-
 int main(int argc, char **argv) {
-    stbds_rand_seed(time(NULL));
-
     Cli args = cli_parse(argv, argc);
 
     switch (args.command) {

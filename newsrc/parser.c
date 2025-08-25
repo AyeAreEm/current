@@ -8,6 +8,7 @@
 #include "include/parser.h"
 #include "include/lexer.h"
 #include "include/stmnts.h"
+#include "include/strb.h"
 #include "include/types.h"
 #include "include/utils.h"
 #include "include/stb_ds.h"
@@ -164,7 +165,7 @@ static Identifiers convert_ident(Parser *parser, Token tok) {
         };
     }
 
-    Type t = type_map(tok.ident);
+    Type t = type_from_string(tok.ident);
     if (t.kind != TkNone) {
         return (Identifiers){
             .kind = IkType,
@@ -320,13 +321,16 @@ Type parse_type(Parser *parser) {
             );
             next(parser);
 
-            for (tok = peek(parser); tok.kind != TokNone; next(parser)) {
+            for (tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+                if (tok.kind != TokStar && tok.kind != TokCaret) {
+                    break;
+                }
+                next(parser);
+
                 if (tok.kind == TokStar) {
                     type = type_ptr(&type, TYPEVAR, (size_t)parser->cursors_idx);
                 } else if (tok.kind == TokCaret) {
                     type = type_ptr(&type, TYPECONST, (size_t)parser->cursors_idx);
-                } else {
-                    break;
                 }
             }
 
@@ -343,6 +347,7 @@ Type parse_type(Parser *parser) {
 
                 if (after.kind == TokIntLit) {
                     *len = parse_expr(parser);
+                    expect(parser, TokRightSquare);
                 } else if (after.kind == TokUnderscore) {
                     next(parser);
                     expect(parser, TokRightSquare);
@@ -356,20 +361,16 @@ Type parse_type(Parser *parser) {
                     .of = of,
                 }, TYPEVAR, (size_t)parser->cursors_idx);
 
-                switch (type.kind) {
-                    case TkNone: {
-                        type = array_type;
-                    } break;
-                    case TkArray: {
-                        Type *subtype = ealloc(sizeof(Type)); *subtype = array_type;
-                        type.array.of = subtype;
-                    } break;
-                    default: break;
+                if (type.kind == TkArray) {
+                    Type *subtype = ealloc(sizeof(Type)); *subtype = array_type;
+                    type.array.of = subtype;
+                } else if (type.kind == TkNone) {
+                    type = array_type;
                 }
-
-                Type subtype = parse_type(parser);
-                parse_set_array_type(parser, &type, subtype);
             }
+
+            Type subtype = parse_type(parser);
+            parse_set_array_type(parser, &type, subtype);
         } break;
         case TokIdent: {
             next(parser);
@@ -403,7 +404,11 @@ Expr parse_primary(Parser *parser) {
                 next(parser);
                 return parse_end_literal(parser, type);
             } else {
-                elog(parser, parser->cursors_idx, "unexpected type %s", typekind_stringify(type.kind));
+                strb t = string_from_type(type);
+                debug("here, %s", t);
+                elog(parser, parser->cursors_idx, "unexpected type %s", t);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t);
             }
         } break;
         case TokIdent: {
@@ -444,7 +449,10 @@ Expr parse_primary(Parser *parser) {
                     next(parser);
                     return parse_end_literal(parser, type);
                 } else {
-                    elog(parser, parser->cursors_idx, "unexpected type %s", typekind_stringify(type.kind));
+                    strb t = string_from_type(type);
+                    elog(parser, parser->cursors_idx, "unexpected type %s", t);
+                    // TODO: later when providing more than one error message, uncomment the line below
+                    // strbfree(t);
                 }
             } else {
                 elog(parser, parser->cursors_idx, "unexpected identifier %s", tok.ident);
