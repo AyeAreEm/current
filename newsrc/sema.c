@@ -850,7 +850,10 @@ void sema_if(Sema *sema, Stmnt *stmnt) {
     If *iff = &stmnt->iff;
 
     sema_expr(sema, &iff->condition);
-    if (!tc_equals(sema, type_bool(TYPEVAR, 0), &iff->condition.type)) {
+    if (
+        !tc_equals(sema, type_bool(TYPEVAR, 0), &iff->condition.type) &&
+        iff->condition.type.kind != TkOption
+    ) {
         strb t = string_from_type(iff->condition.type);
         elog(sema, stmnt->cursors_idx, "condition must be bool or option, got %s", t);
         // TODO: later when providing more than one error message, uncomment the line below
