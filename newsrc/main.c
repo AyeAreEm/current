@@ -135,8 +135,13 @@ void run(const char *exe) {
     if (fd == NULL) {
         comp_elog("failed to run `%s`", com);
     }
-    pclose(fd);
 
+    char buf[1024];
+    while (fgets(buf, sizeof(buf), fd) != NULL) {
+        printf("%s", buf);
+    }
+
+    pclose(fd);
     strbfree(com);
 }
 
