@@ -1,8 +1,10 @@
-#include <time.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "include/exprs.h"
 #include "include/lexer.h"
 #include "include/stmnts.h"
+#include "include/strb.h"
 #include "include/utils.h"
 #include "include/cli.h"
 #include "include/parser.h"
@@ -12,7 +14,7 @@
 #define STB_DS_IMPLEMENTATION
 #include "include/stb_ds.h"
 
-const bool DEBUG_MODE = true;
+const bool DEBUG_MODE = false;
 
 void print_ast(Stmnt *ast, Cursor *cursors) {
     for (size_t i = 0; i < arrlenu(ast); i++) {
@@ -20,7 +22,65 @@ void print_ast(Stmnt *ast, Cursor *cursors) {
     }
 }
 
-void build(char *filepath) {
+void compile(CompileFlags flags) {
+    const char *cc = get_c_compiler();
+
+    strb com = NULL;
+    strbprintf(&com, "%s -o %s output.c ", cc, flags.output);
+
+    char *op;
+    switch (flags.optimisation) {
+        case OlZero:
+            op = "-O0";
+            break;
+        case OlOne:
+            op = "-O1";
+            break;
+        case OlTwo:
+            op = "-O2";
+            break;
+        case OlThree:
+            op = "-O3";
+            break;
+        case OlDebug:
+            op = "-Og -g";
+            break;
+        case OlFast:
+            op = "-O3";
+            break;
+        case OlSmall:
+            op = "-Os";
+            break;
+    }
+    strbprintf(&com, "%s", op);
+
+    for (size_t i = 0; i < arrlenu(flags.links); i++) {
+        strbprintf(&com, " %s", flags.links[i]);
+    }
+
+    if (DEBUG_MODE) {
+        printf("%s\n", com);
+    }
+
+    FILE *fd = popen(com, "r");
+    if (fd == NULL) {
+        comp_elog("failed to compile");
+    }
+
+    if (pclose(fd) != 0) {
+        comp_elog("failed to compile");
+    }
+
+    if (!DEBUG_MODE) {
+        remove("output.c");
+        remove("output.h");
+    }
+
+    strbfree(com);
+}
+
+// returns executable name
+const char *build(char *filepath) {
     char *content;
     bool content_ok = read_entire_file(filepath, &content);
     if (!content_ok) {
@@ -53,8 +113,31 @@ void build(char *filepath) {
 
     write_entire_file("output.h", gen.defs);
     write_entire_file("output.c", gen.code);
+    
+    if (strlen(gen.compile_flags.output) == 0) {
+        gen.compile_flags.output = filename_from_path(filepath);
+    }
+    compile(gen.compile_flags);
 
     free(content);
+    return gen.compile_flags.output;
+}
+
+void run(const char *exe) {
+    strb com = NULL;
+#if defined(__linux__) || defined(__APPLE__)
+    strbprintf(&com, "./%s", exe);
+#elif defined(_WIN32)
+    strbprintf(&com, "./%s.exe", exe);
+#endif
+
+    FILE *fd = popen(com, "r");
+    if (fd == NULL) {
+        comp_elog("failed to run `%s`", com);
+    }
+    pclose(fd);
+
+    strbfree(com);
 }
 
 int main(int argc, char **argv) {
@@ -67,7 +150,8 @@ int main(int argc, char **argv) {
         } break;
         case CommandRun:
         {
-            build(args.filename);
+            const char *exe = build(args.filename);
+            run(exe);
         } break;
         default: break;
     }

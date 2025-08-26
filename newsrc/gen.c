@@ -381,7 +381,7 @@ MaybeAllocStr gen_option_expr(Gen *gen, Expr expr) {
     };
 }
 
-strb gen_numlit_expr(Gen *gen, Expr expr) {
+strb gen_numlit_expr(Expr expr) {
     assert(expr.kind == EkIntLit);
     strb s = NULL;
     Number n = eval_int_cast(expr.type, expr.intlit);
@@ -650,7 +650,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
         case EkIntLit:
         case EkFloatLit: {
             return (MaybeAllocStr){
-                .str = gen_numlit_expr(gen, expr),
+                .str = gen_numlit_expr(expr),
                 .alloced = true,
             };
         }

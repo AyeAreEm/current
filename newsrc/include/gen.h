@@ -20,6 +20,12 @@ typedef enum OptLevel {
     OlSmall,
 } OptLevel;
 
+typedef struct CompileFlags {
+    Arr(const char*) links;
+    const char *output;
+    OptLevel optimisation;
+} CompileFlags;
+
 typedef struct Gen {
     Arr(Stmnt) ast;
 
@@ -35,11 +41,7 @@ typedef struct Gen {
     size_t code_loc;
 
     Arr(const char*) generated_typedefs;
-    struct {
-        Arr(const char*) links;
-        const char *output;
-        OptLevel optimisation;
-    } compile_flags;
+    CompileFlags compile_flags;
 } Gen;
 
 typedef struct MaybeAllocStr {

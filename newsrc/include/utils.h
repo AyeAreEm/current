@@ -52,6 +52,9 @@ bool read_entire_file(const char *filename, char **buf);
 // return false if failed
 bool write_entire_file(const char *filename, const char *content);
 
+// returns allocated string, must be freed
+const char *filename_from_path(const char *path);
+
 // returns false if failed
 bool parse_u64(const char *str, uint64_t *n);
 
@@ -68,6 +71,7 @@ void strclear(char *str, size_t *tail_idx);
 bool streq(const char *s1, const char *s2);
 
 int strhas(const char *hay, const char *needle);
+bool strstartswith(const char *hay, const char *needle);
 
 // from and to must be of the same size
 bool strreplace(char *s, const char *from, const char *to);
@@ -81,4 +85,6 @@ void *ealloc(size_t size);
 
 // erroors and exits when NULL
 void *erealloc(void *mem, size_t size);
+
+const char *get_c_compiler(void);
 #endif // UTILS_H

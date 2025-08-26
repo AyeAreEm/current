@@ -82,7 +82,22 @@ bool write_entire_file(const char *filename, const char *content) {
         return false;
     }
 
+    fclose(fd);
     return true;
+}
+
+// returns allocated string, must be freed
+const char *filename_from_path(const char *path) {
+    size_t index = 0;
+    if (strstartswith(path, "./")) {
+        index = 2;
+    } else if (strstartswith(path, ".\\")) {
+        index = 3;
+    }
+
+    char *filename = strdup(&path[index]);
+    strtok(filename, ".");
+    return filename;
 }
 
 void debug(const char *msg, ...) {
@@ -214,6 +229,21 @@ int strhas(const char *hay, const char *needle) {
     return -1;
 }
 
+bool strstartswith(const char *hay, const char *needle) {
+    if (strlen(hay) < strlen(needle)) {
+        return false;
+    }
+
+    size_t needle_len = strlen(needle);
+    for (size_t i = 0; i < needle_len; i++) {
+        if (hay[i] != needle[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 // from and to must be of the same size
 bool strreplace(char *s, const char *from, const char *to) {
     if (strlen(from) != strlen(to)) {
@@ -262,4 +292,26 @@ void *erealloc(void *mem, size_t size) {
         comp_elog("failed to reallocate memory");
     }
     return mem;
+}
+
+const char *get_c_compiler(void) {
+#if defined(__linux__) || defined (__APPLE__)
+    const char *gcc = "gcc -v > /dev/null 2>&1";
+    const char *clang = "clang -v > /dev/null 2>&1";
+#elif defined(_WIN32)
+    const char *gcc = "gcc -v > nul 2>&1";
+    const char *clang = "clang -v > nul 2>&1";
+#endif
+    FILE *fd = popen(gcc, "r");
+    if (pclose(fd) == 0) {
+        return "gcc";
+    }
+
+    fd = popen(clang, "r");
+    if (pclose(fd) == 0) {
+        return "clang";
+    }
+
+    comp_elog("gcc or clang not detected, please ensure you have one of these compilers");
+    return "";
 }
