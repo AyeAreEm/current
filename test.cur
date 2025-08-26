@@ -1,5 +1,5 @@
-extern puts :: fn(s: cstring) i32;
-
 main :: fn() void {
-    puts(c"hello world");
+    for (i: usize = 0; i < 10; i += 1) {
+
+    }
 }

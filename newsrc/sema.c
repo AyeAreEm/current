@@ -111,7 +111,7 @@ void symtab_new_scope(Sema *sema) {
     Arr(const char*) keys = NULL;
     Arr(Stmnt) stmnts = NULL;
 
-    for (size_t i = 0; i < arrlenu(sema->symtab.keys); i++) {
+    for (size_t i = 0; i < arrlenu(sema->symtab.keys[sema->symtab.cur_scope]); i++) {
         arrpush(keys, sema->symtab.keys[sema->symtab.cur_scope][i]);
         arrpush(stmnts, sema->symtab.stmnts[sema->symtab.cur_scope][i]);
     }

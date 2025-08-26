@@ -405,7 +405,6 @@ Expr parse_primary(Parser *parser) {
                 return parse_end_literal(parser, type);
             } else {
                 strb t = string_from_type(type);
-                debug("here, %s", t);
                 elog(parser, parser->cursors_idx, "unexpected type %s", t);
                 // TODO: later when providing more than one error message, uncomment the line below
                 // strbfree(t);
@@ -618,7 +617,7 @@ Expr parse_factor(Parser *parser) {
 Expr parse_term(Parser *parser) {
     Expr expr = parse_factor(parser);
 
-    for (Token op = peek(parser); op.kind != TokNone;) {
+    for (Token op = peek(parser); op.kind != TokNone; op = peek(parser)) {
         if (op.kind != TokPlus && op.kind != TokMinus) {
             break;
         }
@@ -649,7 +648,7 @@ Expr parse_term(Parser *parser) {
 Expr parse_comparison(Parser *parser) {
     Expr expr = parse_term(parser);
 
-    for (Token tok = peek(parser); tok.kind != TokNone;) {
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
         size_t index = (size_t)parser->cursors_idx;
         if (tok.kind != TokLeftAngle && tok.kind != TokRightAngle) {
             break;
