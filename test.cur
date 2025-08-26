@@ -1,33 +1,5 @@
-extern puts :: fn(s: cstring) i32;
-
-Person :: struct {
-    name: cstring;
-    phone: cstring;
-}
-
-print_phonebook :: fn(book: [3]Person) void {
-    for (i: usize = 0; i < book.len; i += 1) {
-        puts(book[i].name);
-        puts(book[i].phone);
-        puts(c"");
-    }
-}
-
 main :: fn() void {
-    phonebook := [3]Person{
-        Person{
-            .name = c"alice",
-            .phone = c"1",
-        },
-        Person{
-            .name = c"bob",
-            .phone = c"2",
-        },
-        Person{
-            .name = c"charlie",
-            .phone = c"3",
-        },
-    };
+    if (true) {
 
-    print_phonebook(phonebook);
+    }
 }

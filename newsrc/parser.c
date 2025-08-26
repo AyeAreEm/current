@@ -1180,7 +1180,7 @@ Stmnt parse_if(Parser *parser) {
 
     expect(parser, TokLeftBracket);
     Expr cond = parse_expr(parser);
-    expect(parser, TokLeftBracket);
+    expect(parser, TokRightBracket);
 
     Token capture_tok = peek(parser);
     Expr capture = expr_none();
@@ -1214,7 +1214,7 @@ Stmnt parse_if(Parser *parser) {
         .condition = cond,
         .body = body,
         .capture.ident = capture,
-        .capturekind = CkIdent,
+        .capturekind = capture.kind == EkNone ? CkNone : CkIdent,
         .els = else_block,
     }, index);
 }
