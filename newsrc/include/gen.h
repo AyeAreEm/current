@@ -21,9 +21,10 @@ typedef enum OptLevel {
 } OptLevel;
 
 typedef struct CompileFlags {
+    bool keepc;
+    OptLevel optimisation;
     Arr(const char*) links;
     const char *output;
-    OptLevel optimisation;
 } CompileFlags;
 
 typedef struct Gen {

@@ -9,8 +9,17 @@ static Cli cli_init(void) {
     return (Cli){
         .help = false,
         .command = CommandNone,
+        .keepc = false,
         .filename = "",
     };
+}
+
+static char *cli_args_peek(char ***argv, int *argc) {
+    if (*argc == 0) {
+        comp_elog("expected another argument");
+    }
+
+    return (*argv)[0];
 }
 
 static char *cli_args_next(char ***argv, int *argc) {
@@ -49,15 +58,11 @@ static void cli_parse_build(Cli *cli, char ***argv, int *argc) {
     }
 
     cli->command = CommandBuild;
-    char *arg = cli_args_next(argv, argc);
+    char *arg = cli_args_peek(argv, argc);
     if (cli_is_command(arg)) {
         comp_elog("unexpected %s, expected filename or help", arg);
     }
-
-    if (streq(arg, "help")) {
-        cli_parse_help(cli, argv, argc);
-        return;
-    }
+    cli_args_next(argv, argc);
 
     cli->filename = arg;
 }
@@ -68,27 +73,26 @@ static void cli_parse_run(Cli *cli, char ***argv, int *argc) {
     }
 
     cli->command = CommandRun;
-    char *arg = cli_args_next(argv,argc);
+    char *arg = cli_args_peek(argv, argc);
     if (cli_is_command(arg)) {
         comp_elog("unexpected %s, expected filename or help", arg);
     }
-
-    if (streq(arg, "help")) {
-        cli_parse_help(cli, argv, argc);
-        return;
-    }
+    cli_args_next(argv, argc);
 
     cli->filename = arg;
 }
 
-void cli_usage(Cli cli) {
+void cli_usage(Cli cli, bool force) {
+    if (!cli.help && !force) {
+        return;
+    }
+
     switch (cli.command) {
         case CommandBuild:
         {
             printfln("USAGE:");
             printfln("    build [filename]");
             printfln("    generate executable with a given file");
-            printfln("");
             exit(0);
         } break;
         case CommandRun:
@@ -96,7 +100,6 @@ void cli_usage(Cli cli) {
             printfln("USAGE:");
             printfln("    run [filename]");
             printfln("    generate executable with a given file and run it");
-            printfln("");
             exit(0);
         } break;
         default:
@@ -104,8 +107,8 @@ void cli_usage(Cli cli) {
             printfln("USAGE:");
             printfln("    build [filename.cur] | build executable");
             printfln("    run [filename.cur] | build and run executable");
-            printfln("");
-            exit(0);
+            printfln("    help | print this usage message (can be used after a command for specific usage)");
+            exit(force);
         } break;
     }
 }
@@ -123,11 +126,9 @@ Cli cli_parse(char **argv, int argc) {
             cli_parse_run(&cli, &argv, &argc);
         } else if (streq(arg, "help")) {
             cli_parse_help(&cli, &argv, &argc);
+        } else if (streq(arg, "-keepc")) {
+            cli.keepc = true;
         }
-    }
-
-    if (cli.help) {
-        cli_usage(cli);
     }
 
     return cli;

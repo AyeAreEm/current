@@ -71,20 +71,20 @@ void compile(CompileFlags flags) {
         comp_elog("failed to compile");
     }
 
-    // if (!DEBUG_MODE) {
+    if (!DEBUG_MODE && !flags.keepc) {
         remove("output.c");
         remove("output.h");
-    // }
+    }
 
     strbfree(com);
 }
 
 // returns executable name
-const char *build(char *filepath) {
+const char *build(Cli args) {
     char *content;
-    bool content_ok = read_entire_file(filepath, &content);
+    bool content_ok = read_entire_file(args.filename, &content);
     if (!content_ok) {
-        comp_elog("failed to read %s", filepath);
+        comp_elog("failed to read %s", args.filename);
     }
 
     Lexer lex = lexer(content);
@@ -96,12 +96,12 @@ const char *build(char *filepath) {
     }
 
     Arr(Stmnt) ast = NULL;
-    Parser parser = parser_init(lex, filepath);
+    Parser parser = parser_init(lex, args.filename);
     for (Stmnt stmnt = parser_parse(&parser); stmnt.kind != SkNone; stmnt = parser_parse(&parser)) {
         arrpush(ast, stmnt);
     }
 
-    Sema sema = sema_init(ast, filepath, lex.cursors);
+    Sema sema = sema_init(ast, args.filename, lex.cursors);
     sema_analyse(&sema);
 
     if (DEBUG_MODE) {
@@ -110,12 +110,13 @@ const char *build(char *filepath) {
 
     Gen gen = gen_init(ast, sema.dgraph);
     gen_generate(&gen);
+    gen.compile_flags.keepc = args.keepc;
 
     write_entire_file("output.h", gen.defs);
     write_entire_file("output.c", gen.code);
 
     if (strlen(gen.compile_flags.output) == 0) {
-        gen.compile_flags.output = filename_from_path(filepath);
+        gen.compile_flags.output = filename_from_path(args.filename);
     }
     compile(gen.compile_flags);
 
@@ -148,17 +149,20 @@ void run(const char *exe) {
 int main(int argc, char **argv) {
     Cli args = cli_parse(argv, argc);
 
+    cli_usage(args, false);
     switch (args.command) {
         case CommandBuild:
         {
-            build(args.filename);
+            build(args);
         } break;
         case CommandRun:
         {
-            const char *exe = build(args.filename);
+            const char *exe = build(args);
             run(exe);
         } break;
-        default: break;
+        default:
+            cli_usage(args, true);
+            break;
     }
 
     return 0;
