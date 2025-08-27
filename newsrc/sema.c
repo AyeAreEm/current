@@ -12,7 +12,7 @@
 #include "include/utils.h"
 #include "include/typecheck.h"
 
-static void elog(Sema *sema, size_t i, const char *msg, ...) {
+_Noreturn static void elog(Sema *sema, size_t i, const char *msg, ...) {
     eprintf("%s:%lu:%lu " TERM_RED "error" TERM_END ": ", sema->filename, sema->cursors[i].row, sema->cursors[i].col);
 
     va_list args;
@@ -271,6 +271,7 @@ Type *resolve_expr_type(Sema *sema, Expr *expr) {
 
             Stmnt call = symtab_find(sema, expr->fncall.name->ident, expr->cursors_idx);
             expr->type = call.fndecl.type;
+            return &expr->type;
         case EkType:
             // TODO: supprt this, returing TypeId or something
             elog(sema, expr->cursors_idx, "type of type not implemented yet");
@@ -605,7 +606,7 @@ void sema_binop(Sema *sema, Expr *expr) {
     Type *lt = resolve_expr_type(sema, expr->binop.left);
     Type *rt = resolve_expr_type(sema, expr->binop.right);
 
-    char *binopstr;
+    const char *binopstr = "";
     switch (expr->binop.kind) {
         case BkPlus:
             binopstr = "+";

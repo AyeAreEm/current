@@ -35,6 +35,8 @@ uint64_t eval_binop(Sema *sema, Expr *expr) {
         case BkInequals:
             return lhs != rhs;
     }
+
+    assert(false);
 }
 
 uint64_t eval_unop(Sema *sema, Expr *expr) {
@@ -51,6 +53,8 @@ uint64_t eval_unop(Sema *sema, Expr *expr) {
             comp_elog("cannot take address at compile time");
             return 0;
     }
+
+    assert(false);
 }
 
 uint64_t eval_expr(Sema *sema, Expr *expr) {
@@ -67,6 +71,8 @@ uint64_t eval_expr(Sema *sema, Expr *expr) {
             debug("not implemented in eval_expr");
             exit(1);
     }
+
+    assert(false);
 }
 
 Number eval_int_cast(Type type, uint64_t value) {

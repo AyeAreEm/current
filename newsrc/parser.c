@@ -142,6 +142,8 @@ const char *identifierskind_stringify(IdentifersKind i) {
         case IkKeyword: return "Keyword";
         case IkIdent: return "Ident";
     }
+
+    return "";
 }
 
 typedef struct Identifiers {

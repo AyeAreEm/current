@@ -3,11 +3,11 @@
 option="$1"
 
 build() {
-    gcc -Wall -Wextra -Wpedantic -o current     \
+    gcc -g -Wall -Wextra -Wpedantic -o current \
     newsrc/cli.c       \
     newsrc/eval.c      \
     newsrc/exprs.c     \
-    newsrc/gen.c     \
+    newsrc/gen.c       \
     newsrc/keywords.c  \
     newsrc/lexer.c     \
     newsrc/main.c      \

@@ -233,7 +233,7 @@ static strb binop_stringify(Expr expr, Arr(Cursor) cursors) {
     strb left = expr_stringify(*expr.binop.left, cursors);
     strb right = expr_stringify(*expr.binop.right, cursors);
 
-    char *op;
+    char *op = "";
     switch (expr.binop.kind) {
         case BkPlus:
             op = "+";
@@ -281,7 +281,7 @@ static strb unop_stringify(Expr expr, Arr(Cursor) cursors) {
 
     strb left = expr_stringify(*expr.unop.val, cursors);
 
-    char op;
+    char op = 0;
     switch (expr.unop.kind) {
         case UkNegate:
             op = '-';

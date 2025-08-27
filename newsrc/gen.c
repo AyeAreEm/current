@@ -922,7 +922,7 @@ void gen_decl_generic(Gen *gen, Type type) {
 
 strb gen_decl_proto(Gen *gen, Stmnt stmnt) {
     assert(stmnt.kind == SkVarDecl || stmnt.kind == SkConstDecl || stmnt.kind == SkFnDecl);
-    const char *name;
+    const char *name = "";
     Type type;
 
     switch (stmnt.kind) {
@@ -1142,7 +1142,7 @@ void gen_block(Gen *gen, Arr(Stmnt) block) {
 
     for (size_t i = 0; i < arrlenu(block); i++) {
         switch (block[i].kind) {
-            case EkNone:
+            case SkNone:
                 break;
             case SkDirective:
                 gen_directive(gen, block[i]);

@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "util.h"
 #include "sema.h"
 
 typedef enum NumberKind {

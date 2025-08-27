@@ -88,6 +88,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             if (rhs->kind == TkTypeDef && streq(lhs.typedeff, rhs->typedeff)) {
                 return true;
             }
+            break;
         case TkOption:
             if (rhs->kind == TkOption) {
                 if (lhs.option.subtype->kind == TkVoid) {

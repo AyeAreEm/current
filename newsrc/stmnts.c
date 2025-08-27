@@ -239,7 +239,7 @@ void print_directive(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_varreassign(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkVarReassign);
+    assert(stmnt.kind == SkVarReassign);
 
     strb name = expr_stringify(stmnt.varreassign.name, cursors);
     strb value = expr_stringify(stmnt.varreassign.value, cursors);
@@ -252,7 +252,7 @@ void print_varreassign(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_constdecl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkConstDecl);
+    assert(stmnt.kind == SkConstDecl);
 
     strb type = string_from_type(stmnt.constdecl.type);
     strb value = expr_stringify(stmnt.constdecl.value, cursors);
@@ -265,7 +265,7 @@ void print_constdecl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_vardecl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkVarDecl);
+    assert(stmnt.kind == SkVarDecl);
 
     strb type = string_from_type(stmnt.vardecl.type);
     strb value = expr_stringify(stmnt.vardecl.value, cursors);
@@ -278,7 +278,7 @@ void print_vardecl(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_return(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkReturn);
+    assert(stmnt.kind == SkReturn);
 
     strb type = string_from_type(stmnt.returnf.type);
     strb value = expr_stringify(stmnt.returnf.value, cursors);
@@ -291,21 +291,21 @@ void print_return(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_continue(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkContinue);
+    assert(stmnt.kind == SkContinue);
 
     print_indent(indent);
     printfln("Continue; (%u:%u)", cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
 }
 
 void print_break(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkBreak);
+    assert(stmnt.kind == SkBreak);
 
     print_indent(indent);
     printfln("Break; (%u:%u)", cursors[stmnt.cursors_idx].row, cursors[stmnt.cursors_idx].col);
 }
 
 void print_fncall(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkFnCall);
+    assert(stmnt.kind == SkFnCall);
 
     Expr expr = (Expr){
         .kind = EkFnCall,
@@ -321,7 +321,7 @@ void print_fncall(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_if(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkIf);
+    assert(stmnt.kind == SkIf);
 
     strb cond = expr_stringify(stmnt.iff.condition, cursors);
     print_indent(indent);
@@ -331,7 +331,7 @@ void print_if(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_for(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkFor);
+    assert(stmnt.kind == SkFor);
 
     strb cond = expr_stringify(stmnt.forf.condition, cursors);
     print_indent(indent);
@@ -340,7 +340,7 @@ void print_for(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_block(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkBlock);
+    assert(stmnt.kind == SkBlock);
 
     printfln("{");
     indent++;
@@ -351,7 +351,7 @@ void print_block(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
 }
 
 void print_extern(Stmnt stmnt, Arr(Cursor) cursors, int indent) {
-    assert(stmnt.kind = SkExtern);
+    assert(stmnt.kind == SkExtern);
 
     printf("Extern ");
     print_stmnt(*stmnt.externf, cursors, indent);

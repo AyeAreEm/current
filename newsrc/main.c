@@ -28,7 +28,7 @@ void compile(CompileFlags flags) {
     strb com = NULL;
     strbprintf(&com, "%s -o %s output.c ", cc, flags.output);
 
-    char *op;
+    char *op = "";
     switch (flags.optimisation) {
         case OlZero:
             op = "-O0";
@@ -71,10 +71,10 @@ void compile(CompileFlags flags) {
         comp_elog("failed to compile");
     }
 
-    if (!DEBUG_MODE) {
+    // if (!DEBUG_MODE) {
         remove("output.c");
         remove("output.h");
-    }
+    // }
 
     strbfree(com);
 }
@@ -113,7 +113,7 @@ const char *build(char *filepath) {
 
     write_entire_file("output.h", gen.defs);
     write_entire_file("output.c", gen.code);
-    
+
     if (strlen(gen.compile_flags.output) == 0) {
         gen.compile_flags.output = filename_from_path(filepath);
     }

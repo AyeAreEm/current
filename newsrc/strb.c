@@ -18,11 +18,13 @@ void strbnew(strb *s) {
     strbheader *h = ealloc(sizeof(strbheader) + sizeof(char) * 2);
     h->cap = 2;
     *s = (char *)(h + 1);
+    (*s)[0] = '\0';
 }
 
 void strbgrow(strb *s) {
-    strbheader *h = erealloc(strbh(*s), strbcap(*s) * 2 + sizeof(char) + sizeof(strbheader));
-    h->cap = h->cap * 2 + 1;
+    size_t newcap = strbcap(*s) * 2 + 1;
+    strbheader *h = erealloc(strbh(*s), sizeof(strbheader) + newcap + sizeof(char));
+    h->cap = newcap;
     *s = (char*)(h + 1);
 }
 
@@ -45,9 +47,10 @@ static void strbpushs(strb *sb, const char *s) {
 }
 
 void vstrbprintf(strb *s, const char *fmt, va_list args) {
-    char *buf;
+    char *buf = NULL;
     vasprintf(&buf, fmt, args);
     strbpushs(s, buf);
+    free(buf);
 }
 
 void strbprintf(strb *s, const char *fmt, ...) {

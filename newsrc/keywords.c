@@ -50,5 +50,7 @@ const char *keyword_stringify(Keyword k) {
         case KwExtern: return "Extern";
         case KwNone: return "None";
     }
+
+    return "";
 }
 
