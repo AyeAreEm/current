@@ -1096,6 +1096,7 @@ void gen_if(Gen *gen, Stmnt stmnt) {
 
     gen_block(gen, iff.body);
 
+    gen_indent(gen);
     gen_write(gen, "else ");
     gen_block(gen, iff.els);
 
@@ -1127,7 +1128,7 @@ void gen_for(Gen *gen, Stmnt stmnt) {
     gen_write(gen, "for (; %s; %s = %s) ", cond.str, reassign.str, value.str);
     gen_block(gen, forf.body);
 
-    gen->indent++;
+    gen->indent--;
     gen_indent(gen);
     gen_writeln(gen, "}");
 
