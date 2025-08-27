@@ -117,7 +117,7 @@ Cli cli_parse(char **argv, int argc) {
     Cli cli = cli_init();
     cli_args_next(&argv, &argc);
 
-    for (int i = 0; i < argc; i++) {
+    while (argc != 0) {
         char *arg = cli_args_next(&argv, &argc);
 
         if (streq(arg, "build")) {
