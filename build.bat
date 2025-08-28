@@ -2,20 +2,20 @@
 
 :build
     gcc -Wall -Wextra -Wpedantic -o current \
-    newsrc/cli.c       \
-    newsrc/eval.c      \
-    newsrc/exprs.c     \
-    newsrc/gen.c       \
-    newsrc/keywords.c  \
-    newsrc/lexer.c     \
-    newsrc/main.c      \
-    newsrc/parser.c    \
-    newsrc/sema.c      \
-    newsrc/stmnts.c    \
-    newsrc/strb.c      \
-    newsrc/typecheck.c \
-    newsrc/types.c     \
-    newsrc/utils.c
+    src/cli.c       \
+    src/eval.c      \
+    src/exprs.c     \
+    src/gen.c       \
+    src/keywords.c  \
+    src/lexer.c     \
+    src/main.c      \
+    src/parser.c    \
+    src/sema.c      \
+    src/stmnts.c    \
+    src/strb.c      \
+    src/typecheck.c \
+    src/types.c     \
+    src/utils.c
 
 if "%1"=="build" (
     call :build
