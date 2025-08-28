@@ -7,7 +7,7 @@ It's an ergonomic middle ground between C and C++, similar to new programming la
 
 ## Principles
 Current's main principles are simplicity and ease of use. A language with these principles would be one that doesn't stand in the way of the programmer and has features you'd expect in a modern language.<br>
-To do this, we borrow features from other languages. For example, receiver methods from Golang, generics from Rust, options and errors from Zig, etc.
+To do this, we borrow features from other languages. For example, generics, receiver methods from Golang, options and errors from Zig, etc.
 
 ## Features
 - Generics
@@ -109,3 +109,24 @@ I thought about making Current constants only compile time constants but some pr
 In that case, pointers to constant are neccessary but there isn't a proper syntactic way to do this in languages like this because there is no `const` keyword. Hence, two pointer symbols.<br>
 `*` is a pointer to a variable / mutable data.<br>
 `^` is a pointer to a constant / immutable data.<br>
+
+## How to build
+GCC or Clang are the only external dependencies needed to build.
+
+### Building on Linux / Unix
+```console
+$ chmod +x build.sh
+$ ./build.sh build
+```
+
+### Building on Windows
+```console
+$ ./build.bat build
+```
+
+## How to use
+`./current help` shows the commands available. Doing `./current <command> help` will give more detail into a command.<br>
+`./current build <file.cur>` will build an executable from said file.<br>
+`./current run <file.cur>` will build and run the executable from said file.<br>
+<br>
+To find documentation or examples, there are folders `docs` and `examples` to help.
