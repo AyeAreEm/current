@@ -57,8 +57,8 @@ main :: fn() void {
 ```
 
 ## Why not Odin, Zig, ...?
-Well, mainly because no language can have all the features I want in a statically compiled manual memory managed langauge. 
-- NOTE: I'm not saying other langauges are bad for not having these features. There are reasons why they don't have said features and that's respectable
+Well, mainly because no language can have all the features I want in a statically compiled manual memory managed language. 
+- NOTE: I'm not saying other languages are bad for not having these features. There are reasons why they don't have said features and that's respectable
 
 ### Features Odin Doesn't Have
 - <del>Generics</del>

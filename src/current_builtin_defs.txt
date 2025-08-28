@@ -41,7 +41,7 @@ typedef struct CurArray1d_##Tname##A {\
 } CurArray1d_##Tname##A;\
 CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr, usize len);\
 
-#define CurArray1dImpl(T, Tname, A)\
+#define CurArray1dImp(T, Tname, A)\
 CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr, usize len) {\
     CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){.len = len};\
     ret.ptr = ptr;\
@@ -55,7 +55,7 @@ typedef struct CurArray2d_##Tname##B##A {\
 } CurArray2d_##Tname##B##A;\
 CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, usize len);\
 
-#define CurArray2dImpl(T, Tname, A, B)\
+#define CurArray2dImp(T, Tname, A, B)\
 CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, usize len) {\
     CurArray2d_##Tname##B##A ret = (CurArray2d_##Tname##B##A){.len = len};\
     ret.ptr = ptr;\
@@ -70,7 +70,7 @@ typedef struct CurOption_##Tname {\
 CurOption_##Tname curoption_##Tname(T some);\
 CurOption_##Tname curoptionnull_##Tname();\
 
-#define CurOptionImpl(T, Tname)\
+#define CurOptionImp(T, Tname)\
 CurOption_##Tname curoption_##Tname(T some) {\
     CurOption_##Tname ret;\
     ret.some = some;\

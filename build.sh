@@ -22,11 +22,9 @@ build() {
 
 if [ "$option" == "build" ]; then
     build
-    # odin build src -out:current
 elif [ "$option" == "run" ]; then
     build
     ./current ${@:2}
-    # odin run src -out:current -- ${@:2}
 else
     echo invalid option $option
 fi

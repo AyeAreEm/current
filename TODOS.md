@@ -1,16 +1,20 @@
 # Todos
 - Enum Literals
+- UTF-8 Strings
+- Defer Statements
+- Default Function Arguments
+- Type Casting
 - Better Error Messages
+- Generics
+- Result Type (!)
+- Receiver Methods
 - Defining Libraries
 - Importing Libraries
 - Tagged Union Definitions
 - Tagged Union Literals
 - Switch Statements
-- Generics
-- Type Casting
 - Compile Time Expressions
 - Compile Time Execution
-- Result Type (!)
 - Variadic Arguments
 - First Class Vectors
 - First Class Matrices?
