@@ -1,42 +1,13 @@
-extern puts :: fn(s: cstring) i32;
-
-Person :: struct {
-    fname: cstring;
-    lname: ?cstring;
-    phone: cstring;
+Token :: struct {
+    kind: TokenKind;
 }
 
-print_phonebook :: fn(book: [3]Person) void {
-    for (i: usize = 0; i < book.len; i += 1) {
-        puts(book[i].fname);
-
-        if (book[i].lname) [lname] {
-            puts(lname);
-        }
-
-        puts(book[i].phone);
-        puts(c"");
-    }
+TokenKind :: enum {
+    Ident;
 }
 
 main :: fn() void {
-    phonebook := [3]Person{
-        Person{
-            .fname = c"alice",
-            .lname = c"amberson",
-            .phone = c"1",
-        },
-        Person{
-            .fname = c"bob",
-            .lname = null,
-            .phone = c"2",
-        },
-        Person{
-            .fname = c"charlie",
-            .lname = c"chan",
-            .phone = c"3",
-        },
+    tok := Token{
+        .kind = TokenKind.Ident,
     };
-
-    print_phonebook(phonebook);
 }

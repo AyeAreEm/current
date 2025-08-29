@@ -717,6 +717,14 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
 
             if (expr.fieldacc.accessing->type.kind == TkPtr) {
                 strbprintf(&ret, "%s->%s", subexpr.str, field.str);
+            } else if (expr.fieldacc.accessing->type.kind == TkTypeDef) {
+                Stmnt stmnt =ast_find_decl(gen->ast, expr.fieldacc.accessing->type.typedeff);
+
+                if (stmnt.kind == SkStructDecl) {
+                    strbprintf(&ret, "%s.%s", subexpr.str, field.str);
+                } else if (stmnt.kind == SkEnumDecl) {
+                    strbprintf(&ret, "%s_%s", subexpr.str, field.str);
+                }
             } else {
                 strbprintf(&ret, "%s.%s", subexpr.str, field.str);
             }
@@ -897,7 +905,6 @@ void gen_decl_generic(Gen *gen, Type type) {
             strb typedeff = NULL;
 
             Stmnt stmnt = ast_find_decl(gen->ast, type.typedeff);
-
             if (stmnt.kind == SkStructDecl) {
                 strbprintfln(&typedeff, "typedef struct %s %s;", type.typedeff, type.typedeff);
             } else if (stmnt.kind == SkEnumDecl) {
@@ -910,10 +917,10 @@ void gen_decl_generic(Gen *gen, Type type) {
                     return;
                 }
             }
+            arrpush(gen->generated_typedefs, typedeff);
 
             gen->defs = strbinsert(gen->defs, typedeff, gen->def_loc);
             gen->def_loc += strlen(typedeff);
-            arrpush(gen->generated_typedefs, typedeff);
         } break;
         default:
             return;
@@ -1322,7 +1329,7 @@ void gen_enum_decl(Gen *gen, Stmnt stmnt) {
 
         MaybeAllocStr expr = gen_expr(gen, f.constdecl.value);
         gen_indent(gen);
-        gen_writeln(gen, "%s = %s,", f.constdecl.name.ident, expr.str);
+        gen_writeln(gen, "%s_%s = %s,", enumd.name.ident, f.constdecl.name.ident, expr.str);
 
         if (expr.alloced) strbfree(expr.str);
     }

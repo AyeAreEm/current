@@ -359,6 +359,16 @@ static Expr get_field(Sema *sema, Type type, const char *fieldname, size_t curso
                 elog(sema, cursor_idx, "%s does not have field \"%s\" ", t, fieldname);
                 // TODO: later when providing more than one error message, uncomment the line below
                 // strbfree(t);
+            } else if (typedeff.kind == SkEnumDecl) {
+                for (size_t i = 0; i < arrlenu(typedeff.enumdecl.fields); i++) {
+                    Stmnt decl = typedeff.enumdecl.fields[i];
+                    assert(decl.kind == SkConstDecl);
+                    if (decl_has_name(decl, fieldname)) {
+                        return expr_ident(fieldname, type, cursor_idx);
+                    }
+                }
+                strb t = string_from_type(type);
+                elog(sema, cursor_idx, "%s does not have field \"%s\" ", t, fieldname);
             } else {
                 strb t = string_from_type(type);
                 comp_elog("get_field unreachable type: %s", t);
@@ -710,6 +720,9 @@ void sema_expr(Sema *sema, Expr *expr) {
                 break;
             } else if (stmnt.kind == SkConstDecl) {
                 expr->type = stmnt.constdecl.type;
+                break;
+            } else if (stmnt.kind == SkEnumDecl) {
+                expr->type = type_typedef(stmnt.enumdecl.name.ident, TYPEVAR, stmnt.cursors_idx);
                 break;
             } else {
                 elog(sema, expr->cursors_idx, "expected \"%s\" to be a variable", expr->ident);
