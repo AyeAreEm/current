@@ -265,6 +265,12 @@ static strb binop_stringify(Expr expr, Arr(Cursor) cursors) {
         case BkInequals:
             op = "!=";
             break;
+        case BkAnd:
+            op = "and";
+            break;
+        case BkOr:
+            op = "or";
+            break;
     }
 
     strb buf = NULL;

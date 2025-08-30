@@ -648,6 +648,12 @@ void sema_binop(Sema *sema, Expr *expr) {
         case BkInequals:
             binopstr = "!=";
             break;
+        case BkAnd:
+            binopstr = "and";
+            break;
+        case BkOr:
+            binopstr = "or";
+            break;
     }
 
     if (!tc_equals(sema, *lt, rt)) {
@@ -681,6 +687,12 @@ void sema_binop(Sema *sema, Expr *expr) {
             expr->type = *lt;
         } else {
             expr->type = *rt;
+        }
+    } else if (expr->binop.kind == BkAnd || expr->binop.kind == BkOr) {
+        if (lt->kind != TkBool && rt->kind != TkBool) {
+            strb t1 = string_from_type(*lt);
+            strb t2 = string_from_type(*rt);
+            elog(sema, expr->cursors_idx, "cannot use logical operations (and | or) on %s and %s", t1, t2);
         }
     }
 }

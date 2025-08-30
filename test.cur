@@ -1,13 +1,16 @@
-Token :: struct {
-    kind: TokenKind;
+extern puts :: fn(s: cstring) i32;
+
+gimme_true :: fn() bool {
+    return true;
 }
 
-TokenKind :: enum {
-    Ident;
+gimme_false :: fn() bool {
+    return false;
 }
 
 main :: fn() void {
-    tok := Token{
-        .kind = TokenKind.Ident,
-    };
+    // also added "and"
+    if (gimme_true() or gimme_false()) {
+        puts(c"ran");
+    }
 }

@@ -136,6 +136,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkI8:
                     return true;
                 default:
@@ -145,6 +146,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkI8:
                 case TkI16:
                     return true;
@@ -155,6 +157,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkI8:
                 case TkI16:
                 case TkI32:
@@ -166,6 +169,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkI8:
                 case TkI16:
                 case TkI32:
@@ -178,6 +182,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkI8:
                 case TkI16:
                 case TkI32:
@@ -191,6 +196,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkU8:
                     return true;
                 default:
@@ -200,6 +206,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkU8:
                 case TkU16:
                     return true;
@@ -210,6 +217,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkU8:
                 case TkU16:
                 case TkU32:
@@ -221,6 +229,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkU8:
                 case TkU16:
                 case TkU32:
@@ -233,6 +242,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedInt:
                     *rhs = lhs;
+                    return true;
                 case TkU8:
                 case TkU16:
                 case TkU32:
@@ -255,6 +265,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedFloat:
                     *rhs = lhs;
+                    return true;
                 case TkF32:
                     return true;
                 default:
@@ -264,6 +275,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             switch (rhs->kind) {
                 case TkUntypedFloat:
                     *rhs = lhs;
+                    return true;
                 case TkF32:
                 case TkF64:
                     return true;
@@ -562,6 +574,11 @@ bool tc_is_unsigned(Sema *sema, Expr expr) {
 
 bool tc_can_compare_equality(Type lhs, Type rhs) {
     switch (lhs.kind) {
+        case TkBool:
+            if (rhs.kind == TkBool) {
+                return true;
+            }
+            return false;
         case TkI8:
         case TkI16:
         case TkI32:

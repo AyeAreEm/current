@@ -28,6 +28,10 @@ Keyword keyword_map(const char *str) {
         return KwExtern;
     } else if (streq(str, "for")) {
         return KwFor;
+    } else if (streq(str, "and")) {
+        return KwAnd;
+    } else if (streq(str, "or")) {
+        return KwFor;
     }
 
     return KwNone;
@@ -49,6 +53,8 @@ const char *keyword_stringify(Keyword k) {
         case KwReturn: return "Return";
         case KwExtern: return "Extern";
         case KwNone: return "None";
+        case KwAnd: return "And";
+        case KwOr: return "Or";
     }
 
     return "";

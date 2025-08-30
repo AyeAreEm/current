@@ -732,8 +732,60 @@ Expr parse_equality(Parser *parser) {
     return expr;
 }
 
+Expr parse_and(Parser *parser) {
+    Expr expr = parse_equality(parser);
+
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        if (tok.kind != TokIdent) {
+            break;
+        }
+
+        if (!streq(tok.ident, "and")) {
+            break;
+        }
+        next(parser);
+
+        size_t index = (size_t)parser->cursors_idx;
+        Expr *left = ealloc(sizeof(Expr)); *left = expr;
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_equality(parser);
+        expr = expr_binop((Binop){
+            .kind = BkAnd,
+            .left = left,
+            .right = right,
+        }, type_bool(TYPEVAR, index), index);
+    }
+
+    return expr;
+}
+
+Expr parse_or(Parser *parser) {
+    Expr expr = parse_and(parser);
+
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        if (tok.kind != TokIdent) {
+            break;
+        }
+
+        if (!streq(tok.ident, "or")) {
+            break;
+        }
+        next(parser);
+
+        size_t index = (size_t)parser->cursors_idx;
+        Expr *left = ealloc(sizeof(Expr)); *left = expr;
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_equality(parser);
+        expr = expr_binop((Binop){
+            .kind = BkOr,
+            .left = left,
+            .right = right,
+        }, type_bool(TYPEVAR, index), index);
+    }
+
+    return expr;
+}
+
 Expr parse_expr(Parser *parser) {
-    return parse_equality(parser);
+    return parse_or(parser);
 }
 
 // expects [ already nexted

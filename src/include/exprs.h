@@ -79,6 +79,8 @@ typedef enum BinopKind {
     BkGreaterEqual,
     BkEquals,
     BkInequals,
+    BkAnd,
+    BkOr,
 } BinopKind;
 
 typedef struct Binop { // Binary Operation
