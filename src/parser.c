@@ -432,7 +432,7 @@ Expr parse_primary(Parser *parser) {
                     next(parser);
                     Type type = typedef_from_ident(convert.expr);
                     return parse_end_literal(parser, type);
-                } else if (streq(convert.expr.ident, "c")) {
+                } else if (streq(convert.expr.ident, "c") && tok.kind == TokStrLit) {
                     next(parser);
                     return expr_cstrlit(tok.strlit, (size_t)parser->cursors_idx);
                 }

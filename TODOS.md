@@ -1,5 +1,4 @@
 # Todos
-- Enum Literals
 - UTF-8 Strings
 - Defer Statements
 - Default Function Arguments
@@ -61,3 +60,4 @@
 - Struct Definitions
 - Struct Literals
 - Enum Definitions
+- Enum Literals

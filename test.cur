@@ -1,16 +1,7 @@
-extern puts :: fn(s: cstring) i32;
-
-gimme_true :: fn() bool {
-    return true;
-}
-
-gimme_false :: fn() bool {
-    return false;
-}
+extern putchar :: fn(c: char) i32;
 
 main :: fn() void {
-    // also added "and"
-    if (gimme_true() or gimme_false()) {
-        puts(c"ran");
-    }
+    c := 'a';
+    putchar(c);
+    putchar('\n');
 }

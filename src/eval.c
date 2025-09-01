@@ -34,6 +34,10 @@ uint64_t eval_binop(Sema *sema, Expr *expr) {
             return lhs == rhs;
         case BkInequals:
             return lhs != rhs;
+        case BkAnd:
+            return lhs && rhs;
+        case BkOr:
+            return lhs || rhs;
     }
 
     assert(false);
