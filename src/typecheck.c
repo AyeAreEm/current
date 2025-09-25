@@ -43,9 +43,15 @@ static void elog(Sema *sema, size_t i, const char *msg, ...) {
 
 bool tc_ptr_equals(Sema *sema, Type lhs, Type *rhs) {
     if (lhs.kind == TkPtr && rhs->kind == TkPtr) {
+        // hardcoded since usually can't typecheck between void and another type
+        // unless it's a *void and *void, or **void and **void so on
+        if (lhs.ptr_to->kind == TkVoid && rhs->ptr_to->kind == TkVoid) {
+            return true;
+        }
+
         if (!lhs.constant && rhs->constant) return false;
-        if (!lhs.constant && !rhs->constant) return tc_ptr_equals(sema, *lhs.option.subtype, rhs->option.subtype);
-        if (lhs.constant) return tc_ptr_equals(sema, *lhs.option.subtype, rhs->option.subtype);
+        if (!lhs.constant && !rhs->constant) return tc_ptr_equals(sema, *lhs.ptr_to, rhs->ptr_to);
+        if (lhs.constant) return tc_ptr_equals(sema, *lhs.ptr_to, rhs->ptr_to);
     } else {
         return tc_equals(sema, lhs, rhs);
     }

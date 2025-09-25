@@ -1,7 +1,7 @@
-extern putchar :: fn(c: char) i32;
+extern malloc :: fn(size: usize) *void;
+extern free :: fn(ptr: *void) void;
 
 main :: fn() void {
-    c := 'a';
-    putchar(c);
-    putchar('\n');
+    n := malloc(1);
+    free(n);
 }
