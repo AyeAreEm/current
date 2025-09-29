@@ -39,6 +39,7 @@ typedef enum TokenKind {
     TokSlash,
     TokBackSlash,
 
+    TokBar,
     TokAmpersand,
     TokExclaim,
 

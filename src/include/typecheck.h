@@ -7,6 +7,7 @@ void tc_make_constant(Type *type);
 void tc_const_decl(Sema *sema, Stmnt *stmnt);
 bool tc_can_compare_equality(Type lhs, Type rhs);
 bool tc_can_compare_order(Type lhs, Type rhs);
+bool tc_can_bitwise(Type lhs, Type rhs);
 bool tc_is_unsigned(Sema *sema, Expr expr);
 void tc_var_decl(Sema *sema, Stmnt *stmnt);
 bool tc_equals(Sema *sema, Type lhs, Type *rhs);

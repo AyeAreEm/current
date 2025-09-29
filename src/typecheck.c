@@ -694,6 +694,7 @@ bool tc_can_compare_order(Type lhs, Type rhs) {
                 case TkU32:
                 case TkU64:
                 case TkUsize:
+                case TkUntypedInt:
                     return true;
                 default:
                     return false;
@@ -705,6 +706,40 @@ bool tc_can_compare_order(Type lhs, Type rhs) {
                 case TkF32:
                 case TkF64:
                 case TkUntypedFloat:
+                    return true;
+                default:
+                    return false;
+            }
+        default:
+            return false;
+    }
+}
+
+bool tc_can_bitwise(Type lhs, Type rhs) {
+    switch (lhs.kind) {
+        case TkI8:
+        case TkU8:
+        case TkI16:
+        case TkU16:
+        case TkI32:
+        case TkU32:
+        case TkI64:
+        case TkU64:
+        case TkIsize:
+        case TkUsize:
+        case TkUntypedInt:
+            switch (rhs.kind) {
+                case TkI8:
+                case TkU8:
+                case TkI16:
+                case TkU16:
+                case TkI32:
+                case TkU32:
+                case TkI64:
+                case TkU64:
+                case TkIsize:
+                case TkUsize:
+                case TkUntypedInt:
                     return true;
                 default:
                     return false;

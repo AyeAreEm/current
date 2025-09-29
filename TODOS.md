@@ -19,6 +19,7 @@
 - Standard Library
 
 # In Progress
+- Bitwise Operators
 - For Loops
 - Importing External Libraries
 

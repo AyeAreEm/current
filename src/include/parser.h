@@ -20,10 +20,6 @@ typedef struct Parser {
     long cursors_idx;
 } Parser;
 
-
-// Token peek(Parser *parser);
-// Token next(Parser *parser);
-// Token expect(Parser *parser, TokenKind expected);
 Expr parse_expr(Parser *parser);
 Expr parse_array_index(Parser *parser, Expr expr);
 Expr parse_field_access(Parser *parser, Expr expr);

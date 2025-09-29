@@ -732,8 +732,52 @@ Expr parse_equality(Parser *parser) {
     return expr;
 }
 
-Expr parse_and(Parser *parser) {
+Expr parse_bitwise_and(Parser *parser) {
     Expr expr = parse_equality(parser);
+
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        if (tok.kind != TokAmpersand) {
+            break;
+        }
+        next(parser);
+
+        size_t index = (size_t)parser->cursors_idx;
+        Expr *left = ealloc(sizeof(Expr)); *left = expr;
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_equality(parser);
+        expr = expr_binop((Binop){
+            .kind = BkBitAnd,
+            .left = left,
+            .right = right,
+        }, type_bool(TYPEVAR, index), index);
+    }
+
+    return expr;
+}
+
+Expr parse_bitwise_or(Parser *parser) {
+    Expr expr = parse_bitwise_and(parser);
+
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        if (tok.kind != TokBar) {
+            break;
+        }
+        next(parser);
+
+        size_t index = (size_t)parser->cursors_idx;
+        Expr *left = ealloc(sizeof(Expr)); *left = expr;
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_bitwise_and(parser);
+        expr = expr_binop((Binop){
+            .kind = BkBitOr,
+            .left = left,
+            .right = right,
+        }, type_bool(TYPEVAR, index), index);
+    }
+
+    return expr;
+}
+
+Expr parse_and(Parser *parser) {
+    Expr expr = parse_bitwise_or(parser);
 
     for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
         if (tok.kind != TokIdent) {
@@ -747,7 +791,7 @@ Expr parse_and(Parser *parser) {
 
         size_t index = (size_t)parser->cursors_idx;
         Expr *left = ealloc(sizeof(Expr)); *left = expr;
-        Expr *right = ealloc(sizeof(Expr)); *right = parse_equality(parser);
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_bitwise_or(parser);
         expr = expr_binop((Binop){
             .kind = BkAnd,
             .left = left,
