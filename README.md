@@ -2,7 +2,7 @@
 - NOTE: this language is still in development. expect bugs as features<br>
 
 ## Description
-Current is a statically typed compiled programming language with manual memory management<br>
+Current is a statically typed compiled programming language with manual memory management<br>.
 It's an ergonomic middle ground between C and C++, similar to new programming languages are in this space.<br>
 
 ## Principles
@@ -21,43 +21,35 @@ To do this, we borrow features from other languages. For example, generics, rece
 - Allocators
 
 ```odin
-vec2 :: struct[$T] {
+vec2 :: struct(T: type) {
     x: T,
     y: T,
 }
 
-vec2[$T].add :: fn(*self, other: vec2[T]) void {
+vec2($T).add :: fn(*self, other: vec2(T)) void {
     self.x += other.x;
     self.y += other.y;
 }
 
-extern malloc :: fn(size: usize) ?[*]void;
-extern free :: fn(ptr: ?[*]void);
-
 main :: fn() void {
-    pos := vec2[i32]{10, 15};
-    other := vec2[i32]{20, 10};
-
+    pos := vec2(i32){10, 15};
+    other := vec2(i32){20, 10};
     pos.add(other);
 
-    allocated_num := malloc(sizeof(i32));
-    defer free(allocated_num);
-
-    // allocated_num could be null
-    if (allocated_num) [&n] {
-        n.& = 10;
+    option: ?i32 = 10;
+    if (option) [op] {
+        println("%", op);
     }
 
     nums := [5]i32{1, 2, 3, 4, 5};
-
     for (nums) [n] {
-        println("{}", n);
+        println("%", n);
     }
 }
 ```
 
 ## Why not Odin, Zig, ...?
-Well, mainly because no language can have all the features I want in a statically compiled manual memory managed language. 
+Well, mainly because no language can have all the features I want in a statically compiled manual memory managed language.
 - NOTE: I'm not saying other languages are bad for not having these features. There are reasons why they don't have said features and that's respectable
 
 ### Features Odin Doesn't Have
@@ -111,7 +103,7 @@ In that case, pointers to constant are neccessary but there isn't a proper synta
 `^` is a pointer to a constant / immutable data.<br>
 
 ## How to build
-GCC or Clang are the only external dependencies needed to build.
+GCC or Clang is the only external dependencies needed to build.
 
 ### Building on Linux / Unix
 ```console
@@ -125,6 +117,8 @@ $ ./build.bat build
 ```
 
 ## How to use
+GCC or Clang is needed as an external dependency.
+
 `./current help` shows the commands available. Doing `./current <command> help` will give more detail into a command.<br>
 `./current build <file.cur>` will build an executable from said file.<br>
 `./current run <file.cur>` will build and run the executable from said file.<br>

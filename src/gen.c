@@ -98,6 +98,7 @@ Gen gen_init(Arr(Stmnt) ast, Dgraph dgraph) {
         .defs = NULL,
 
         .indent = 0,
+        .defers = NULL,
         
         .in_defs = false,
         .dgraph = dgraph,
@@ -112,6 +113,22 @@ Gen gen_init(Arr(Stmnt) ast, Dgraph dgraph) {
             .output = "",
         },
     };
+}
+
+void gen_push_defer(Gen *gen, Stmnt *stmnt) {
+    Defer defer = {
+        .stmnt = stmnt,
+        .indent = gen->indent,
+    };
+    arrpush(gen->defers, defer);
+}
+
+void gen_pop_defers(Gen *gen) {
+    for (ptrdiff_t i = arrlen(gen->defers) - 1; i >= 0; i--) {
+        if (gen->defers[i].indent == gen->indent) {
+            arrdel(gen->defers, i);
+        }
+    }
 }
 
 void gen_directive(Gen *gen, Stmnt stmnt) {
@@ -1046,8 +1063,23 @@ void gen_var_reassign(Gen *gen, Stmnt stmnt) {
     if (reassign.alloced) strbfree(reassign.str);
 }
 
+void gen_all_defers(Gen *gen) {
+    for (ptrdiff_t i = arrlen(gen->defers) - 1; i >= 0; i--) {
+        gen_stmnt(gen, gen->defers[i].stmnt);
+    }
+}
+void gen_defers(Gen *gen) {
+    for (ptrdiff_t i = arrlen(gen->defers) - 1; i >= 0; i--) {
+        if (gen->defers[i].indent == gen->indent) {
+            gen_stmnt(gen, gen->defers[i].stmnt);
+        }
+    }
+}
+
 void gen_return(Gen *gen, Stmnt stmnt) {
     assert(stmnt.kind == SkReturn);
+    gen_all_defers(gen);
+
     Return ret = stmnt.returnf;
 
     gen_indent(gen);
@@ -1064,12 +1096,14 @@ void gen_return(Gen *gen, Stmnt stmnt) {
 
 void gen_continue(Gen *gen, Stmnt stmnt) {
     assert(stmnt.kind == SkContinue);
+    gen_defers(gen);
     gen_indent(gen);
     gen_writeln(gen, "continue;");
 }
 
 void gen_break(Gen *gen, Stmnt stmnt) {
     assert(stmnt.kind == SkBreak);
+    gen_defers(gen);
     gen_indent(gen);
     gen_writeln(gen, "break;");
 }
@@ -1095,7 +1129,6 @@ void gen_if(Gen *gen, Stmnt stmnt) {
 
     if (iff.capturekind != CkNone) {
         gen_writeln(gen, "{");
-        gen->indent++;
 
         strb proto = gen_decl_proto(gen, *iff.capture.constdecl);
         gen_writeln(gen, "%s = %s.some;", proto, cond.str);
@@ -1114,7 +1147,6 @@ void gen_if(Gen *gen, Stmnt stmnt) {
     gen_block(gen, iff.els);
 
     if (iff.capturekind != CkNone) {
-        gen->indent--;
         gen_indent(gen);
         gen_writeln(gen, "}");
     }
@@ -1129,7 +1161,6 @@ void gen_for(Gen *gen, Stmnt stmnt) {
     gen_indent(gen);
 
     gen_writeln(gen, "{");
-    gen->indent++;
 
     gen_var_decl(gen, *forf.decl);
 
@@ -1141,7 +1172,6 @@ void gen_for(Gen *gen, Stmnt stmnt) {
     gen_write(gen, "for (; %s; %s = %s) ", cond.str, reassign.str, value.str);
     gen_block(gen, forf.body);
 
-    gen->indent--;
     gen_indent(gen);
     gen_writeln(gen, "}");
 
@@ -1150,64 +1180,73 @@ void gen_for(Gen *gen, Stmnt stmnt) {
     if (cond.alloced) strbfree(cond.str);
 }
 
+void gen_stmnt(Gen *gen, Stmnt *stmnt) {
+    switch (stmnt->kind) {
+        case SkNone:
+            break;
+        case SkDirective:
+            gen_directive(gen, *stmnt);
+            break;
+        case SkExtern:
+            gen_extern(gen, *stmnt);
+            break;
+        case SkDefer:
+            gen_push_defer(gen, stmnt->defer);
+            break;
+        case SkBlock:
+            gen_indent(gen);
+            gen_block(gen, stmnt->block);
+            gen_writeln(gen, "");
+            break;
+        case SkFnDecl:
+            gen_fn_decl(gen, *stmnt, false);
+            break;
+        case SkStructDecl:
+            // do nothing, defs will be resolved later
+            break;
+        case SkEnumDecl:
+            // do nothing, defs will be resolved later
+            break;
+        case SkVarDecl:
+            gen_var_decl(gen, *stmnt);
+            break;
+        case SkConstDecl:
+            gen_const_decl(gen, *stmnt);
+            break;
+        case SkVarReassign:
+            gen_var_reassign(gen, *stmnt);
+            break;
+        case SkReturn:
+            gen_return(gen, *stmnt);
+            break;
+        case SkContinue:
+            gen_continue(gen, *stmnt);
+            break;
+        case SkBreak:
+            gen_break(gen, *stmnt);
+            break;
+        case SkFnCall:
+            gen_fn_call_stmnt(gen, *stmnt);
+            break;
+        case SkIf:
+            gen_if(gen, *stmnt);
+            break;
+        case SkFor:
+            gen_for(gen, *stmnt);
+            break;
+    }
+}
+
 void gen_block(Gen *gen, Arr(Stmnt) block) {
     gen_writeln(gen, "{");
     gen->indent++;
 
     for (size_t i = 0; i < arrlenu(block); i++) {
-        switch (block[i].kind) {
-            case SkNone:
-                break;
-            case SkDirective:
-                gen_directive(gen, block[i]);
-                break;
-            case SkExtern:
-                gen_extern(gen, block[i]);
-                break;
-            case SkBlock:
-                gen_indent(gen);
-                gen_block(gen, block[i].block);
-                gen_writeln(gen, "");
-                break;
-            case SkFnDecl:
-                gen_fn_decl(gen, block[i], false);
-                break;
-            case SkStructDecl:
-                // do nothing, defs will be resolved later
-                break;
-            case SkEnumDecl:
-                // do nothing, defs will be resolved later
-                break;
-            case SkVarDecl:
-                gen_var_decl(gen, block[i]);
-                break;
-            case SkConstDecl:
-                gen_const_decl(gen, block[i]);
-                break;
-            case SkVarReassign:
-                gen_var_reassign(gen, block[i]);
-                break;
-            case SkReturn:
-                gen_return(gen, block[i]);
-                break;
-            case SkContinue:
-                gen_continue(gen, block[i]);
-                break;
-            case SkBreak:
-                gen_break(gen, block[i]);
-                break;
-            case SkFnCall:
-                gen_fn_call_stmnt(gen, block[i]);
-                break;
-            case SkIf:
-                gen_if(gen, block[i]);
-                break;
-            case SkFor:
-                gen_for(gen, block[i]);
-                break;
-        }
+        gen_stmnt(gen, &block[i]);
     }
 
+    gen_defers(gen);
+    gen_pop_defers(gen);
     gen->indent--;
     gen_indent(gen);
     gen_writeln(gen, "}");

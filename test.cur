@@ -1,7 +1,10 @@
 extern malloc :: fn(size: usize) *void;
-extern free :: fn(ptr: *void) void;
+extern free :: fn(mem: *void) void;
+extern puts :: fn(s: cstring) i32;
 
 main :: fn() void {
-    n := malloc(1);
-    free(n);
+    mem := malloc(1);
+    defer free(mem);
+
+    puts(c"freeing memory");
 }

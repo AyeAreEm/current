@@ -953,8 +953,11 @@ void sema_block(Sema *sema, Arr(Stmnt) body) {
                 break;
             case SkBlock:
                 symtab_new_scope(sema);
-                sema_block(sema, stmnt);
+                sema_block(sema, stmnt->block);
                 symtab_pop_scope(sema);
+                break;
+            case SkDefer:
+                sema_defer(sema, stmnt);
                 break;
             case SkReturn:
                 if (sema->envinfo.fn.kind != SkNone) {
@@ -1032,6 +1035,53 @@ void sema_fn_decl(Sema *sema, Stmnt *stmnt) {
     symtab_pop_scope(sema);
 }
 
+void sema_defer(Sema *sema, Stmnt *stmnt) {
+    assert(stmnt->kind == SkDefer);
+
+    switch (stmnt->defer->kind) {
+        case SkNone:
+            break;
+        case SkVarReassign:
+            sema_var_reassign(sema, stmnt->defer);
+            break;
+        case SkFnCall:
+            sema_fn_call_stmnt(sema, stmnt->defer);
+            break;
+        case SkIf:
+            sema_if(sema, stmnt->defer);
+            break;
+        case SkFor:
+            sema_for(sema, stmnt->defer);
+            break;
+        case SkBlock:
+            sema_block(sema, stmnt->defer->block);
+            break;
+        case SkReturn:
+            elog(sema, stmnt->externf->cursors_idx, "cannot defer a return statement");
+            break;
+        case SkContinue:
+            elog(sema, stmnt->externf->cursors_idx, "cannot defer a continue statement");
+            break;
+        case SkBreak:
+            elog(sema, stmnt->externf->cursors_idx, "cannot defer a break statement");
+            break;
+        case SkVarDecl:
+        case SkConstDecl:
+        case SkEnumDecl:
+        case SkStructDecl:
+        case SkFnDecl:
+        case SkExtern:
+            elog(sema, stmnt->externf->cursors_idx, "cannot defer a declaration");
+            break;
+        case SkDirective:
+            elog(sema, stmnt->externf->cursors_idx, "cannot defer a directive");
+            break;
+        case SkDefer:
+            elog(sema, stmnt->externf->cursors_idx, "cannot defer a defer");
+            break;
+    }
+}
+
 void sema_extern(Sema *sema, Stmnt *stmnt) {
     assert(stmnt->kind == SkExtern);
 
@@ -1061,6 +1111,9 @@ void sema_extern(Sema *sema, Stmnt *stmnt) {
             break;
         case SkReturn:
             elog(sema, stmnt->externf->cursors_idx, "illegal use of return, not inside a function");
+            break;
+        case SkDefer:
+            elog(sema, stmnt->externf->cursors_idx, "illegal use of defer, not inside a function");
             break;
         case SkContinue:
             elog(sema, stmnt->externf->cursors_idx, "illegal use of continue, not inside a loop");
@@ -1242,6 +1295,9 @@ void sema_analyse(Sema *sema) {
                 break;
             case SkReturn:
                 elog(sema, stmnt->cursors_idx, "illegal use of return, not inside a function");
+                break;
+            case SkDefer:
+                elog(sema, stmnt->cursors_idx, "illegal use of defer, not inside a function");
                 break;
             case SkContinue:
                 elog(sema, stmnt->cursors_idx, "illegal use of continue, not inside a loop");

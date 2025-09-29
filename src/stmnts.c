@@ -71,6 +71,14 @@ Stmnt stmnt_return(Return v, size_t index) {
     };
 }
 
+Stmnt stmnt_defer(Stmnt *v, size_t index) {
+    return (Stmnt){
+        .kind = SkDefer,
+        .defer = v,
+        .cursors_idx = index,
+    };
+}
+
 Stmnt stmnt_continue(size_t index) {
     return (Stmnt){
         .kind = SkContinue,

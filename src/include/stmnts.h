@@ -24,6 +24,7 @@ typedef enum StmntKind {
     SkBlock,
     SkExtern,
     SkDirective,
+    SkDefer,
 } StmntKind;
 
 typedef struct FnDecl {
@@ -115,6 +116,8 @@ typedef struct Stmnt {
         ConstDecl constdecl;
 
         Return returnf;
+        Stmnt *defer;
+
         If iff;
         For forf;
         Stmnt *externf;
@@ -125,21 +128,26 @@ typedef struct Stmnt {
 } Stmnt;
 
 Stmnt stmnt_none(void);
+Stmnt stmnt_extern(Stmnt *v, size_t index);
 Stmnt stmnt_fndecl(FnDecl v, size_t index);
 Stmnt stmnt_structdecl(StructDecl v, size_t index);
 Stmnt stmnt_enumdecl(EnumDecl v, size_t index);
 Stmnt stmnt_vardecl(VarDecl v, size_t index);
 Stmnt stmnt_varreassign(VarReassign v, size_t index);
 Stmnt stmnt_constdecl(ConstDecl v, size_t index);
+
 Stmnt stmnt_return(Return v, size_t index);
 Stmnt stmnt_continue(size_t index);
 Stmnt stmnt_break(size_t index);
-Stmnt stmnt_fncall(FnCall v, size_t index);
+Stmnt stmnt_defer(Stmnt *v, size_t index);
+
 Stmnt stmnt_if(If v, size_t index);
 Stmnt stmnt_for(For v, size_t index);
 Stmnt stmnt_block(Arr(Stmnt) v, size_t index);
-Stmnt stmnt_extern(Stmnt *v, size_t index);
+
 Stmnt stmnt_directive(Directive v, size_t index);
+Stmnt stmnt_fncall(FnCall v, size_t index);
+
 void print_stmnt(Stmnt stmnt, Arr(Cursor) cursors, int indent);
 
 #endif // STMNTS_H

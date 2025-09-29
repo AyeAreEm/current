@@ -1,6 +1,5 @@
 # Todos
 - UTF-8 Strings
-- Defer Statements
 - Default Function Arguments
 - Type Casting
 - Better Error Messages
@@ -21,8 +20,6 @@
 
 # In Progress
 - For Loops
-- Parse Definition Names First
-- Struct and function dependancy graph
 - Importing External Libraries
 
 # Completed
@@ -61,3 +58,6 @@
 - Struct Literals
 - Enum Definitions
 - Enum Literals
+- Defer Statements
+- Parse Definition Names First
+- Struct and function dependancy graph

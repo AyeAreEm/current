@@ -1215,6 +1215,15 @@ Stmnt parse_return(Parser *parser) {
     }, index);
 }
 
+Stmnt parse_defer(Parser *parser) {
+    size_t index = (size_t)parser->cursors_idx;
+
+    Stmnt *defered = ealloc(sizeof(Stmnt));
+    *defered = parser_parse(parser);
+
+    return stmnt_defer(defered, index);
+}
+
 Stmnt parse_continue(Parser *parser) {
     size_t index = (size_t)parser->cursors_idx;
     expect(parser, TokSemiColon);
@@ -1383,6 +1392,8 @@ Stmnt parser_parse(Parser *parser) {
                         return parse_continue(parser);
                     case KwBreak:
                         return parse_break(parser);
+                    case KwDefer:
+                        return parse_defer(parser);
                     case KwIf:
                         return parse_if(parser);
                     case KwExtern:

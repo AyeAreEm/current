@@ -60,6 +60,7 @@ Sema sema_init(Arr(Stmnt) ast, const char *filename, Arr(Cursor) cursors);
 Type *resolve_expr_type(Sema *sema, Expr *expr);
 void sema_analyse(Sema *sema);
 void sema_extern(Sema *sema, Stmnt *stmnt);
+void sema_defer(Sema *sema, Stmnt *stmnt);
 void sema_fn_decl(Sema *sema, Stmnt *stmnt);
 void sema_block(Sema *sema, Arr(Stmnt) body);
 void sema_directive(Sema *sema, Stmnt *stmnt);
