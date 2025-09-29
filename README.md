@@ -22,8 +22,8 @@ To do this, we borrow features from other languages. For example, generics, rece
 
 ```odin
 vec2 :: struct(T: type) {
-    x: T,
-    y: T,
+    x: T;
+    y: T;
 }
 
 vec2($T).add :: fn(*self, other: vec2(T)) void {
