@@ -648,6 +648,12 @@ void sema_binop(Sema *sema, Expr *expr) {
         case BkInequals:
             binopstr = "!=";
             break;
+        case BkLeftShift:
+            binopstr = "<<";
+            break;
+        case BkRightShift:
+            binopstr = ">>";
+            break;
         case BkBitAnd:
             binopstr = "&";
             break;
@@ -702,7 +708,7 @@ void sema_binop(Sema *sema, Expr *expr) {
             // TODO: later when providing more than one error message, uncomment the line below
             // strbfree(t1); strbfree(t2);
         }
-    } else if (expr->binop.kind == BkBitAnd || expr->binop.kind == BkBitOr) {
+    } else if (expr->binop.kind == BkBitAnd || expr->binop.kind == BkBitOr || expr->binop.kind == BkLeftShift || expr->binop.kind == BkRightShift) {
         if (!tc_can_bitwise(*lt, *rt)) {
             strb t1 = string_from_type(*lt);
             strb t2 = string_from_type(*rt);

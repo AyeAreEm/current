@@ -100,15 +100,23 @@ Parser parser_init(Lexer lex, const char *filename) {
 
 Token peek(Parser *parser) {
     if (arrlen(parser->tokens) == 0) {
-        return (Token){.kind = TokNone};
+        return token_none();
     }
 
     return parser->tokens[0];
 }
 
+Token peek_after(Parser *parser) {
+    if (arrlen(parser->tokens) == 0) {
+        return token_none();
+    }
+
+    return parser->tokens[1];
+}
+
 Token next(Parser *parser) {
     if (arrlen(parser->tokens) == 0) {
-        return (Token){.kind = TokNone};
+        return token_none();
     }
 
     parser->cursors_idx += 1;
@@ -647,8 +655,45 @@ Expr parse_term(Parser *parser) {
     return expr;
 }
 
-Expr parse_comparison(Parser *parser) {
+Expr parse_shift(Parser *parser) {
     Expr expr = parse_term(parser);
+
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        size_t index = parser->cursors_idx;
+        Token after = peek_after(parser);
+        
+        if (tok.kind != TokLeftAngle && tok.kind != TokRightAngle) {
+            break;
+        } else if (tok.kind == TokLeftAngle && after.kind != TokLeftAngle) {
+            break;
+        } else if (tok.kind == TokRightAngle && after.kind != TokRightAngle) {
+            break;
+        }
+        next(parser); next(parser);
+
+        Expr *left = ealloc(sizeof(Expr)); *left = expr;
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_term(parser);
+
+        if (tok.kind == TokLeftAngle) {
+            expr = expr_binop((Binop){
+                .kind = BkLeftShift,
+                .left = left,
+                .right = right,
+            }, type_integer(TkUntypedInt, TYPEVAR, index), index);
+        } else {
+            expr = expr_binop((Binop){
+                .kind = BkRightShift,
+                .left = left,
+                .right = right,
+            }, type_integer(TkUntypedInt, TYPEVAR, index), index);
+        }
+    }
+
+    return expr;
+}
+
+Expr parse_comparison(Parser *parser) {
+    Expr expr = parse_shift(parser);
 
     for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
         size_t index = (size_t)parser->cursors_idx;
@@ -658,7 +703,7 @@ Expr parse_comparison(Parser *parser) {
         next(parser);
 
         Expr *left = ealloc(sizeof(Expr)); *left = expr;
-        Expr *right = ealloc(sizeof(Expr)); *right = parse_term(parser);
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_shift(parser);
 
         Token after = peek(parser);
         if (after.kind == TokEqual) {

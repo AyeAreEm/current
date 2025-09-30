@@ -271,6 +271,12 @@ static strb binop_stringify(Expr expr, Arr(Cursor) cursors) {
         case BkBitOr:
             op = "|";
             break;
+        case BkLeftShift:
+            op = "<<";
+            break;
+        case BkRightShift:
+            op = ">>";
+            break;
         case BkAnd:
             op = "and";
             break;

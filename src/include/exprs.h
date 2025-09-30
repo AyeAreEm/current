@@ -81,6 +81,8 @@ typedef enum BinopKind {
     BkInequals,
     BkBitOr,
     BkBitAnd,
+    BkLeftShift,
+    BkRightShift,
     BkAnd,
     BkOr,
 } BinopKind;

@@ -637,6 +637,12 @@ MaybeAllocStr gen_binop_expr(Gen *gen, Expr expr) {
         case BkInequals:
             strbprintf(&ret, "%s != %s", lhs.str, rhs.str);
             break;
+        case BkLeftShift:
+            strbprintf(&ret, "%s << %s", lhs.str, rhs.str);
+            break;
+        case BkRightShift:
+            strbprintf(&ret, "%s >> %s", lhs.str, rhs.str);
+            break;
         case BkBitAnd:
             strbprintf(&ret, "%s & %s", lhs.str, rhs.str);
             break;
