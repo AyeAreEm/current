@@ -1,7 +1,9 @@
 @echo off
 
+set cflags="-Wall -Wextra -Wpedantic"
+
 :build
-    gcc -Wall -Wextra -Wpedantic -o current \
+    gcc "%cflags%" %~1 -o current \
     src/cli.c       \
     src/eval.c      \
     src/exprs.c     \
@@ -17,8 +19,13 @@
     src/types.c     \
     src/utils.c
 
+:release
+    build "-g -Og"
+
 if "%1"=="build" (
-    call :build
+    call :build ""
+) else if "%1" == "release" (
+    call :release
 ) else if "%1"=="run" (
     call :build
     rem i hate batch

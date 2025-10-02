@@ -14,7 +14,7 @@
       packages = with pkgs; [
         clang-tools
         clang
-        odin
+        gdb
       ];
     };
   };

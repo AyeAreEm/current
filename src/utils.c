@@ -45,29 +45,38 @@ void eprintfln(const char *fmt, ...) {
 
 // returns false if failed
 bool read_entire_file(const char *filename, char **buf) {
-    long length = 0;
     FILE *fd = fopen(filename, "rb");
     if (!fd) return false;
 
-    fseek(fd, length, SEEK_END);
-    length = ftell(fd);
-    fseek(fd, 0, SEEK_SET);
+    if (fseek(fd, 0, SEEK_END) != 0) {
+        fclose(fd);
+        return false;
+    }
 
+    long length = ftell(fd);
     if (length == -1) {
         fclose(fd);
         return false;
     }
 
-    *buf = malloc((length + 1) * sizeof(char));
-    if (*buf) {
-        size_t read = fread(*buf, sizeof(char), length, fd);
-        if (read != (size_t)length) {
-            fclose(fd);
-            return false;
-        }
+    if (fseek(fd, 0, SEEK_SET) != 0) {
+        fclose(fd);
+        return false;
     }
-    (*buf)[(size_t)length + 1] = '\0';
 
+    *buf = malloc((size_t)length + 1);
+    if (!*buf) {
+        fclose(fd);
+        return false;
+    }
+
+    size_t read = fread(*buf, 1, (size_t)length, fd);
+    if (read != (size_t)length) {
+        *buf = NULL;
+        fclose(fd);
+        return false;
+    }
+    (*buf)[read] = '\0';
     fclose(fd);
     return true;
 }

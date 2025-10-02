@@ -81,7 +81,7 @@ void compile(CompileFlags flags) {
 
 // returns executable name
 const char *build(Cli args) {
-    char *content;
+    char *content = {0};
     bool content_ok = read_entire_file(args.filename, &content);
     if (!content_ok) {
         comp_elog("failed to read %s", args.filename);

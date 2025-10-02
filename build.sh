@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
 option="$1"
+cflags="-Wall -Wextra -Wpedantic"
 
 build() {
-    gcc -Wall -Wextra -Wpedantic -o current \
+    gcc $cflags $1 -o current \
     src/cli.c       \
     src/eval.c      \
     src/exprs.c     \
@@ -20,8 +21,14 @@ build() {
     src/utils.c
 }
 
+release() {
+    build "-g -Og"
+}
+
 if [ "$option" == "build" ]; then
-    build
+    build ""
+elif [ "$option" == "release" ]; then
+    release
 elif [ "$option" == "run" ]; then
     build
     ./current ${@:2}
