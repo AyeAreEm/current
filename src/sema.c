@@ -630,6 +630,9 @@ void sema_binop(Sema *sema, Expr *expr) {
         case BkDivide:
             binopstr = "/";
             break;
+        case BkMod:
+            binopstr = "%";
+            break;
         case BkLess:
             binopstr = "<";
             break;
@@ -692,7 +695,7 @@ void sema_binop(Sema *sema, Expr *expr) {
             // TODO: later when providing more than one error message, uncomment the line below
             // strbfree(t1); strbfree(t2);
         }
-    } else if (expr->binop.kind == BkPlus || expr->binop.kind == BkMinus || expr->binop.kind == BkMultiply || expr->binop.kind == BkDivide) {
+    } else if (expr->binop.kind == BkPlus || expr->binop.kind == BkMinus || expr->binop.kind == BkMultiply || expr->binop.kind == BkDivide || expr->binop.kind == BkMod) {
         if (lt->kind == TkUntypedInt && rt->kind == TkUntypedInt) {
             expr->type = *lt;
         } else if (rt->kind == TkUntypedInt) {

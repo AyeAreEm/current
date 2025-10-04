@@ -597,7 +597,7 @@ Expr parse_factor(Parser *parser) {
     Expr expr = parse_unary(parser);
 
     for (Token op = peek(parser); op.kind != TokNone; op = peek(parser)) {
-        if (op.kind != TokStar && op.kind != TokSlash) {
+        if (op.kind != TokStar && op.kind != TokSlash && op.kind != TokPercent) {
             break;
         }
         next(parser);
@@ -612,9 +612,15 @@ Expr parse_factor(Parser *parser) {
                 .left = left,
                 .right = right,
             }, type_none(), index);
-        } else {
+        } else if (op.kind == TokSlash) {
             expr = expr_binop((Binop){
                 .kind = BkDivide,
+                .left = left,
+                .right = right,
+            }, type_none(), index);
+        } else {
+            expr = expr_binop((Binop){
+                .kind = BkMod,
                 .left = left,
                 .right = right,
             }, type_none(), index);
@@ -977,7 +983,7 @@ Stmnt parse_compound_assignment(Parser *parser, Expr expr, Token op, bool expect
     } else if (op.kind == TokStar) {
         binop.binop.kind = BkMultiply;
     } else if (op.kind == TokSlash) {
-        binop.binop.kind = BkMultiply;
+        binop.binop.kind = BkDivide;
     }
     reassign.varreassign.value = binop;
 

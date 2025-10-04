@@ -37,6 +37,7 @@ typedef enum TokenKind {
     TokMinus,
     TokStar,
     TokSlash,
+    TokPercent,
     TokBackSlash,
 
     TokBar,

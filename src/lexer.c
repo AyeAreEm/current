@@ -53,6 +53,7 @@ const char *tokenkind_stringify(TokenKind kind) {
         case TokMinus: return "'-'";
         case TokStar: return "'*'";
         case TokSlash: return "'/'";
+        case TokPercent: return "'%'";
         case TokBackSlash: return "'\\'";
         case TokBar: return "'|'";
         case TokAmpersand: return "'&'";
@@ -112,6 +113,7 @@ strb token_stringify(Token tok) {
         case TokMinus:
         case TokStar:
         case TokSlash:
+        case TokPercent:
         case TokBackSlash:
         case TokBar:
         case TokAmpersand:
@@ -454,6 +456,11 @@ Lexer lexer(const char *source) {
                     buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
                     push_token(&lex, (Token){.kind = TokSlash}, &row, &col);
                 }
+            } break;
+            case '%':
+            {
+                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                push_token(&lex, (Token){.kind = TokPercent}, &row, &col);
             } break;
             case '\\':
             {

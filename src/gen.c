@@ -619,6 +619,9 @@ MaybeAllocStr gen_binop_expr(Gen *gen, Expr expr) {
         case BkDivide:
             strbprintf(&ret, "%s / %s", lhs.str, rhs.str);
             break;
+        case BkMod:
+            strbprintf(&ret, "%s %% %s", lhs.str, rhs.str);
+            break;
         case BkLess:
             strbprintf(&ret, "%s < %s", lhs.str, rhs.str);
             break;

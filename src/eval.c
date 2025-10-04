@@ -22,6 +22,8 @@ uint64_t eval_binop(Sema *sema, Expr *expr) {
             return lhs * rhs;
         case BkDivide:
             return lhs / rhs;
+        case BkMod:
+            return lhs % rhs;
         case BkLess:
             return lhs < rhs;
         case BkLessEqual:

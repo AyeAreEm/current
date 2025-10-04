@@ -247,6 +247,9 @@ static strb binop_stringify(Expr expr, Arr(Cursor) cursors) {
         case BkDivide:
             op = "/";
             break;
+        case BkMod:
+            op = "%";
+            break;
         case BkLess:
             op = "<";
             break;
