@@ -1,11 +1,4 @@
-extern print_int :: fn(i: i32) void;
-
-#link "print_int.c";
-
 main :: fn() void {
-    for (i: i32 = 0; i < 10; i += 1) {
-        if (i % 2 == 0) {
-            print_int(i);
-        }
-    }
+    x := 10;
+    x %= 2;
 }

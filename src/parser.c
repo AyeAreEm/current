@@ -954,7 +954,7 @@ Expr parse_field_access(Parser *parser, Expr expr) {
     return fa;
 }
 
-// <expr> [+-*/]=
+// <expr> [+-*/%|&]=
 Stmnt parse_compound_assignment(Parser *parser, Expr expr, Token op, bool expect_semicolon) {
     size_t op_idx = (size_t)parser->cursors_idx;
     Expr *var = ealloc(sizeof(Expr)); *var = expr;
@@ -984,6 +984,12 @@ Stmnt parse_compound_assignment(Parser *parser, Expr expr, Token op, bool expect
         binop.binop.kind = BkMultiply;
     } else if (op.kind == TokSlash) {
         binop.binop.kind = BkDivide;
+    } else if (op.kind == TokPercent) {
+        binop.binop.kind = BkMod;
+    } else if (op.kind == TokBar) {
+        binop.binop.kind = BkBitOr;
+    } else if (op.kind == TokAmpersand) {
+        binop.binop.kind = BkBitAnd;
     }
     reassign.varreassign.value = binop;
 
@@ -995,15 +1001,20 @@ Stmnt parse_possible_assignment(Parser *parser, Expr expr, bool expect_semicolon
     Token tok = peek(parser);
     if (tok.kind == TokNone) return stmnt_none();
 
-    if (tok.kind == TokPlus ||
-        tok.kind == TokMinus ||
-        tok.kind == TokStar ||
-        tok.kind == TokSlash) {
+    // TODO: refactor this so that we don't check for each possible compound operator
+    if (tok.kind == TokPlus      ||
+        tok.kind == TokMinus     ||
+        tok.kind == TokStar      ||
+        tok.kind == TokSlash     ||
+        tok.kind == TokPercent   ||
+        tok.kind == TokBar       ||
+        tok.kind == TokAmpersand
+    ) {
         next(parser);
         Token after = next(parser);
 
         if (after.kind == TokEqual) {
-            return parse_compound_assignment(parser, expr, after, expect_semicolon);
+            return parse_compound_assignment(parser, expr, tok, expect_semicolon);
         } else {
             elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(after.kind));
         }
