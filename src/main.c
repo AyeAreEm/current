@@ -15,6 +15,7 @@
 #include "include/stb_ds.h"
 
 const bool DEBUG_MODE = false;
+const char *cc = {0};
 
 void print_ast(Stmnt *ast, Cursor *cursors) {
     for (size_t i = 0; i < arrlenu(ast); i++) {
@@ -23,8 +24,6 @@ void print_ast(Stmnt *ast, Cursor *cursors) {
 }
 
 void compile(CompileFlags flags) {
-    const char *cc = get_c_compiler();
-
     strb com = NULL;
     strbprintf(&com, "%s -o %s output.c ", cc, flags.output);
 
@@ -147,6 +146,8 @@ void run(const char *exe) {
 }
 
 int main(int argc, char **argv) {
+    cc = get_c_compiler();
+
     Cli args = cli_parse(argv, argc);
 
     cli_usage(args, false);
