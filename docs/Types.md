@@ -17,8 +17,8 @@ char -> utf8
 
 [N]type -> array of N types ([2]i32 or [_]i32{1, 2})
 
-string -> [^]u8 + '\0', len
-cstring -> [^]u8 + '\0'
+string -> [^]u8 + '\0', length  (.ptr, .len)
+cstring -> [^]u8 + '\0'  (.ptr)
 
 ? -> option (?i32)
 ! -> result (!i32)
