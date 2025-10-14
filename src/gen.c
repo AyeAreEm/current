@@ -682,7 +682,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
     switch (expr.kind) {
         case EkIdent:
             return (MaybeAllocStr){
-                .str = expr.ident,
+                .str = expr.ident, // nothing much i can do to silence this warning, but rest assured .str is not edited anywhere
                 .alloced = false,
             };
         case EkIntLit:

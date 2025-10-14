@@ -122,8 +122,9 @@ void symtab_new_scope(Sema *sema) {
 }
 
 void symtab_pop_scope(Sema *sema) {
-    arrpop(sema->symtab.keys);
-    arrpop(sema->symtab.stmnts);
+    // (void) to silence warnings
+    (void)arrpop(sema->symtab.keys);
+    (void)arrpop(sema->symtab.stmnts);
     sema->symtab.cur_scope--;
 }
 

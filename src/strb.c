@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -48,7 +49,8 @@ static void strbpushs(strb *sb, const char *s) {
 
 void vstrbprintf(strb *s, const char *fmt, va_list args) {
     char *buf = NULL;
-    vasprintf(&buf, fmt, args);
+    int wrote = vasprintf(&buf, fmt, args);
+    assert(wrote != 0);
     strbpushs(s, buf);
     free(buf);
 }
