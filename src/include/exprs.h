@@ -99,6 +99,7 @@ typedef struct Binop { // Binary Operation
 } Binop;
 
 typedef enum UnopKind {
+    UkBitNot,
     UkNot,
     UkNegate,
     UkAddress,

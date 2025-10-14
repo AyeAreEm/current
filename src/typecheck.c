@@ -561,6 +561,10 @@ bool tc_is_unsigned(Sema *sema, Expr expr) {
         case TkU32:
         case TkU64:
         case TkUsize:
+        case TkF32:
+        case TkF64:
+        case TkUntypedFloat:
+        case TkUntypedInt:
             return true;
         case TkI8:
         case TkI16:
@@ -575,6 +579,78 @@ bool tc_is_unsigned(Sema *sema, Expr expr) {
             // strbfree(t);
             return false;
         }
+    }
+}
+
+bool tc_can_arithmetic(Type lhs, Type rhs, bool ints_only) {
+    if (lhs.kind != rhs.kind) {
+        return false;
+    }
+
+    switch (lhs.kind) {
+        case TkI8:
+        case TkI16:
+        case TkI32:
+        case TkI64:
+        case TkIsize:
+            switch (rhs.kind) {
+                case TkI8:
+                case TkI16:
+                case TkI32:
+                case TkI64:
+                case TkIsize:
+                case TkUntypedInt:
+                    return true;
+                default:
+                    return false;
+            }
+        case TkU8:
+        case TkU16:
+        case TkU32:
+        case TkU64:
+        case TkUsize:
+            switch (rhs.kind) {
+                case TkU8:
+                case TkU16:
+                case TkU32:
+                case TkU64:
+                case TkUsize:
+                case TkUntypedInt:
+                    return true;
+                default:
+                    return false;
+            }
+        case TkUntypedInt:
+            switch (rhs.kind) {
+                case TkU8:
+                case TkU16:
+                case TkU32:
+                case TkU64:
+                case TkUsize:
+                case TkI8:
+                case TkI16:
+                case TkI32:
+                case TkI64:
+                case TkIsize:
+                case TkUntypedInt:
+                    return true;
+                default:
+                    return false;
+            }
+        case TkF32:
+        case TkF64:
+        case TkUntypedFloat:
+            if (ints_only) return false;
+            switch (rhs.kind) {
+                case TkF32:
+                case TkF64:
+                case TkUntypedFloat:
+                    return true;
+                default:
+                    return false;
+            }
+        default:
+            return false;
     }
 }
 

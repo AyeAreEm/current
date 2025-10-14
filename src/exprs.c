@@ -304,6 +304,9 @@ static strb unop_stringify(Expr expr, Arr(Cursor) cursors) {
 
     char op = 0;
     switch (expr.unop.kind) {
+        case UkBitNot:
+            op = '~';
+            break;
         case UkNegate:
             op = '-';
             break;

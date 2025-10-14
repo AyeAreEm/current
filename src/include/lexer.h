@@ -42,6 +42,7 @@ typedef enum TokenKind {
 
     TokBar,
     TokAmpersand,
+    TokTilde,
     TokExclaim,
 
     TokUnderscore,

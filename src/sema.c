@@ -587,6 +587,7 @@ void sema_unop(Sema *sema, Expr *expr) {
         Type *type = ealloc(sizeof(Type)); *type = type_of_stmnt(sema, stmnt);
         expr->type = type_ptr(type, stmnt_is_constant(stmnt), stmnt.cursors_idx);
     } else if (expr->unop.kind == UkNegate) {
+
         if (tc_is_unsigned(sema, *expr->unop.val)) {
             elog(sema, expr->cursors_idx, "cannot negate unsigned integers");
         }
@@ -602,10 +603,22 @@ void sema_unop(Sema *sema, Expr *expr) {
             // TODO: later when providing more than one error message, uncomment the line below
             // strbfree(t);
         }
+        expr->type = *type;
+    } else if (expr->unop.kind == UkBitNot) {
+        Type *type = resolve_expr_type(sema, expr->unop.val);
+
+        if (!tc_can_bitwise(*type, *type)) {
+            strb t = string_from_type(*type);
+            elog(sema, expr->cursors_idx, "cannot do bitwise not (~) on %s", t);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t);
+        }
+        expr->type = *type;
     } else {
-        // NOTE: no need to dealloc
         strb exprstr = expr_stringify(*expr, sema->cursors);
         elog(sema, expr->cursors_idx, "can't take address of %s", exprstr);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(exprstr);
     }
 }
 
@@ -696,7 +709,27 @@ void sema_binop(Sema *sema, Expr *expr) {
             // TODO: later when providing more than one error message, uncomment the line below
             // strbfree(t1); strbfree(t2);
         }
-    } else if (expr->binop.kind == BkPlus || expr->binop.kind == BkMinus || expr->binop.kind == BkMultiply || expr->binop.kind == BkDivide || expr->binop.kind == BkMod) {
+    } else if (expr->binop.kind == BkPlus || expr->binop.kind == BkMinus || expr->binop.kind == BkMultiply || expr->binop.kind == BkDivide) {
+        if (!tc_can_arithmetic(*lt, *rt, false)) {
+            strb t1 = string_from_type(*lt);
+            strb t2 = string_from_type(*rt);
+            elog(sema, expr->cursors_idx, "cannot perform arithmetic operations on %s and %s", t1, t2);
+        }
+
+        if (lt->kind == TkUntypedInt && rt->kind == TkUntypedInt) {
+            expr->type = *lt;
+        } else if (rt->kind == TkUntypedInt) {
+            expr->type = *lt;
+        } else {
+            expr->type = *rt;
+        }
+    }  else if (expr->binop.kind == BkMod) {
+        if (!tc_can_arithmetic(*lt, *rt, true)) {
+            strb t1 = string_from_type(*lt);
+            strb t2 = string_from_type(*rt);
+            elog(sema, expr->cursors_idx, "cannot perform modulo on %s and %s", t1, t2);
+        }
+
         if (lt->kind == TkUntypedInt && rt->kind == TkUntypedInt) {
             expr->type = *lt;
         } else if (rt->kind == TkUntypedInt) {

@@ -569,7 +569,7 @@ Expr parse_unary(Parser *parser) {
     Token op = peek(parser);
     size_t index = (size_t)parser->cursors_idx;
 
-    if (op.kind != TokExclaim && op.kind != TokMinus && op.kind != TokAmpersand) {
+    if (op.kind != TokExclaim && op.kind != TokMinus && op.kind != TokAmpersand && op.kind != TokTilde) {
         return parse_fn_call(parser, expr_none());
     }
     next(parser);
@@ -583,6 +583,11 @@ Expr parse_unary(Parser *parser) {
     } else if (op.kind == TokMinus) {
         return expr_unop((Unop){
             .kind = UkNegate,
+            .val = right,
+        }, type_none(), index);
+    } else if (op.kind == TokTilde) {
+        return expr_unop((Unop){
+            .kind = UkBitNot,
             .val = right,
         }, type_none(), index);
     } else {

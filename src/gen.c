@@ -463,6 +463,9 @@ MaybeAllocStr gen_unop_expr(Gen *gen, Expr expr) {
         case UkNot:
             strbprintf(&ret, "!%s", value);
             break;
+        case UkBitNot:
+            strbprintf(&ret, "~%s", value);
+            break;
     }
 
     if (value.alloced) strbfree(value.str);
