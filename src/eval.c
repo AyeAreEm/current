@@ -44,6 +44,8 @@ uint64_t eval_binop(Sema *sema, Expr *expr) {
             return lhs & rhs;
         case BkBitOr:
             return lhs | rhs;
+        case BkBitXor:
+            return lhs ^ rhs;
         case BkAnd:
             return lhs && rhs;
         case BkOr:

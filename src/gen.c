@@ -655,6 +655,9 @@ MaybeAllocStr gen_binop_expr(Gen *gen, Expr expr) {
         case BkBitOr:
             strbprintf(&ret, "%s | %s", lhs.str, rhs.str);
             break;
+        case BkBitXor:
+            strbprintf(&ret, "%s ^ %s", lhs.str, rhs.str);
+            break;
         case BkAnd:
             strbprintf(&ret, "%s && %s", lhs.str, rhs.str);
             break;

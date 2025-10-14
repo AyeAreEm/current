@@ -810,8 +810,30 @@ Expr parse_bitwise_and(Parser *parser) {
     return expr;
 }
 
-Expr parse_bitwise_or(Parser *parser) {
+Expr parse_bitwise_xor(Parser *parser) {
     Expr expr = parse_bitwise_and(parser);
+
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        if (tok.kind != TokTilde) {
+            break;
+        }
+        next(parser);
+
+        size_t index = (size_t)parser->cursors_idx;
+        Expr *left = ealloc(sizeof(Expr)); *left = expr;
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_bitwise_and(parser);
+        expr = expr_binop((Binop){
+            .kind = BkBitXor,
+            .left = left,
+            .right = right,
+        }, type_bool(TYPEVAR, index), index);
+    }
+
+    return expr;
+}
+
+Expr parse_bitwise_or(Parser *parser) {
+    Expr expr = parse_bitwise_xor(parser);
 
     for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
         if (tok.kind != TokBar) {
@@ -821,7 +843,7 @@ Expr parse_bitwise_or(Parser *parser) {
 
         size_t index = (size_t)parser->cursors_idx;
         Expr *left = ealloc(sizeof(Expr)); *left = expr;
-        Expr *right = ealloc(sizeof(Expr)); *right = parse_bitwise_and(parser);
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_bitwise_xor(parser);
         expr = expr_binop((Binop){
             .kind = BkBitOr,
             .left = left,
@@ -959,7 +981,7 @@ Expr parse_field_access(Parser *parser, Expr expr) {
     return fa;
 }
 
-// <expr> [+-*/%|&<<>>]=
+// <expr> [+-*/%|&~<<>>]=
 Stmnt parse_compound_assignment(Parser *parser, Expr expr, Token op, bool expect_semicolon) {
     size_t op_idx = (size_t)parser->cursors_idx;
     Expr *var = ealloc(sizeof(Expr)); *var = expr;
@@ -982,36 +1004,39 @@ Stmnt parse_compound_assignment(Parser *parser, Expr expr, Token op, bool expect
     }, type_none(), op_idx);
 
     switch (op.kind) {
-    case TokPlus:
-        binop.binop.kind = BkPlus;
-        break;
-    case TokMinus:
-        binop.binop.kind = BkMinus;
-        break;
-    case TokStar:
-        binop.binop.kind = BkMultiply;
-        break;
-    case TokSlash:
-        binop.binop.kind = BkDivide;
-        break;
-    case TokPercent:
-        binop.binop.kind = BkMod;
-        break;
-    case TokBar:
-        binop.binop.kind = BkBitOr;
-        break;
-    case TokAmpersand:
-        binop.binop.kind = BkBitAnd;
-        break;
-    case TokLeftAngle:
-        binop.binop.kind = BkLeftShift;
-        break;
-    case TokRightAngle:
-        binop.binop.kind = BkRightShift;
-        break;
-    default:
-        assert(false && "unexpected compound token");
-        break;
+        case TokPlus:
+            binop.binop.kind = BkPlus;
+            break;
+        case TokMinus:
+            binop.binop.kind = BkMinus;
+            break;
+        case TokStar:
+            binop.binop.kind = BkMultiply;
+            break;
+        case TokSlash:
+            binop.binop.kind = BkDivide;
+            break;
+        case TokPercent:
+            binop.binop.kind = BkMod;
+            break;
+        case TokBar:
+            binop.binop.kind = BkBitOr;
+            break;
+        case TokTilde:
+            binop.binop.kind = BkBitXor;
+            break;
+        case TokAmpersand:
+            binop.binop.kind = BkBitAnd;
+            break;
+        case TokLeftAngle:
+            binop.binop.kind = BkLeftShift;
+            break;
+        case TokRightAngle:
+            binop.binop.kind = BkRightShift;
+            break;
+        default:
+            assert(false && "unexpected compound token");
+            break;
     }
     reassign.varreassign.value = binop;
 
@@ -1024,7 +1049,7 @@ Stmnt parse_possible_assignment(Parser *parser, Expr expr, bool expect_semicolon
     if (tok.kind == TokNone) return stmnt_none();
 
     // TODO: refactor this so that we don't check for each possible compound operator
-    // <expr> [+-*/%|&<<>>]=
+    // <expr> [+-*/%|&~<<>>]=
     if (tok.kind == TokPlus      ||
         tok.kind == TokMinus     ||
         tok.kind == TokStar      ||
@@ -1032,6 +1057,7 @@ Stmnt parse_possible_assignment(Parser *parser, Expr expr, bool expect_semicolon
         tok.kind == TokPercent   ||
         tok.kind == TokBar       ||
         tok.kind == TokAmpersand ||
+        tok.kind == TokTilde     ||
         tok.kind == TokLeftAngle ||
         tok.kind == TokRightAngle
     ) {

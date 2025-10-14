@@ -25,8 +25,23 @@
 
 |   bitwise or      integers
 &   bitwise and     integers
+~   bitwise xor     integers
 <<  left shift      integers
 >>  right shift     integers
+```
+
+## Compound
+```
++=
+-=
+*=
+/=
+%=
+|=
+&=
+~=
+<<=
+>>=
 ```
 
 ## Comparison
