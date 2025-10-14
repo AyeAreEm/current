@@ -2,7 +2,7 @@
 - NOTE: this language is still in development. expect bugs as features<br>
 
 ## Description
-Current is a statically typed compiled programming language with manual memory management<br>.
+Current is a statically typed compiled programming language with manual memory management.<br>
 It's an ergonomic middle ground between C and C++, similar to new programming languages are in this space.<br>
 
 ## Principles
