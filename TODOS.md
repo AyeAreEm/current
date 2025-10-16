@@ -19,7 +19,6 @@
 - Standard Library
 
 # In Progress
-- Bitwise Operators
 - For Loops
 - Importing External Libraries
 
@@ -62,3 +61,4 @@
 - Defer Statements
 - Parse Definition Names First
 - Struct and function dependancy graph
+- Bitwise Operators

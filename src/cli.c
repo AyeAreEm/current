@@ -62,7 +62,6 @@ static void cli_parse_build(Cli *cli, char ***argv, int *argc) {
     if (cli_is_command(arg)) {
         comp_elog("unexpected %s, expected filename or help", arg);
     }
-    cli_args_next(argv, argc);
 
     cli->filename = arg;
 }
@@ -77,7 +76,6 @@ static void cli_parse_run(Cli *cli, char ***argv, int *argc) {
     if (cli_is_command(arg)) {
         comp_elog("unexpected %s, expected filename or help", arg);
     }
-    cli_args_next(argv, argc);
 
     cli->filename = arg;
 }
@@ -92,14 +90,14 @@ void cli_usage(Cli cli, bool force) {
         {
             printfln("USAGE:");
             printfln("    build [filename]");
-            printfln("    generate executable with a given file");
+            printfln("    generate executable with entry point file");
             exit(0);
         } break;
         case CommandRun:
         {
             printfln("USAGE:");
             printfln("    run [filename]");
-            printfln("    generate executable with a given file and run it");
+            printfln("    generate executable with entry point file and immediately run it");
             exit(0);
         } break;
         default:
@@ -125,6 +123,7 @@ Cli cli_parse(char **argv, int argc) {
         } else if (streq(arg, "run")) {
             cli_parse_run(&cli, &argv, &argc);
         } else if (streq(arg, "help")) {
+            debug("here");
             cli_parse_help(&cli, &argv, &argc);
         } else if (streq(arg, "-keepc")) {
             cli.keepc = true;
