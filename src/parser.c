@@ -1171,7 +1171,6 @@ Stmnt parse_const_decl(Parser *parser, Expr ident, Type type) {
 
     // <ident>: <type,
     if (parser->in_func_decl_args) {
-        // TODO: implement default function arguments
         return stmnt_constdecl((ConstDecl){
             .name = ident,
             .type = type,
@@ -1210,6 +1209,10 @@ Stmnt parse_var_decl(Parser *parser, Expr ident, Type type, bool has_equal) {
 
     Expr expr = parse_expr(parser);
     if (parser->in_func_decl_args) {
+        if (peek(parser).kind == TokComma) {
+            next(parser);
+        }
+
         vardecl.value = expr;
         return stmnt_vardecl(vardecl, index);
     }

@@ -1068,6 +1068,7 @@ void gen_decl_generic(Gen *gen, Type type) {
 
             gen->defs = strbinsert(gen->defs, typedeff, gen->def_loc);
             gen->def_loc += strlen(typedeff);
+            return;
         } break;
         default:
             return;

@@ -596,7 +596,7 @@ void sema_fn_call(Sema *sema, Expr *expr) {
 
         if (darg->kind == SkVarDecl && i >= fncall_args_len) {
             arrpush(expr->fncall.args, darg->vardecl.value);
-            break;
+            continue;
         }
 
         Type darg_type = darg->kind == SkConstDecl ? darg->constdecl.type : darg->vardecl.type;
