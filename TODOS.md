@@ -21,6 +21,7 @@
 - For Loops
 - Importing External Libraries
 - Default Function Arguments
+- Array Slicing
 
 # Completed
 - Function Declarations
@@ -62,3 +63,5 @@
 - Parse Definition Names First
 - Struct and function dependancy graph
 - Bitwise Operators
+- Slice Types
+- Slice Literals

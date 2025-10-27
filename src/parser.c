@@ -271,32 +271,6 @@ Expr parse_end_literal(Parser *parser, Type type) {
     return lit;
 }
 
-void parse_set_ptr_type(Parser *parser, Type *ptr, Type type) {
-    switch (ptr->kind) {
-        case TkPtr: {
-            if (ptr->ptr_to->kind == TkNone) {
-                *ptr->ptr_to = type;
-            } else {
-                parse_set_ptr_type(parser, ptr->ptr_to, type);
-            }
-        } break;
-        default: break;
-    }
-}
-
-void parse_set_array_type(Parser *parser, Type *arr, Type type) {
-    switch (arr->kind) {
-        case TkArray: {
-            if (arr->array.of->kind == TkNone) {
-                *arr->array.of = type;
-            } else {
-                parse_set_array_type(parser, arr->array.of, type);
-            }
-        } break;
-        default: break;
-    }
-}
-
 Type typedef_from_ident(Expr ident) {
     assert(ident.kind == EkIdent);
     
@@ -330,31 +304,21 @@ Type parse_type(Parser *parser) {
                 (size_t)parser->cursors_idx
             );
             next(parser);
-
-            for (tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
-                if (tok.kind != TokStar && tok.kind != TokCaret) {
-                    break;
-                }
-                next(parser);
-
-                if (tok.kind == TokStar) {
-                    type = type_ptr(&type, TYPEVAR, (size_t)parser->cursors_idx);
-                } else if (tok.kind == TokCaret) {
-                    type = type_ptr(&type, TYPECONST, (size_t)parser->cursors_idx);
-                }
-            }
-
-            Type subtype = parse_type(parser);
-            parse_set_ptr_type(parser, &type, subtype);
+            Type *subtype = ealloc(sizeof(Type)); *subtype = parse_type(parser);
+            type.ptr_to = subtype;
         } break;
         case TokLeftSquare: {
-            for (Token leftsquare = peek(parser); leftsquare.kind == TokLeftSquare; leftsquare = peek(parser)) {
+            Type *of = ealloc(sizeof(Type)); of->kind = TkNone;
+            next(parser);
+            Token after = peek(parser);
+
+            if (after.kind == TokRightSquare) {
                 next(parser);
-                Token after = peek(parser);
-
-                Type *of = ealloc(sizeof(Type)); of->kind = TkNone;
+                type = type_slice((Slice){
+                    .of = of,
+                }, TYPEVAR, (size_t)parser->cursors_idx);
+            } else {
                 Expr *len = ealloc(sizeof(Expr)); 
-
                 if (after.kind == TokIntLit) {
                     *len = parse_expr(parser);
                     expect(parser, TokRightSquare);
@@ -363,24 +327,21 @@ Type parse_type(Parser *parser) {
                     expect(parser, TokRightSquare);
                     len->kind = EkNone;
                 } else {
-                    elog(parser, parser->cursors_idx, "expected an integer or underscore, got %s", tokenkind_stringify(after.kind));
+                    elog(parser, (size_t)parser->cursors_idx, "expected an integer, underscore, or empty []");
                 }
 
-                Type array_type = type_array((Array){
+                type = type_array((Array){
                     .len = len,
                     .of = of,
                 }, TYPEVAR, (size_t)parser->cursors_idx);
-
-                if (type.kind == TkArray) {
-                    Type *subtype = ealloc(sizeof(Type)); *subtype = array_type;
-                    type.array.of = subtype;
-                } else if (type.kind == TkNone) {
-                    type = array_type;
-                }
             }
 
-            Type subtype = parse_type(parser);
-            parse_set_array_type(parser, &type, subtype);
+            Type *subtype = ealloc(sizeof(Type)); *subtype = parse_type(parser);
+            if (type.kind == TkSlice) {
+                type.slice.of = subtype;
+            } else if (type.kind == TkArray) {
+                type.array.of = subtype;
+            }
         } break;
         case TokIdent: {
             next(parser);

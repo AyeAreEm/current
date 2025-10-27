@@ -62,6 +62,20 @@ CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, us
     return ret;\
 }
 
+#define CurSliceDef(T, Tname)\
+typedef struct CurSlice_##Tname {\
+    T *ptr;\
+    usize len;\
+} CurSlice_##Tname;\
+CurSlice_##Tname curslice_##Tname(T *ptr, usize len);
+
+#define CurSliceImp(T, Tname)\
+CurSlice_##Tname curslice_##Tname(T *ptr, usize len) {\
+    CurSlice_##Tname ret = (CurSlice_##Tname){.len = len};\
+    ret.ptr = ptr;\
+    return ret;\
+}
+
 #define CurOptionDef(T, Tname)\
 typedef struct CurOption_##Tname {\
     T some;\

@@ -70,6 +70,18 @@ char *builtin_defs =
     "    ret.ptr = ptr;\\\n"
     "    return ret;\\\n"
     "}\n"
+    "#define CurSliceDef(T, Tname)\\\n"
+    "typedef struct CurSlice_##Tname {\\\n"
+    "    T *ptr;\\\n"
+    "    usize len;\\\n"
+    "} CurSlice_##Tname;\\\n"
+    "CurSlice_##Tname curslice_##Tname(T *ptr, usize len);\n"
+    "#define CurSliceImp(T, Tname)\\\n"
+    "CurSlice_##Tname curslice_##Tname(T *ptr, usize len) {\\\n"
+    "    CurSlice_##Tname ret = (CurSlice_##Tname){.len = len};\\\n"
+    "    ret.ptr = ptr;\\\n"
+    "    return ret;\\\n"
+    "}\n"
     "#define CurOptionDef(T, Tname)\\\n"
     "typedef struct CurOption_##Tname {\\\n"
     "    T some;\\\n"
@@ -89,6 +101,14 @@ char *builtin_defs =
     "    ret.ok = false;\\\n"
     "    return ret;\\\n"
     "}\n"
+;
+
+char *builtin_args =
+    "    CurString _CUR_ARGS_[argc];\n"
+    "    for (int i = 0; i < argc; i++) {\n"
+    "        _CUR_ARGS_[i] = curstr(argv[i]);\n"
+    "    }\n"
+    "    CurSlice_CurString args = curslice_CurString(_CUR_ARGS_, argc);\n"
 ;
 
 Gen gen_init(Arr(Stmnt) ast, Dgraph dgraph) {
@@ -204,6 +224,18 @@ void gen_indent(Gen *gen) {
     }
 }
 
+void gen_slice_type(Gen *gen, Type type, strb *str) {
+    if (type.kind == TkSlice) {
+        gen_slice_type(gen, *type.slice.of, str);
+        strbprintf(str, "[]"); 
+    } else {
+        MaybeAllocStr t = gen_type(gen, type);
+        strbprintf(str, "%s", t.str);
+
+        if (t.alloced) strbfree(t.str);
+    }
+}
+
 void gen_array_type(Gen *gen, Type type, strb *str) {
     if (type.kind == TkArray) {
         MaybeAllocStr length = gen_expr(gen, *type.array.len);
@@ -239,6 +271,15 @@ MaybeAllocStr gen_type(Gen *gen, Type type) {
     gen_decl_generic(gen, type);
 
     switch (type.kind) {
+        case TkSlice: {
+            strb ret = NULL;
+            gen_slice_type(gen, type, &ret);
+
+            return (MaybeAllocStr){
+                .str = ret,
+                .alloced = true,
+            };
+        }
         case TkArray: {
             strb ret = NULL;
             gen_array_type(gen, type, &ret);
@@ -286,6 +327,17 @@ MaybeAllocStr gen_type(Gen *gen, Type type) {
                 .alloced = true,
             };
     }
+}
+
+strb gen_typename_slice(Gen *gen, Type type) {
+    strb typename = NULL;
+    gen_typename(gen, type.slice.of, 1, &typename);
+
+    strb slice = NULL;
+    strbprintf(&slice, "CurSlice_%s", typename);
+
+    strbfree(typename);
+    return slice;
 }
 
 strb gen_typename_array(Gen *gen, Type type, int dimension) {
@@ -351,6 +403,11 @@ void gen_typename(Gen *gen, Type *types, size_t types_len, strb *typename) {
                 gen_typename(gen, type.ptr_to, 1, typename);
                 strbprintf(typename, "ptr");
                 break;
+            case TkSlice: {
+                strb slice = gen_typename_slice(gen, type);
+                strbprintf(typename, "%s", slice);
+                strbfree(slice);
+            } break;
             case TkArray: {
                 strb array = gen_typename_array(gen, type, 1);
                 strbprintf(typename, "%s", array);
@@ -364,9 +421,12 @@ void gen_typename(Gen *gen, Type *types, size_t types_len, strb *typename) {
             } break;
             default: {
                 MaybeAllocStr ty = gen_type(gen, type);
-                char *tn = strtrim(ty.str);
-
-                strbprintf(typename, "%s", tn);
+                if (ty.alloced) {
+                    char *tn = strtrim(ty.str);
+                    strbprintf(typename, "%s", tn);
+                } else {
+                    strbprintf(typename, "%s", ty);
+                }
             }
         }
     }
@@ -500,6 +560,45 @@ MaybeAllocStr gen_fn_call(Gen *gen, Expr expr) {
     };
 }
 
+MaybeAllocStr gen_slice_literal_expr(Gen *gen, Expr expr) {
+    assert(expr.type.kind == TkSlice);
+    strb lit = NULL;
+    Type slice = expr.type;
+
+    strb typename = NULL;
+    gen_typename(gen, &slice, 1, &typename);
+
+    char *type = strtok(typename, "_");
+    for (size_t i = 0; i < strlen(type); i++) {
+        type[i] = tolower(type[i]);
+    }
+    typename[strlen(type)] = '_';
+
+    strbprintf(&lit, "%s(", typename);
+
+    MaybeAllocStr exprtype = gen_type(gen, slice);
+    strbprintf(&lit, "(%s){", exprtype.str);
+    if (exprtype.alloced) strbfree(exprtype.str);
+
+    for (size_t i = 0; i < arrlenu(expr.literal.exprs); i++) {
+        MaybeAllocStr val = gen_expr(gen, expr.literal.exprs[i]);
+
+        if (i == 0) {
+            strbprintf(&lit, "%s", val.str);
+        } else {
+            strbprintf(&lit, ", %s", val.str);
+        }
+
+        if (val.alloced) strbfree(val.str);
+    }
+    strbprintf(&lit, "}, %d)", arrlenu(expr.literal.exprs));
+
+    return (MaybeAllocStr){
+        .str = lit,
+        .alloced = true,
+    };
+}
+
 MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
     assert(expr.type.kind == TkArray);
     strb lit = NULL;
@@ -561,6 +660,8 @@ MaybeAllocStr gen_literal_expr(Gen *gen, Expr expr) {
 
     if (expr.type.kind == TkArray) {
         return gen_array_literal_expr(gen, expr);
+    } else if (expr.type.kind == TkSlice) {
+        return gen_slice_literal_expr(gen, expr);
     }
 
     MaybeAllocStr exprtype = gen_type(gen, expr.type);
@@ -823,6 +924,28 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
 }
 
 // returns true if decl needs to be inserted
+bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl) {
+    MaybeAllocStr typestr = gen_type(gen, *type.slice.of);
+
+    strb typename = NULL;
+    gen_typename(gen, type.slice.of, 1, &typename);
+
+    strbprintfln(decl, "CurSliceDef(%s, %s);", typestr.str, typename);
+
+    bool to_add = true;
+    for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
+        if (streq(*decl, gen->generated_typedefs[i])) {
+            to_add = false;
+            break;
+        }
+    }
+
+    strbfree(typename);
+    if (typestr.alloced) strbfree(typestr.str);
+    return to_add;
+}
+
+// returns true if decl needs to be inserted
 bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) {
     if (type.kind == TkArray && type.array.of->kind == TkArray) {
         gen_decl_generic(gen, *type.array.of);
@@ -887,26 +1010,22 @@ bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) 
 }
 
 void gen_decl_generic(Gen *gen, Type type) {
+    strb def = NULL;
+
     switch (type.kind) {
-        case TkArray: {
-            strb arraydef = NULL;
-            bool add = gen_decl_generic_array(gen, type, &arraydef, 1);
+        case TkSlice: {
+            bool add = gen_decl_generic_slice(gen, type, &def);
             if (!add) {
-                strbfree(arraydef);
+                strbfree(def);
                 return;
             }
-
-            gen->defs = strbinsert(gen->defs, arraydef, gen->def_loc);
-            gen->def_loc += strlen(arraydef);
-            arrpush(gen->generated_typedefs, arraydef);
-
-            bool replaced = strreplace(arraydef, "Def", "Imp");
-            assert(replaced);
-            gen->code = strbinsert(gen->code, arraydef, gen->code_loc);
-            gen->code_loc += strlen(arraydef);
-
-            replaced = strreplace(arraydef, "Imp", "Def");
-            assert(replaced);
+        } break;
+        case TkArray: {
+            bool add = gen_decl_generic_array(gen, type, &def, 1);
+            if (!add) {
+                strbfree(def);
+                return;
+            }
         } break;
         case TkOption: {
             MaybeAllocStr typestr = gen_type(gen, *type.option.subtype);
@@ -914,33 +1033,17 @@ void gen_decl_generic(Gen *gen, Type type) {
             strb typename = NULL;
             gen_typename(gen, type.option.subtype, 1, &typename);
 
-            strb option_def = NULL;
-            strbprintfln(&option_def, "CurOptionDef(%s, %s);", typestr.str, typename);
-
-            for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-                if (streq(option_def, gen->generated_typedefs[i])) {
-                    strbfree(option_def);
-                    strbfree(typename);
-                    if (typestr.alloced) strbfree(typestr.str);
-                    return;
-                }
-            }
-
-            gen->defs = strbinsert(gen->defs, option_def, gen->def_loc);
-            gen->def_loc += strlen(option_def);
-            arrpush(gen->generated_typedefs, option_def);
-
-            bool replaced = strreplace(option_def, "Def", "Imp");
-            assert(replaced);
-
-            gen->code = strbinsert(gen->code, option_def, gen->code_loc);
-            gen->code_loc += strlen(option_def);
-
-            replaced = strreplace(option_def, "Imp", "Def");
-            assert(replaced);
+            strbprintfln(&def, "CurOptionDef(%s, %s);", typestr.str, typename);
 
             strbfree(typename);
             if (typestr.alloced) strbfree(typestr.str);
+
+            for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
+                if (streq(def, gen->generated_typedefs[i])) {
+                    strbfree(def);
+                    return;
+                }
+            }
         } break;
         case TkTypeDef: {
             // NOTE: no generics right now, just for forward declaration
@@ -969,6 +1072,18 @@ void gen_decl_generic(Gen *gen, Type type) {
         default:
             return;
     }
+
+    gen->defs = strbinsert(gen->defs, def, gen->def_loc);
+    gen->def_loc += strlen(def);
+    arrpush(gen->generated_typedefs, def);
+
+    bool replaced = strreplace(def, "Def", "Imp");
+    assert(replaced);
+    gen->code = strbinsert(gen->code, def, gen->code_loc);
+    gen->code_loc += strlen(def);
+
+    replaced = strreplace(def, "Imp", "Def");
+    assert(replaced);
 }
 
 strb gen_decl_proto(Gen *gen, Stmnt stmnt) {
@@ -997,7 +1112,7 @@ strb gen_decl_proto(Gen *gen, Stmnt stmnt) {
 
     strb ret = NULL;
     gen_indent(gen);
-    if (type.kind == TkArray || type.kind == TkOption) {
+    if (type.kind == TkSlice || type.kind == TkArray || type.kind == TkOption) {
         gen_decl_generic(gen, type);
 
         strb typename = NULL;
@@ -1273,6 +1388,30 @@ void gen_block(Gen *gen, Arr(Stmnt) block) {
     gen_writeln(gen, "}");
 }
 
+void gen_fn_main_decl(Gen *gen, Stmnt stmnt) {
+    assert(stmnt.kind == SkFnDecl);
+    FnDecl fndecl = stmnt.fndecl;
+
+    gen_writeln(gen, "int main(int argc, const char **argv) {");
+    gen->indent++;
+
+    if (arrlenu(fndecl.args) == 1) {
+        Stmnt arg = fndecl.args[0];
+        assert(arg.kind == SkConstDecl);
+
+        assert(arg.constdecl.type.kind == TkSlice);
+        gen_decl_generic(gen, arg.constdecl.type);
+
+        gen_write(gen, builtin_args);
+    }
+
+    gen_indent(gen);
+    gen_block(gen, fndecl.body);
+    gen->indent--;
+    gen_indent(gen);
+    gen_writeln(gen, "}");
+}
+
 void gen_fn_decl(Gen *gen, Stmnt stmnt, bool is_extern) {
     assert(stmnt.kind == SkFnDecl);
     FnDecl fndecl = stmnt.fndecl;
@@ -1282,8 +1421,7 @@ void gen_fn_decl(Gen *gen, Stmnt stmnt, bool is_extern) {
     gen_indent(gen);
 
     if (fndecl.name.kind == EkIdent && streq("main", fndecl.name.ident)) {
-        gen_write(gen, "int main() ");
-        gen_block(gen, fndecl.body);
+        gen_fn_main_decl(gen, stmnt);
         return;
     }
 

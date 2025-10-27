@@ -331,6 +331,13 @@ static Expr get_field(Sema *sema, Type type, const char *fieldname, size_t curso
             }
             elog(sema, cursor_idx, "string does not have field \"%s\"", fieldname);
         } break;
+        case TkSlice: {
+            Expr slice_len = expr_ident("len", type_integer(TkUsize, TYPECONST, cursor_idx), cursor_idx);
+            if (streq(fieldname, slice_len.ident)) {
+                return slice_len;
+            }
+            elog(sema, cursor_idx, "slice does not have field \"%s\"", fieldname);
+        } break;
         case TkArray: {
             enum { ArrayFieldsLen = 2 };
             Expr ArrayFields[ArrayFieldsLen] = {
@@ -343,7 +350,7 @@ static Expr get_field(Sema *sema, Type type, const char *fieldname, size_t curso
                     return ArrayFields[i];
                 }
             }
-            elog(sema, cursor_idx, "string does not have field \"%s\"", fieldname);
+            elog(sema, cursor_idx, "array does not have field \"%s\"", fieldname);
         } break;
         case TkTypeDef: {
             Stmnt typedeff = symtab_find(sema, type.typedeff, cursor_idx);
@@ -418,6 +425,8 @@ void sema_array_index(Sema *sema, Expr *expr) {
 
     if (arrtype->kind == TkArray) {
         expr->type = *arrtype->array.of;
+    } else if (arrtype->kind == TkSlice) {
+        expr->type = *arrtype->slice.of;
     } else {
         strb t = string_from_type(*arrtype);
         elog(sema, expr->cursors_idx, "cannot index into %s, not an array", t);
@@ -426,6 +435,31 @@ void sema_array_index(Sema *sema, Expr *expr) {
     }
 
     sema_expr(sema, expr->arrayidx.index);
+}
+
+void sema_slice_literal(Sema *sema, Expr *expr) {
+    assert(expr->kind == EkLiteral);
+
+    if (expr->literal.kind == LitkVars) {
+        elog(sema, expr->cursors_idx, "slice literal cannot have named fields");
+    }
+
+    Type *type = &expr->type;
+    assert(type->kind == TkSlice);
+    Slice *slice = &type->slice;
+
+    for (size_t i = 0; i < arrlenu(expr->literal.exprs); i++) {
+        Type *valtype = resolve_expr_type(sema, &expr->literal.exprs[i]);
+        if (!tc_equals(sema, *slice->of, valtype)) {
+            strb t1 = string_from_type(*valtype);
+            strb t2 = string_from_type(*slice->of);
+            elog(sema, expr->cursors_idx, "slice element %zu type is %s, but expected %s", i + 1, t1, t2);
+            // TODO: later when providing more than one error message, uncomment the line below
+            // strbfree(t1); strbfree(t2);
+        }
+
+        tc_number_within_bounds(sema, *slice->of, expr->literal.exprs[i]);
+    }
 }
 
 void sema_array_literal(Sema *sema, Expr *expr) {
@@ -531,6 +565,8 @@ void sema_literal(Sema *sema, Expr *expr) {
 
     if (expr->type.kind == TkArray) {
         sema_array_literal(sema, expr);
+    } else if (expr->type.kind == TkSlice) {
+        sema_slice_literal(sema, expr);
     } else if (expr->type.kind == TkTypeDef) {
         sema_typedef_literal(sema, expr);
     }

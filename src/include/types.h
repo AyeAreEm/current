@@ -37,6 +37,7 @@ typedef enum TypeKind {
     TkUntypedInt,
     TkUntypedFloat,
 
+    TkSlice,
     TkArray,
     TkPtr,
     TkOption,
@@ -44,6 +45,10 @@ typedef enum TypeKind {
     TkTypeDef,
     TkTypeId,
 } TypeKind;
+
+typedef struct Slice {
+    Type *of;
+} Slice;
 
 typedef struct Array {
     Type *of;
@@ -62,6 +67,7 @@ typedef struct Type {
     bool constant;
 
     union {
+        Slice slice;
         Array array;
         Type *ptr_to;
         Option option;
@@ -83,6 +89,7 @@ Type type_string(CONSTNESS constant, size_t index);
 Type type_cstring(CONSTNESS constant, size_t index);
 Type type_integer(TypeKind kind, CONSTNESS constant, size_t index);
 Type type_decimal(TypeKind kind, CONSTNESS constant, size_t index);
+Type type_slice(Slice v, CONSTNESS constant, size_t index);
 Type type_array(Array v, CONSTNESS constant, size_t index);
 Type type_ptr(Type *v, CONSTNESS constant, size_t index);
 Type type_option(Option v, CONSTNESS constant, size_t index);

@@ -410,6 +410,10 @@ void tc_make_constant(Type *type) {
         case TkTypeId:
             type->constant = true;
             return;
+        case TkSlice:
+            tc_make_constant(type->slice.of);
+            type->constant = true;
+            return;
         case TkArray:
             tc_make_constant(type->array.of);
             type->constant = true;

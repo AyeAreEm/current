@@ -1,7 +1,7 @@
-add :: fn(x: i64, y := 5) i64 {
-    return x + y;
-}
+extern puts :: fn(s: cstring) i32;
 
-main :: fn() void {
-    x := add(10);
+main :: fn(args: []string) void {
+    for (i: usize = 0; i < args.len; i += 1) {
+        puts(args[i].ptr);
+    }
 }
