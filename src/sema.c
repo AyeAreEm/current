@@ -550,13 +550,20 @@ void sema_fn_call(Sema *sema, Expr *expr) {
 
     size_t decl_args_len = arrlenu(stmnt.fndecl.args);
     size_t fncall_args_len = arrlenu(expr->fncall.args);
-    if (decl_args_len != fncall_args_len) {
-        elog(sema, expr->cursors_idx, "expected %zu argument(s) in function call \"%s\", got %zu", decl_args_len, expr->fncall.name->ident, fncall_args_len);
+
+    if (fncall_args_len > decl_args_len) {
+        elog(sema, expr->cursors_idx, "too many arugments, expected %zu, got %zu", decl_args_len, fncall_args_len);
     }
 
-    for (size_t i = 0; i < arrlenu(stmnt.fndecl.args); i++) {
-        Type darg_type = type_of_stmnt(sema, stmnt.fndecl.args[i]);
+    for (size_t i = 0; i < decl_args_len; i++) {
+        Stmnt *darg = &stmnt.fndecl.args[i];
 
+        if (darg->kind == SkVarDecl && i >= fncall_args_len) {
+            arrpush(expr->fncall.args, darg->vardecl.value);
+            break;
+        }
+
+        Type darg_type = darg->kind == SkConstDecl ? darg->constdecl.type : darg->vardecl.type;
         sema_expr(sema, &expr->fncall.args[i]);
         Type *carg_type = resolve_expr_type(sema, &expr->fncall.args[i]);
 
@@ -1076,14 +1083,25 @@ void sema_fn_decl(Sema *sema, Stmnt *stmnt) {
     symtab_push(sema, stmnt->fndecl.name.ident, *stmnt);
     symtab_new_scope(sema);
 
+    bool must_be_vardecls = false;
     for (size_t i = 0; i < arrlenu(stmnt->fndecl.args); i++) {
         Stmnt *arg = &stmnt->fndecl.args[i];
-        assert(arg->kind == SkConstDecl);
+        assert(arg->kind == SkConstDecl || arg->kind == SkVarDecl);
+
+        if (arg->kind == SkConstDecl && must_be_vardecls) {
+            elog(sema, arg->cursors_idx, "positional arguments are not allowed after default arguments.");
+        }
 
         if (arg->constdecl.type.kind == TkTypeDef) {
             symtab_find(sema, arg->constdecl.type.typedeff, arg->constdecl.type.cursors_idx);
         }
-        symtab_push(sema, arg->constdecl.name.ident, *arg);
+
+        if (arg->kind == SkVarDecl) {
+            must_be_vardecls = true;
+            sema_var_decl(sema, arg);
+        } else {
+            symtab_push(sema, arg->constdecl.name.ident, *arg);
+        }
     }
 
     if (streq("main", stmnt->fndecl.name.ident) && stmnt->fndecl.type.kind != TkVoid) {

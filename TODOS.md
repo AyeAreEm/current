@@ -1,6 +1,5 @@
 # Todos
 - UTF-8 Strings
-- Default Function Arguments
 - Type Casting
 - Better Error Messages
 - Generics
@@ -21,6 +20,7 @@
 # In Progress
 - For Loops
 - Importing External Libraries
+- Default Function Arguments
 
 # Completed
 - Function Declarations

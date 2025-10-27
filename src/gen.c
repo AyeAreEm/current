@@ -1292,8 +1292,8 @@ void gen_fn_decl(Gen *gen, Stmnt stmnt, bool is_extern) {
     strbprintf(&code, "%s(", proto);
 
     for (size_t i = 0; i < arrlenu(fndecl.args); i++) {
-        assert(fndecl.args[i].kind == SkConstDecl);
         Stmnt arg = fndecl.args[i];
+        assert(arg.kind == SkConstDecl || arg.kind == SkVarDecl);
 
         strb arg_proto = gen_decl_proto(gen, arg);
         if (i == 0) {

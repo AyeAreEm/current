@@ -1,5 +1,7 @@
+add :: fn(x: i64, y := 5) i64 {
+    return x + y;
+}
+
 main :: fn() void {
-    x := 10;
-    y := 15;
-    z := x ~ y;
+    x := add(10);
 }

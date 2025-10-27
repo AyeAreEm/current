@@ -1243,16 +1243,22 @@ Stmnt parse_var_decl(Parser *parser, Expr ident, Type type, bool has_equal) {
     };
 
     // <ident>: <type?> = 
-    if (has_equal) {
-        Expr expr = parse_expr(parser);
-        expect(parser, TokSemiColon);
-        if (expr.kind == EkNone) {
-            elog(parser, index, "expected expression after \"=\" in variable declaration");
-        }
-
-        vardecl.value = expr;
+    if (!has_equal) {
+        return stmnt_vardecl(vardecl, index);
     }
 
+    Expr expr = parse_expr(parser);
+    if (parser->in_func_decl_args) {
+        vardecl.value = expr;
+        return stmnt_vardecl(vardecl, index);
+    }
+    
+    expect(parser, TokSemiColon);
+    if (expr.kind == EkNone) {
+        elog(parser, index, "expected expression after \"=\" in variable declaration");
+    }
+
+    vardecl.value = expr;
     return stmnt_vardecl(vardecl, index);
 }
 
