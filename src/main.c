@@ -73,11 +73,11 @@ void compile(CompileFlags flags) {
 }
 
 // returns executable name
-const char *build(Cli args) {
+const char *build(Cli cli) {
     char *content = {0};
-    bool content_ok = read_entire_file(args.filename, &content);
+    bool content_ok = read_entire_file(cli.filename, &content);
     if (!content_ok) {
-        comp_elog("failed to read %s", args.filename);
+        comp_elog("failed to read %s", cli.filename);
     }
 
     Lexer lex = lexer(content);
@@ -89,23 +89,23 @@ const char *build(Cli args) {
     }
 
     Arr(Stmnt) ast = NULL;
-    Parser parser = parser_init(lex, args.filename);
+    Parser parser = parser_init(lex, cli.filename);
     for (Stmnt stmnt = parser_parse(&parser); stmnt.kind != SkNone; stmnt = parser_parse(&parser)) {
         arrpush(ast, stmnt);
     }
 
-    Sema sema = sema_init(ast, args.filename, lex.cursors);
+    Sema sema = sema_init(ast, cli.filename, lex.cursors);
     sema_analyse(&sema);
 
     Gen gen = gen_init(ast, sema.dgraph);
     gen_generate(&gen);
-    gen.compile_flags.keepc = args.keepc;
+    gen.compile_flags.keepc = cli.keepc;
 
     write_entire_file("output.h", gen.defs);
     write_entire_file("output.c", gen.code);
 
     if (strlen(gen.compile_flags.output) == 0) {
-        gen.compile_flags.output = filename_from_path(args.filename);
+        gen.compile_flags.output = filename_from_path(cli.filename);
     }
     compile(gen.compile_flags);
 
@@ -113,13 +113,17 @@ const char *build(Cli args) {
     return gen.compile_flags.output;
 }
 
-void run(const char *exe) {
+void run(Cli cli, const char *exe) {
     strb com = NULL;
 #if defined(__linux__) || defined(__APPLE__)
     strbprintf(&com, "./%s", exe);
 #elif defined(_WIN32)
     strbprintf(&com, "./%s.exe", exe);
 #endif
+
+    for (int i = 0; i < cli.argc; i++) {
+        strbprintf(&com, " %s", cli.argv[i]);
+    }
 
     FILE *fd = popen(com, "r");
     if (fd == NULL) {
@@ -138,21 +142,21 @@ void run(const char *exe) {
 int main(int argc, char **argv) {
     cc = get_c_compiler();
 
-    Cli args = cli_parse(argv, argc);
+    Cli cli = cli_parse(argv, argc);
 
-    cli_usage(args, false);
-    switch (args.command) {
+    cli_usage(cli, false);
+    switch (cli.command) {
         case CommandBuild:
         {
-            build(args);
+            build(cli);
         } break;
         case CommandRun:
         {
-            const char *exe = build(args);
-            run(exe);
+            const char *exe = build(cli);
+            run(cli, exe);
         } break;
         default:
-            cli_usage(args, true);
+            cli_usage(cli, true);
             break;
     }
 

@@ -1,19 +1,7 @@
-Player :: struct {
-    x: i32;
-    y: i32;
-    width: i32;
-    height: i32;
-    health: i32;
-}
+extern puts :: fn(s: cstring) i32;
 
-player_init :: fn(x: i32 = 0, y: i32 = 0, width: i32 = 16, height: i32 = 16, health: i32 = 10) Player {
-    return Player{
-        x, y,
-        width, height,
-        health,
-    };
-}
-
-main :: fn() void {
-    player := player_init(.width = 32, .height = 32);
+main :: fn(args: []string) void {
+    for (i: usize = 0; i < args.len; i += 1) {
+        puts(args[i].ptr);
+    }
 }

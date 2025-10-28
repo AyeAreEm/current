@@ -15,6 +15,9 @@ typedef struct Cli {
     bool help;
     bool keepc;
     char *filename;
+    bool pass_to_prog;
+    char **argv;
+    int argc;
 } Cli;
 
 void cli_usage(Cli cli, bool force);
