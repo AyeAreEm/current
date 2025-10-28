@@ -8,3 +8,4 @@ output.c
 output.h
 test.dSYM/
 tests/functions/*.o
+bin/*.o

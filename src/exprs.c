@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include "include/exprs.h"
 #include "include/lexer.h"
-#include "include/strb.h"
 #include "include/types.h"
 #include "include/stb_ds.h"
 
