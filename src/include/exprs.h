@@ -65,7 +65,12 @@ typedef struct ArrayIndex {
 
 typedef struct FnCall {
     Expr *name;
-    Arr(Expr) args;
+    LitKind arg_kind;
+
+    union {
+        Arr(Expr) exprs;
+        Arr(Stmnt) vars; // VarReassign
+    } args;
 } FnCall;
 
 typedef enum BinopKind {
@@ -156,6 +161,5 @@ Expr expr_unop(Unop v, Type t, size_t index);
 Expr expr_group(Arr(Expr) v, Type t, size_t index);
 Expr expr_fieldaccess(FieldAccess v, Type t, size_t index);
 Expr expr_arrayindex(ArrayIndex v, Type t, size_t index);
-char *expr_stringify(Expr expr, Arr(Cursor) cursors);
 
 #endif // EXPRS_H

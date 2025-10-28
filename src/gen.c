@@ -541,8 +541,8 @@ MaybeAllocStr gen_fn_call(Gen *gen, Expr expr) {
     strb call = NULL;
     strbprintf(&call, "%s(", expr.fncall.name->ident);
 
-    for (size_t i = 0; i < arrlenu(expr.fncall.args); i++) {
-        MaybeAllocStr arg = gen_expr(gen, expr.fncall.args[i]);
+    for (size_t i = 0; i < arrlenu(expr.fncall.args.exprs); i++) {
+        MaybeAllocStr arg = gen_expr(gen, expr.fncall.args.exprs[i]);
 
         if (i == 0) {
             strbprintf(&call, "%s", arg.str);

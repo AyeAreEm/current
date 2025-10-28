@@ -15,5 +15,5 @@ player_init :: fn(x: i32 = 0, y: i32 = 0, width: i32 = 16, height: i32 = 16, hea
 }
 
 main :: fn() void {
-    player := player_init();
+    player := player_init(.width = 32, .height = 32);
 }

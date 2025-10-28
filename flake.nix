@@ -15,6 +15,7 @@
         clang-tools
         clang
         gdb
+        valgrind
       ];
     };
   };

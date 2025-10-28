@@ -478,23 +478,62 @@ Expr parse_primary(Parser *parser) {
 
 Expr parse_end_fn_call(Parser *parser, Expr ident) {
     size_t index = (size_t)parser->cursors_idx;
-    Arr(Expr) args = NULL;
+
+    bool is_stmnts = false;
+    Arr(Expr) exprs = NULL;
+    Arr(Stmnt) stmnts = NULL;
 
     Token tok = peek(parser);
     if (tok.kind != TokRightBracket) {
-        arrpush(args, parse_expr(parser));
+        if (tok.kind == TokDot) {
+            is_stmnts = true;
+            next(parser);
+            tok = expect(parser, TokIdent);
+            Identifiers convert = convert_ident(parser, tok);
+            if (convert.kind == IkIdent) {
+                expect(parser, TokEqual);
+                Stmnt stmnt = parse_var_reassign(parser, convert.expr, false);
+                arrpush(stmnts, stmnt);
+            } else {
+                elog(parser, parser->cursors_idx, "expected identifer in function call, got %s", identifierskind_stringify(convert.kind));
+            }
+        } else {
+            is_stmnts = false;
+            arrpush(exprs, parse_expr(parser));
+        }
         for (tok = peek(parser); tok.kind == TokComma; tok = peek(parser)) {
             next(parser);
-            arrpush(args, parse_expr(parser));
+
+            if (is_stmnts) {
+                expect(parser, TokDot);
+                tok = expect(parser, TokIdent);
+                Identifiers convert = convert_ident(parser, tok);
+                if (convert.kind == IkIdent) {
+                    expect(parser, TokEqual);
+                    Stmnt stmnt = parse_var_reassign(parser, convert.expr, false);
+                    arrpush(stmnts, stmnt);
+                } else {
+                    elog(parser, parser->cursors_idx, "expected identifer in function call, got %s", identifierskind_stringify(convert.kind));
+                }
+            } else {
+                arrpush(exprs, parse_expr(parser));
+            }
         }
     }
 
     expect(parser, TokRightBracket);
     Expr *name = ealloc(sizeof(Expr)); *name = ident;
-    return expr_fncall((FnCall){
+    FnCall fncall = {
         .name = name,
-        .args = args,
-    }, type_none(), index);
+    };
+    if (is_stmnts) {
+        fncall.arg_kind = LitkVars;
+        fncall.args.vars = stmnts;
+    } else {
+        fncall.arg_kind = LitkExprs;
+        fncall.args.exprs = exprs;
+    }
+    return expr_fncall(fncall, type_none(), index);
 }
 
 Expr parse_fn_call(Parser *parser, Expr ident) {

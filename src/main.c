@@ -17,12 +17,6 @@
 const bool DEBUG_MODE = false;
 const char *cc = {0};
 
-void print_ast(Stmnt *ast, Cursor *cursors) {
-    for (size_t i = 0; i < arrlenu(ast); i++) {
-        print_stmnt(ast[i], cursors, 0);
-    }
-}
-
 void compile(CompileFlags flags) {
     strb com = NULL;
     strbprintf(&com, "%s -o %s output.c ", cc, flags.output);
@@ -102,10 +96,6 @@ const char *build(Cli args) {
 
     Sema sema = sema_init(ast, args.filename, lex.cursors);
     sema_analyse(&sema);
-
-    if (DEBUG_MODE) {
-        print_ast(ast, parser.cursors);
-    }
 
     Gen gen = gen_init(ast, sema.dgraph);
     gen_generate(&gen);

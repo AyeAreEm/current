@@ -148,6 +148,4 @@ Stmnt stmnt_block(Arr(Stmnt) v, size_t index);
 Stmnt stmnt_directive(Directive v, size_t index);
 Stmnt stmnt_fncall(FnCall v, size_t index);
 
-void print_stmnt(Stmnt stmnt, Arr(Cursor) cursors, int indent);
-
 #endif // STMNTS_H

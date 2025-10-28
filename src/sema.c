@@ -585,32 +585,83 @@ void sema_fn_call(Sema *sema, Expr *expr) {
     }
 
     size_t decl_args_len = arrlenu(stmnt.fndecl.args);
-    size_t fncall_args_len = arrlenu(expr->fncall.args);
+    size_t fncall_args_len = expr->fncall.arg_kind == LitkVars ? arrlenu(expr->fncall.args.vars) : arrlenu(expr->fncall.args.exprs);
 
     if (fncall_args_len > decl_args_len) {
         elog(sema, expr->cursors_idx, "too many arugments, expected %zu, got %zu", decl_args_len, fncall_args_len);
     }
 
-    for (size_t i = 0; i < decl_args_len; i++) {
-        Stmnt *darg = &stmnt.fndecl.args[i];
+    Arr(Expr) pos_args = NULL;
+    arrsetlen(pos_args, decl_args_len);
 
-        if (darg->kind == SkVarDecl && i >= fncall_args_len) {
-            arrpush(expr->fncall.args, darg->vardecl.value);
-            continue;
+    if (expr->fncall.arg_kind == LitkExprs) {
+        for (size_t i = 0; i < decl_args_len; i++) {
+            Stmnt *darg = &stmnt.fndecl.args[i];
+
+            if (darg->kind == SkVarDecl && i >= fncall_args_len) {
+                pos_args[i] = darg->vardecl.value;
+                continue;
+            }
+
+            Type darg_type = darg->kind == SkConstDecl ? darg->constdecl.type : darg->vardecl.type;
+            sema_expr(sema, &expr->fncall.args.exprs[i]);
+            Type *carg_type = resolve_expr_type(sema, &expr->fncall.args.exprs[i]);
+
+            if (!tc_equals(sema, darg_type, carg_type)) {
+                strb t1 = string_from_type(darg_type);
+                strb t2 = string_from_type(*carg_type);
+                elog(sema, expr->cursors_idx, "mismatch types, argument %zu is expected to be of type %s, got %s", i + 1, t1, t2);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t1); strbfree(t2);
+            }
+            pos_args[i] = expr->fncall.args.exprs[i];
         }
+    } else {
+        // .<ident> = <value> (varreassign)
+        for (size_t i = 0; i < decl_args_len; i++) {
+            Stmnt *darg = &stmnt.fndecl.args[i];
 
-        Type darg_type = darg->kind == SkConstDecl ? darg->constdecl.type : darg->vardecl.type;
-        sema_expr(sema, &expr->fncall.args[i]);
-        Type *carg_type = resolve_expr_type(sema, &expr->fncall.args[i]);
+            if (darg->kind == SkVarDecl && i >= fncall_args_len) {
+                for (size_t j = 0; j < decl_args_len; j++) {
+                    if (pos_args[j].kind == EkNone) {
+                        pos_args[j] = stmnt.fndecl.args[j].vardecl.value;
+                    }
+                }
+                break;
+            }
 
-        if (!tc_equals(sema, darg_type, carg_type)) {
-            strb t1 = string_from_type(darg_type);
-            strb t2 = string_from_type(*carg_type);
-            elog(sema, expr->cursors_idx, "mismatch types, argument %zu is expected to be of type %s, got %s", i + 1, t1, t2);
-            // TODO: later when providing more than one error message, uncomment the line below
-            // strbfree(t1); strbfree(t2);
+            Type darg_type = darg->kind == SkConstDecl ? darg->constdecl.type : darg->vardecl.type;
+            sema_expr(sema, &expr->fncall.args.vars[i].varreassign.value);
+            Type *carg_type = resolve_expr_type(sema, &expr->fncall.args.vars[i].varreassign.value);
+
+            if (!tc_equals(sema, darg_type, carg_type)) {
+                strb t1 = string_from_type(darg_type);
+                strb t2 = string_from_type(*carg_type);
+                elog(sema, expr->cursors_idx, "mismatch types, argument %zu is expected to be of type %s, got %s", i + 1, t1, t2);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t1); strbfree(t2);
+            }
+
+            size_t j = 0;
+            for (; j < decl_args_len; j++) {
+                if (streq(stmnt.fndecl.args[j].vardecl.name.ident, expr->fncall.args.vars[i].varreassign.name.ident)) {
+                    break;
+                }
+            }
+
+            pos_args[j] = expr->fncall.args.vars[i].varreassign.value;
         }
     }
+
+    if (expr->fncall.arg_kind == LitkVars) {
+        arrfree(expr->fncall.args.vars);
+        expr->fncall.args.vars = NULL;
+    } else {
+        arrfree(expr->fncall.args.exprs);
+        expr->fncall.args.exprs = NULL;
+    }
+
+    expr->fncall.args.exprs = pos_args;
 }
 
 void sema_fn_call_stmnt(Sema *sema, Stmnt *stmnt) {
@@ -658,10 +709,7 @@ void sema_unop(Sema *sema, Expr *expr) {
         }
         expr->type = *type;
     } else {
-        strb exprstr = expr_stringify(*expr, sema->cursors);
-        elog(sema, expr->cursors_idx, "can't take address of %s", exprstr);
-        // TODO: later when providing more than one error message, uncomment the line below
-        // strbfree(exprstr);
+        elog(sema, expr->cursors_idx, "can't take address of expression not on stack or heap");
     }
 }
 
