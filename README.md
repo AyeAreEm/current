@@ -97,8 +97,7 @@ I have noticed one major problem with the ":=", "::" syntax. While it's clear to
 In Odin, you can't take the address of a constant because they are compile time known, which means they won't have a runtime address.<br>
 Similarly in Golang, you can't take the address as well because a constant may or may not have a runtime address and Golang wants to keep all constants immutable by not letting them be addressable.<br>
 <br>
-I thought about making Current constants only compile time constants but some problems arise. If you want to pass a large constant structure, you'd be forced to pass by value and copy that large amount of data or make it global. Usually you'd pass a pointer to a constant that way not performing a copy and still not allowing the function to mutate it.<br>
-In that case, pointers to constant are neccessary but there isn't a proper syntactic way to do this in languages like this because there is no `const` keyword. Hence, two pointer symbols.<br>
+I thought about making constants in Current only compile time values but this feels restrictive. It would not be possible to have immutable non-compile time known values. Perhaps I'm confusing constants with immutables, but in this language there is compile time constants, constants (immutables), and variables. So instead, you can have a pointer to immutable data and mutable data. Hence, two pointer symbols.<br>
 `*` is a pointer to a variable / mutable data.<br>
 `^` is a pointer to a constant / immutable data.<br>
 
