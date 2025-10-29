@@ -50,10 +50,10 @@ char *builtin_defs =
     "    T *ptr;\\\n"
     "    const usize len;\\\n"
     "} CurArray1d_##Tname##A;\\\n"
-    "CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr, usize len);\\\n\n"
+    "CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr);\\\n\n"
     "#define CurArray1dImp(T, Tname, A)\\\n"
-    "CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr, usize len) {\\\n"
-    "    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){.len = len};\\\n"
+    "CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr) {\\\n"
+    "    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){.len = A};\\\n"
     "    ret.ptr = ptr;\\\n"
     "    return ret;\\\n"
     "}\n"
@@ -62,10 +62,10 @@ char *builtin_defs =
     "    CurArray1d_##Tname##A* ptr;\\\n"
     "    const usize len;\\\n"
     "} CurArray2d_##Tname##B##A;\\\n"
-    "CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, usize len);\\\n\n"
+    "CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr);\\\n\n"
     "#define CurArray2dImp(T, Tname, A, B)\\\n"
-    "CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr, usize len) {\\\n"
-    "    CurArray2d_##Tname##B##A ret = (CurArray2d_##Tname##B##A){.len = len};\\\n"
+    "CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr) {\\\n"
+    "    CurArray2d_##Tname##B##A ret = (CurArray2d_##Tname##B##A){.len = B};\\\n"
     "    ret.ptr = ptr;\\\n"
     "    return ret;\\\n"
     "}\n"
@@ -647,12 +647,8 @@ MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
 
         if (val.alloced) strbfree(val.str);
     }
-    strbpush(&lit, '}');
+    strbprintf(&lit, "})");
 
-    MaybeAllocStr len = gen_expr(gen, *arr.array.len);
-    strbprintf(&lit, ", %s)", len.str);
-
-    if (len.alloced) strbfree(len.str);
     strbfree(typename);
     return (MaybeAllocStr){
         .str = lit,
