@@ -282,6 +282,9 @@ Type *resolve_expr_type(Sema *sema, Expr *expr) {
         case EkNone:
             assert(false);
     }
+
+    // silence warning, this should be unreachable
+    return NULL;
 }
 
 void sema_directive(Sema *sema, Stmnt *stmnt) {
@@ -404,6 +407,10 @@ void sema_range_lit(Sema *sema, Expr *expr, bool slice) {
         elog(sema, expr->cursors_idx, "range literals must have both a start and end if not used for slicing");
     }
 
+    if (slice && expr->rangelit.end->kind == EkNone && expr->rangelit.inclusive) {
+        elog(sema, expr->cursors_idx, "range slice cannot be inclusive when end is the length of element");
+    }
+
     if (expr->rangelit.start->kind != EkNone && !tc_is_unsigned(sema, *expr->rangelit.start)) {
         elog(sema, expr->cursors_idx, "range literals must be unsigned integers");
     }
@@ -453,10 +460,20 @@ void sema_array_slice(Sema *sema, Expr *expr) {
             .of = arrtype->array.of,
         }, arrtype->constant, expr->cursors_idx);
 
-        uint64_t start_n = eval_expr(sema, start);
-        uint64_t end_n = eval_expr(sema, end);
         uint64_t len_n = eval_expr(sema, arrtype->array.len);
-        if (start_n >= len_n || end_n >= len_n) {
+
+        uint64_t start_n;
+        if (start->kind == EkNone) start_n = 0;
+        else start_n = eval_expr(sema, start);
+
+        uint64_t end_n;
+        if (end->kind == EkNone) end_n = len_n - 1;
+        else end_n = eval_expr(sema, end);
+
+        if (start_n >= len_n) {
+            elog(sema, expr->cursors_idx, "slice out of bounds, array length is %" PRIu64 ", slice start is %" PRIu64, len_n, start_n);
+        }
+        if (end_n >= len_n) {
             elog(sema, expr->cursors_idx, "slice out of bounds, array length is %" PRIu64 ", slice end is %" PRIu64, len_n, end_n);
         }
     } else if (arrtype->kind == TkSlice) {

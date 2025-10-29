@@ -1,9 +1,10 @@
 extern puts :: fn(s: cstring) i32;
 
-main :: fn(args: []string) void {
-    clas := args[1..];
+main :: fn() void {
+    str_arr := [2]cstring{c"hello", c"world"};
+    str_slice := str_arr[..];
 
-    for (i: usize = 0; i < clas.len; i += 1) {
-        puts(clas[i].ptr);
+    for (i: usize = 0; i < str_slice.len; i += 1) {
+        puts(str_slice[i]);
     }
 }

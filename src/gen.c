@@ -927,7 +927,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             } else {
                 end = gen_expr(gen, *expr.arrayslice.slice->rangelit.end);
             }
-            strb ret = NULL; strbprintf(&ret, "curslice_range_%s(%s.ptr, %s, %s)", typename, access.str, start.str, end.str, expr.arrayslice.slice->rangelit.inclusive ? " + 1" : "");
+            strb ret = NULL; strbprintf(&ret, "curslice_range_%s(%s.ptr, %s, %s%s)", typename, access.str, start.str, end.str, expr.arrayslice.slice->rangelit.inclusive ? " + 1" : "");
 
             if (end.alloced) strbfree(end.str);
             if (start.alloced) strbfree(start.str);
