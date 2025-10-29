@@ -622,7 +622,7 @@ MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
     strbprintf(&lit, "%s(", typename);
 
     if (arr.array.of->kind == TkArray) {
-        strclear(typename, 0);
+        strclear(typename);
         gen_typename(gen, arr.array.of, 1, &typename);
 
         MaybeAllocStr length = gen_expr(gen, *arr.array.len);

@@ -141,50 +141,60 @@ void print_tokens(Token *tokens) {
     }
 }
 
-static Cursor cursor(uint32_t row, uint32_t col) {
-    return (Cursor){row, col};
-}
-
-static void move_cursor(const char ch, uint32_t *row, uint32_t *col) {
-    if (ch == '\n') {
-        *row += 1;
-        *col = 1;
+static void move_cursor(Lexer *lex) {
+    if (lex->ch == '\n') {
+        lex->cursor.row += 1;
+        lex->cursor.col = 1;
     } else {
-        *col += 1;
+        lex->cursor.col += 1;
     }
 }
 
-static int resolve_buffer(Lexer *lex, char *buf, uint32_t *row, uint32_t *col, bool *is_directive) {
-    if (strlen(buf) > 0) {
-        arrpush(lex->cursors, cursor(*row, *col));
+static void push_buffer(Lexer *lex) {
+    STRPUSH(lex->buf, BUF_CAP, lex->buf_len, lex->ch);
+    move_cursor(lex);
+}
+
+static void reset_buffer(Lexer *lex) {
+    strclear(lex->buf);
+    lex->buf_len = 0;
+}
+
+static void resolve_buffer(Lexer *lex) {
+    if (strlen(lex->buf) > 0) {
+        arrpush(lex->cursors, lex->cursor);
 
         Token tok;
         uint64_t u64 = 0;
         double f64 = 0;
 
-        if (streq(buf, "_")) {
+        if (streq(lex->buf, "_")) {
             tok = (Token){ .kind = TokUnderscore };
-        } else if (parse_u64(buf, &u64)) {
+        } else if (parse_u64(lex->buf, &u64)) {
             tok = token_intlit(u64);
-        }  else if (parse_f64(buf, &f64)) {
+        }  else if (parse_f64(lex->buf, &f64)) {
             tok = token_floatlit(f64);
-        } else if (*is_directive) {
-            tok = token_directive(strclone(buf));
-            *is_directive = false;
+        } else if (lex->is_directive) {
+            tok = token_directive(strclone(lex->buf));
+            lex->is_directive = false;
         } else {
-            tok = token_ident(strclone(buf));
+            tok = token_ident(strclone(lex->buf));
         }
         arrpush(lex->tokens, tok);
     }
 
-    strclear(buf, NULL);
-    return 0;
+    reset_buffer(lex);
 }
 
-static void push_token(Lexer *lex, Token tok, uint32_t *row, uint32_t *col) {
-    *col += 1;
-    arrpush(lex->cursors, cursor(*row, *col));
+static void push_token(Lexer *lex, Token tok) {
+    lex->cursor.col += 1;
+    arrpush(lex->cursors, lex->cursor);
     arrpush(lex->tokens, tok);
+}
+
+static void resolve_buffer_push_token(Lexer *lex, Token tok) {
+    resolve_buffer(lex);
+    push_token(lex, tok);
 }
 
 // exits with 1 if failed
@@ -222,66 +232,70 @@ static char strtochar(const char *s) {
     exit(1);
 }
 
-Lexer lexer(const char *source) {
+Lexer lexer_init(void) {
     Lexer lex = {
         .tokens = NULL,
         .cursors = NULL,
+
+        .ch = 0,
+        .buf = {0},
+        .buf_len = 0,
+        .cursor = (Cursor){1, 1},
+
+        .ignore_index = -1,
+        .in_single_line_comment = false,
+        .in_block_comment = false,
+        .escaped = false,
+        .in_quotes = false,
+        .in_double_quotes = false,
+        .is_directive = false,
     };
 
-    size_t buf_len = 0;
-    char buf[BUF_CAP] = {0};
+    return lex;
+}
 
-    uint32_t row = 1, col = 1;
-
-    int ignore_index = -1;
-    bool in_single_line_comment = false;
-    bool in_block_comment = false;
-    bool escaped = false;
-    bool in_quotes = false;
-    bool in_double_quotes = false;
-    bool is_directive = false;
+Lexer lexer(const char *source) {
+    Lexer lex = lexer_init();
 
     for (size_t i = 0; i < strlen(source); i++) {
         const char ch = source[i];
+        lex.ch = ch;
 
-        if (ignore_index != -1 && i == (size_t)ignore_index)  {
-            ignore_index = -1;
-            move_cursor(ch, &row, &col);
+        if (lex.ignore_index != -1 && i == (size_t)lex.ignore_index)  {
+            lex.ignore_index = -1;
+            move_cursor(&lex);
             continue;
         }
 
-        if (in_single_line_comment) {
-            move_cursor(ch, &row, &col);
-            if (ch == '\n') in_single_line_comment = false;
+        if (lex.in_single_line_comment) {
+            move_cursor(&lex);
+            if (ch == '\n') lex.in_single_line_comment = false;
             continue;
         }
 
-        if (in_block_comment && ch == '*' && AT(source, strlen(source), i + 1) == '/') {
-            ignore_index = i + 1;
-            in_block_comment = false;
-            move_cursor(ch, &row, &col);
+        if (lex.in_block_comment && ch == '*' && AT(source, strlen(source), i + 1) == '/') {
+            lex.ignore_index = i + 1;
+            lex.in_block_comment = false;
+            move_cursor(&lex);
             continue;
-        } else if (in_block_comment) {
-            move_cursor(ch, &row, &col);
-            continue;
-        }
-
-        if (escaped) {
-            escaped = false;
-            STRPUSH(buf, BUF_CAP, buf_len, ch);
-            move_cursor(ch, &row, &col);
+        } else if (lex.in_block_comment) {
+            move_cursor(&lex);
             continue;
         }
 
-        if (in_quotes && ch != '\'' && ch != '\\') {
-            STRPUSH(buf, BUF_CAP, buf_len, ch);
-            move_cursor(ch, &row, &col);
+        if (lex.escaped) {
+            lex.escaped = false;
+            push_buffer(&lex);
             continue;
         }
 
-        if (in_double_quotes && ch != '"' && ch != '\\') {
-            STRPUSH(buf, BUF_CAP, buf_len, ch);
-            move_cursor(ch, &row, &col);
+        if (lex.in_quotes && ch != '\'' && ch != '\\') {
+            push_buffer(&lex);
+            continue;
+        }
+
+        if (lex.in_double_quotes && ch != '"' && ch != '\\') {
+            push_buffer(&lex);
             continue;
         }
 
@@ -292,204 +306,175 @@ Lexer lexer(const char *source) {
             case '\n':
             {
                 if (ch == '\r') continue;
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                move_cursor(ch, &row, &col);
+                resolve_buffer(&lex);
+                move_cursor(&lex);
             } break;
             case '#':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                is_directive = true;
-                move_cursor(ch, &row, &col);
+                resolve_buffer(&lex);
+                lex.is_directive = true;
+                move_cursor(&lex);
             } break;
             case '\'':
             {
-                if (in_quotes) {
-                    in_quotes = false;
-                    arrpush(lex.cursors, cursor(row, col));
-                    arrpush(lex.tokens, token_charlit(strtochar(buf)));
-                    strclear(buf, &buf_len);
+                if (lex.in_quotes) {
+                    lex.in_quotes = false;
+                    arrpush(lex.cursors, lex.cursor);
+                    arrpush(lex.tokens, token_charlit(strtochar(lex.buf)));
+                    reset_buffer(&lex);
                 } else {
-                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                    in_quotes = true;
-                    move_cursor(ch, &row, &col);
+                    resolve_buffer(&lex);
+                    lex.in_quotes = true;
+                    move_cursor(&lex);
                 }
             } break;
             case '"':
             {
-                if (in_double_quotes) {
-                    in_double_quotes = false;
-                    arrpush(lex.cursors, cursor(row, col));
-                    arrpush(lex.tokens, token_strlit(strclone(buf)));
-                    strclear(buf, &buf_len);
+                if (lex.in_double_quotes) {
+                    lex.in_double_quotes = false;
+                    arrpush(lex.cursors, lex.cursor);
+                    arrpush(lex.tokens, token_strlit(strclone(lex.buf)));
+                    reset_buffer(&lex);
                 } else {
-                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                    in_double_quotes = true;
-                    move_cursor(ch, &row, &col);
+                    resolve_buffer(&lex);
+                    lex.in_double_quotes = true;
+                    move_cursor(&lex);
                 }
             } break;
             case '.':
             {
                 uint64_t u64 = 0;
                 if (AT(source, strlen(source), i + 1) == '.') {
-                    ignore_index = i + 1;
-                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                    push_token(&lex, (Token){.kind = TokDot}, &row, &col);
-                    move_cursor(ch, &row, &col);
-                    push_token(&lex, (Token){.kind = TokDot}, &row, &col);
-                } else if (parse_u64(buf, &u64)) {
-                    STRPUSH(buf, BUF_CAP, buf_len, ch);
-                    move_cursor(ch, &row, &col);
+                    lex.ignore_index = i + 1;
+                    resolve_buffer_push_token(&lex, (Token){.kind = TokDot});
+                    move_cursor(&lex);
+                    push_token(&lex, (Token){.kind = TokDot});
+                } else if (parse_u64(lex.buf, &u64)) {
+                    push_buffer(&lex);
                 } else {
-                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                    push_token(&lex, (Token){.kind = TokDot}, &row, &col);
+                    resolve_buffer_push_token(&lex, (Token){.kind = TokDot});
                 }
             } break;
             case '?':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokQuestion}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokQuestion});
             } break;
             case ':':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokColon}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokColon});
             } break;
             case '(':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokLeftBracket}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokLeftBracket});
             } break;
             case ')':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokRightBracket}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokRightBracket});
             } break;
             case '{':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokLeftCurl}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokLeftCurl});
             } break;
             case '}':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokRightCurl}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokRightCurl});
             } break;
             case '<':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokLeftAngle}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokLeftAngle});
             } break;
             case '>':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokRightAngle}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokRightAngle});
             } break;
             case '[':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokLeftSquare}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokLeftSquare});
             } break;
             case ']':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokRightSquare}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokRightSquare});
             } break;
             case '=':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokEqual}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokEqual});
             } break;
             case '!':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokExclaim}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokExclaim});
             } break;
             case ';':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokSemiColon}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokSemiColon});
             } break;
             case ',':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokComma}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokComma});
             } break;
             case '+':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokPlus}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokPlus});
             } break;
             case '-':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokMinus}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokMinus});
             } break;
             case '*':
             {
                 if (AT(source, strlen(source), i + 1) == '/') {
-                    ignore_index = i + 1;
-                    in_block_comment = false;
-                    move_cursor(ch, &row, &col);
+                    lex.ignore_index = i + 1;
+                    lex.in_block_comment = false;
+                    move_cursor(&lex);
                 } else {
-                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                    push_token(&lex, (Token){.kind = TokStar}, &row, &col);
+                    resolve_buffer_push_token(&lex, (Token){.kind = TokStar});
                 }
             } break;
             case '^':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokCaret}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokCaret});
             } break;
             case '|':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokBar}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokBar});
             } break;
             case '&':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokAmpersand}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokAmpersand});
             } break;
             case '~':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokTilde}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokTilde});
             } break;
             case '/':
             {
                 char next = AT(source, strlen(source), i + 1);
                 if (next == '/') {
-                    ignore_index = i + 1;
-                    in_single_line_comment = true;
-                    move_cursor(ch, &row, &col);
+                    lex.ignore_index = i + 1;
+                    lex.in_single_line_comment = true;
+                    move_cursor(&lex);
                 } else if (next == '*') {
-                    ignore_index = i + 1;
-                    in_block_comment = true;
+                    lex.ignore_index = i + 1;
+                    lex.in_block_comment = true;
                 } else {
-                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                    push_token(&lex, (Token){.kind = TokSlash}, &row, &col);
+                    resolve_buffer_push_token(&lex, (Token){.kind = TokSlash});
                 }
             } break;
             case '%':
             {
-                buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                push_token(&lex, (Token){.kind = TokPercent}, &row, &col);
+                resolve_buffer_push_token(&lex, (Token){.kind = TokPercent});
             } break;
             case '\\':
             {
-                if (in_double_quotes || in_quotes) {
-                    escaped = true;
-                    STRPUSH(buf, BUF_CAP, buf_len, ch);
-                    move_cursor(ch, &row, &col);
+                if (lex.in_double_quotes || lex.in_quotes) {
+                    lex.escaped = true;
+                    push_buffer(&lex);
                 } else {
-                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
-                    push_token(&lex, (Token){.kind = TokBackSlash}, &row, &col);
+                    resolve_buffer_push_token(&lex, (Token){.kind = TokBackSlash});
                 }
             } break;
             default:
             {
-                STRPUSH(buf, BUF_CAP, buf_len, ch);
-                move_cursor(ch, &row, &col);
+                push_buffer(&lex);
             } break;
         }
     }

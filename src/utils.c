@@ -200,15 +200,8 @@ char *strclone(const char *str) {
     return s;
 }
 
-void strclear(char *str, size_t *tail_idx) {
-    if (tail_idx) {
-        for (size_t i = 0; i < *tail_idx; i++) {
-            str[i] = '\0';
-        }
-        *tail_idx = 0;
-    } else {
-        str[0] = '\0';
-    }
+void strclear(char *str) {
+    str[0] = '\0';
 }
 
 bool streq(const char *s1, const char *s2) {

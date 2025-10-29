@@ -64,9 +64,7 @@ bool parse_f64(const char *str, double *n);
 // uses malloc
 char *strclone(const char *str);
 
-// sets str[0] = 0 and *len = 0.
-// len can be NULL
-void strclear(char *str, size_t *tail_idx);
+void strclear(char *str);
 
 bool streq(const char *s1, const char *s2);
 
