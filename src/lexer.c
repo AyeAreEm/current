@@ -330,8 +330,14 @@ Lexer lexer(const char *source) {
             case '.':
             {
                 uint64_t u64 = 0;
-                if (parse_u64(buf, &u64)) {
-                    PUSH(buf, BUF_CAP, buf_len, ch);
+                if (AT(source, strlen(source), i + 1) == '.') {
+                    ignore_index = i + 1;
+                    buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);
+                    push_token(&lex, (Token){.kind = TokDot}, &row, &col);
+                    move_cursor(ch, &row, &col);
+                    push_token(&lex, (Token){.kind = TokDot}, &row, &col);
+                } else if (parse_u64(buf, &u64)) {
+                    STRPUSH(buf, BUF_CAP, buf_len, ch);
                     move_cursor(ch, &row, &col);
                 } else {
                     buf_len = resolve_buffer(&lex, buf, &row, &col, &is_directive);

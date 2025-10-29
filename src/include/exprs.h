@@ -19,6 +19,7 @@ typedef enum ExprKind {
     EkCharLit,
     EkStrLit,
     EkCstrLit,
+    EkRangeLit,
     EkLiteral,
 
     EkIdent,
@@ -33,6 +34,7 @@ typedef enum ExprKind {
 
     EkFieldAccess,
     EkArrayIndex,
+    EkArraySlice,
 
     EkNull,
 } ExprKind;
@@ -52,6 +54,12 @@ typedef struct Literal {
     };
 } Literal;
 
+typedef struct RangeLit {
+    Expr *start;
+    Expr *end;
+    bool inclusive;
+} RangeLit;
+
 typedef struct FieldAccess {
     Expr *accessing;
     Expr *field;
@@ -62,6 +70,11 @@ typedef struct ArrayIndex {
     Expr *accessing;
     Expr *index;
 } ArrayIndex;
+
+typedef struct ArraySlice {
+    Expr *accessing;
+    Expr *slice;
+} ArraySlice;
 
 typedef struct FnCall {
     Expr *name;
@@ -138,8 +151,10 @@ typedef struct Expr {
         Unop unop;
 
         Expr *group;
+        RangeLit rangelit;
         FieldAccess fieldacc;
         ArrayIndex arrayidx;
+        ArraySlice arrayslice;
     };
 } Expr;
 
@@ -159,7 +174,9 @@ Expr expr_fncall(FnCall v, Type t, size_t index);
 Expr expr_binop(Binop v, Type t, size_t index);
 Expr expr_unop(Unop v, Type t, size_t index);
 Expr expr_group(Arr(Expr) v, Type t, size_t index);
+Expr expr_range(RangeLit v, Type t, size_t index);
 Expr expr_fieldaccess(FieldAccess v, Type t, size_t index);
 Expr expr_arrayindex(ArrayIndex v, Type t, size_t index);
+Expr expr_arrayslice(ArraySlice v, Type t, size_t index);
 
 #endif // EXPRS_H

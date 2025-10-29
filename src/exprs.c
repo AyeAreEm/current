@@ -145,6 +145,15 @@ Expr expr_group(Arr(Expr) v, Type t, size_t index) {
     };
 }
 
+Expr expr_range(RangeLit v, Type t, size_t index) {
+    return (Expr){
+        .kind = EkRangeLit,
+        .cursors_idx = index,
+        .type = t,
+        .rangelit = v,
+    };
+}
+
 Expr expr_fieldaccess(FieldAccess v, Type t, size_t index) {
     return (Expr){
         .kind = EkFieldAccess,
@@ -160,5 +169,14 @@ Expr expr_arrayindex(ArrayIndex v, Type t, size_t index) {
         .cursors_idx = index,
         .type = t,
         .arrayidx = v,
+    };
+}
+
+Expr expr_arrayslice(ArraySlice v, Type t, size_t index) {
+    return (Expr){
+        .kind = EkArraySlice,
+        .cursors_idx = index,
+        .type = t,
+        .arrayslice = v,
     };
 }

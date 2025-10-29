@@ -64,6 +64,15 @@ Type type_decimal(TypeKind kind, CONSTNESS constant, size_t index) {
     };
 }
 
+Type type_range(Range v, CONSTNESS constant, size_t index) {
+    return (Type){
+        .kind = TkRange,
+        .constant = constant,
+        .cursors_idx = index,
+        .range = v,
+    };
+}
+
 Type type_slice(Slice v, CONSTNESS constant, size_t index) {
     return (Type){
         .kind = TkSlice,
@@ -164,17 +173,24 @@ strb string_from_type(Type t) {
             strb sub = string_from_type(*t.ptr_to);
             strbprintf(&ret, "*%s", sub);
         } break;
+        case TkRange: {
+            strb sub = string_from_type(*t.range.subtype);
+            strbprintf(&ret, "[..]%s", sub);
+        } break;
         case TkSlice: {
             strb sub = string_from_type(*t.slice.of);
             strbprintf(&ret, "[]%s", sub);
+            strbfree(sub);
         } break;
         case TkArray: {
             strb sub = string_from_type(*t.array.of);
             strbprintf(&ret, "[%ld]%s", t.array.len->intlit, sub);
+            strbfree(sub);
         } break;
         case TkOption: {
             strb sub = string_from_type(*t.option.subtype);
             strbprintf(&ret, "?%s", sub);
+            strbfree(sub);
         } break;
 
         case TkTypeId:

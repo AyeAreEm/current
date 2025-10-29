@@ -13,7 +13,6 @@
 #include "include/stmnts.h"
 #include "include/strb.h"
 #include "include/types.h"
-#include "include/eval.h"
 #include "include/utils.h"
 
 char *builtin_defs = 
@@ -75,11 +74,18 @@ char *builtin_defs =
     "    T *ptr;\\\n"
     "    usize len;\\\n"
     "} CurSlice_##Tname;\\\n"
-    "CurSlice_##Tname curslice_##Tname(T *ptr, usize len);\n"
+    "CurSlice_##Tname curslice_##Tname(T *ptr, usize len);\\\n"
+    "CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end);\n"
     "#define CurSliceImp(T, Tname)\\\n"
     "CurSlice_##Tname curslice_##Tname(T *ptr, usize len) {\\\n"
     "    CurSlice_##Tname ret = (CurSlice_##Tname){.len = len};\\\n"
     "    ret.ptr = ptr;\\\n"
+    "    return ret;\\\n"
+    "}\\\n"
+    "CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end) {\\\n"
+    "    CurSlice_##Tname ret;\\\n"
+    "    ret.ptr = &ptr[start];\\\n"
+    "    ret.len = end - 1;\\\n"
     "    return ret;\\\n"
     "}\n"
     "#define CurOptionDef(T, Tname)\\\n"
@@ -459,49 +465,49 @@ MaybeAllocStr gen_option_expr(Gen *gen, Expr expr) {
 }
 
 strb gen_numlit_expr(Expr expr) {
-    assert(expr.kind == EkIntLit);
+    assert(expr.kind == EkIntLit || expr.kind == EkFloatLit);
     strb s = NULL;
-    Number n = eval_int_cast(expr.type, expr.intlit);
 
-    switch (n.kind) {
-        case NkF32:
-            strbprintf(&s, "%f", n.f32);
+    switch (expr.type.kind) {
+        case TkF32:
+            strbprintf(&s, "%f.f", (float)expr.floatlit);
             break;
-        case NkF64:
-            strbprintf(&s, "%f", n.f64);
+        case TkF64:
+        case TkUntypedFloat:
+            strbprintf(&s, "%f", expr.floatlit);
             break;
-
-        case NkU8:
-            strbprintf(&s, "%"PRIu8, n.u8);
+        case TkU8:
+            strbprintf(&s, "%"PRIu8, (uint8_t)expr.intlit);
             break;
-        case NkU16:
-            strbprintf(&s, "%"PRIu16, n.u16);
+        case TkU16:
+            strbprintf(&s, "%"PRIu16, (uint16_t)expr.intlit);
             break;
-        case NkU32:
-            strbprintf(&s, "%"PRIu32, n.u32);
+        case TkU32:
+            strbprintf(&s, "%"PRIu32, (uint32_t)expr.intlit);
             break;
-        case NkU64:
-            strbprintf(&s, "%u"PRIu64, n.u64);
+        case TkU64:
+            strbprintf(&s, "%"PRIu64, expr.intlit);
             break;
-        case NkUsize:
-            strbprintf(&s, "%zu", n.u64);
+        case TkUsize:
+            strbprintf(&s, "%zu", expr.intlit);
             break;
-
-        case NkI8:
-            strbprintf(&s, "%"PRIi8, n.i8);
+        case TkI8:
+            strbprintf(&s, "%"PRIi8, (int8_t)expr.intlit);
             break;
-        case NkI16:
-            strbprintf(&s, "%"PRIi16, n.i16);
+        case TkI16:
+            strbprintf(&s, "%"PRIi16, (int16_t)expr.intlit);
             break;
-        case NkI32:
-            strbprintf(&s, "%"PRIi32, n.i32);
+        case TkI32:
+            strbprintf(&s, "%"PRIi32, (int32_t)expr.intlit);
             break;
-        case NkI64:
-            strbprintf(&s, "%"PRIi64, n.i64);
+        case TkI64:
+        case TkUntypedInt:
+            strbprintf(&s, "%"PRIi64, (int64_t)expr.intlit);
             break;
-        case NkIsize:
-            strbprintf(&s, "%zd", n.i64);
+        case TkIsize:
+            strbprintf(&s, "%zd", (ssize_t)expr.intlit);
             break;
+        default: break;
     }
 
     return s;
@@ -863,7 +869,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             if (expr.fieldacc.accessing->type.kind == TkPtr) {
                 strbprintf(&ret, "%s->%s", subexpr.str, field.str);
             } else if (expr.fieldacc.accessing->type.kind == TkTypeDef) {
-                Stmnt stmnt =ast_find_decl(gen->ast, expr.fieldacc.accessing->type.typedeff);
+                Stmnt stmnt = ast_find_decl(gen->ast, expr.fieldacc.accessing->type.typedeff);
 
                 if (stmnt.kind == SkStructDecl) {
                     strbprintf(&ret, "%s.%s", subexpr.str, field.str);
@@ -895,6 +901,44 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
                 .alloced = true,
             };
         }
+        case EkArraySlice: {
+            strb typename = NULL;
+            gen_typename(gen, expr.type.slice.of, 1, &typename);
+
+            MaybeAllocStr access = gen_expr(gen, *expr.arrayslice.accessing);
+
+            MaybeAllocStr start;
+            if (expr.arrayslice.slice->rangelit.start->kind == EkNone) {
+                start = (MaybeAllocStr){
+                    .str = "0",
+                    .alloced = false,
+                };
+            } else {
+                start = gen_expr(gen, *expr.arrayslice.slice->rangelit.start);
+            }
+
+            MaybeAllocStr end;
+            if (expr.arrayslice.slice->rangelit.end->kind == EkNone) {
+                strb end_s = NULL; strbprintf(&end_s, "%s.len", access.str);
+                end = (MaybeAllocStr){
+                    .str = end_s,
+                    .alloced = true,
+                };
+            } else {
+                end = gen_expr(gen, *expr.arrayslice.slice->rangelit.end);
+            }
+            strb ret = NULL; strbprintf(&ret, "curslice_range_%s(%s.ptr, %s, %s)", typename, access.str, start.str, end.str, expr.arrayslice.slice->rangelit.inclusive ? " + 1" : "");
+
+            if (end.alloced) strbfree(end.str);
+            if (start.alloced) strbfree(start.str);
+            if (access.alloced) strbfree(access.str);
+            strbfree(typename);
+
+            return (MaybeAllocStr){
+                .str = ret,
+                .alloced = true,
+            };
+        } break;
         case EkGrouping: {
             MaybeAllocStr value = gen_expr(gen, *expr.group);
             strb ret = NULL; strbprintf(&ret, "(%s)", value.str);

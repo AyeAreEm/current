@@ -81,6 +81,9 @@ uint64_t eval_expr(Sema *sema, Expr *expr) {
     switch (expr->kind) {
         case EkIntLit:
             return expr->intlit;
+        case EkIdent:
+            // TODO: find out if ident is compile time known
+            return 0;
         case EkBinop:
             return eval_binop(sema, expr);
         case EkUnop:
@@ -102,6 +105,7 @@ Number eval_int_cast(Type type, uint64_t value) {
             n.f32 = (float)value;
             break;
         case TkF64:
+        case TkUntypedFloat:
             n.kind = NkF64;
             n.f64 = (double)value;
             break;

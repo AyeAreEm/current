@@ -67,12 +67,19 @@ typedef struct CurSlice_##Tname {\
     T *ptr;\
     usize len;\
 } CurSlice_##Tname;\
-CurSlice_##Tname curslice_##Tname(T *ptr, usize len);
+CurSlice_##Tname curslice_##Tname(T *ptr, usize len);\
+CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end);
 
 #define CurSliceImp(T, Tname)\
 CurSlice_##Tname curslice_##Tname(T *ptr, usize len) {\
     CurSlice_##Tname ret = (CurSlice_##Tname){.len = len};\
     ret.ptr = ptr;\
+    return ret;\
+}\
+CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end) {\
+    CurSlice_##Tname ret;\
+    ret.ptr = &ptr[start];\
+    ret.len = end - 1;\
     return ret;\
 }
 

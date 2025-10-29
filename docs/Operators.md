@@ -61,3 +61,9 @@ or   logical or  (short-circuit)
 &   address-of
 .&  de-reference
 ```
+
+## Range and Slicing
+```
+..  [a, b)  (including a, not including b)
+..= [a, b]  (including a and b)
+```

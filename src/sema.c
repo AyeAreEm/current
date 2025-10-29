@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stddef.h>
 #include <assert.h>
 #include <stdint.h>
@@ -244,6 +245,8 @@ Type *resolve_expr_type(Sema *sema, Expr *expr) {
         case EkIntLit:
         case EkFloatLit:
         case EkArrayIndex:
+        case EkArraySlice:
+        case EkRangeLit:
         case EkBinop:
             return &expr->type;
         case EkFieldAccess:
@@ -274,11 +277,10 @@ Type *resolve_expr_type(Sema *sema, Expr *expr) {
             expr->type = call.fndecl.type;
             return &expr->type;
         case EkType:
-            // TODO: supprt this, returing TypeId or something
+            // TODO: support this, returing TypeId or something
             elog(sema, expr->cursors_idx, "type of type not implemented yet");
-            return NULL;
-        default:
-            return NULL;
+        case EkNone:
+            assert(false);
     }
 }
 
@@ -392,6 +394,25 @@ static Expr get_field(Sema *sema, Type type, const char *fieldname, size_t curso
     return expr_none();
 }
 
+void sema_range_lit(Sema *sema, Expr *expr, bool slice) {
+    assert(expr->kind == EkRangeLit);
+
+    sema_expr(sema, expr->rangelit.start);
+    sema_expr(sema, expr->rangelit.end);
+
+    if (!slice && (expr->rangelit.start->kind == EkNone || expr->rangelit.end->kind == EkNone)) {
+        elog(sema, expr->cursors_idx, "range literals must have both a start and end if not used for slicing");
+    }
+
+    if (expr->rangelit.start->kind != EkNone && !tc_is_unsigned(sema, *expr->rangelit.start)) {
+        elog(sema, expr->cursors_idx, "range literals must be unsigned integers");
+    }
+
+    if (expr->rangelit.end->kind != EkNone && !tc_is_unsigned(sema, *expr->rangelit.end)) {
+        elog(sema, expr->cursors_idx, "range literals must be unsigned integers");
+    }
+}
+
 void sema_field_access(Sema *sema, Expr *expr) {
     assert(expr->kind == EkFieldAccess);
 
@@ -417,14 +438,51 @@ void sema_field_access(Sema *sema, Expr *expr) {
     }
 }
 
+void sema_array_slice(Sema *sema, Expr *expr) {
+    assert(expr->kind == EkArraySlice);
+
+    sema_expr(sema, expr->arrayslice.accessing);
+    Type *arrtype = &expr->arrayslice.accessing->type;
+
+    sema_range_lit(sema, expr->arrayslice.slice, true);
+    Expr *end = expr->arrayslice.slice->rangelit.end;
+
+    if (arrtype->kind == TkArray) {
+        expr->type = type_slice((Slice){
+            .of = arrtype->array.of,
+        }, arrtype->constant, expr->cursors_idx);
+
+        uint64_t end_n = eval_expr(sema, end);
+        uint64_t len_n = eval_expr(sema, arrtype->array.len);
+        if (end_n >= len_n) {
+            elog(sema, expr->cursors_idx, "slice out of bounds, array length is %" PRIu64 ", slice end is %" PRIu64, len_n, end_n);
+        }
+    } else if (arrtype->kind == TkSlice) {
+        expr->type = type_slice((Slice){
+            .of = arrtype->slice.of,
+        }, arrtype->constant, expr->cursors_idx);
+    } else {
+        strb t = string_from_type(*arrtype);
+        elog(sema, expr->cursors_idx, "cannot slice %s, not an array", t);
+        // TODO: later when providing more than one error message, uncomment the line below
+        // strbfree(t);
+    }
+}
+
 void sema_array_index(Sema *sema, Expr *expr) {
     assert(expr->kind == EkArrayIndex);
 
     sema_expr(sema, expr->arrayidx.accessing);
     Type *arrtype = &expr->arrayidx.accessing->type;
 
+    sema_expr(sema, expr->arrayidx.index);
+
     if (arrtype->kind == TkArray) {
         expr->type = *arrtype->array.of;
+
+        if (eval_expr(sema, expr->arrayidx.index) >= eval_expr(sema, arrtype->array.len)) {
+            elog(sema, expr->cursors_idx, "index out of bounds");
+        }
     } else if (arrtype->kind == TkSlice) {
         expr->type = *arrtype->slice.of;
     } else {
@@ -433,8 +491,6 @@ void sema_array_index(Sema *sema, Expr *expr) {
         // TODO: later when providing more than one error message, uncomment the line below
         // strbfree(t);
     }
-
-    sema_expr(sema, expr->arrayidx.index);
 }
 
 void sema_slice_literal(Sema *sema, Expr *expr) {
@@ -855,11 +911,17 @@ void sema_expr(Sema *sema, Expr *expr) {
     switch (expr->kind) {
         case EkNone:
             return;
+        case EkRangeLit:
+            sema_range_lit(sema, expr, false);
+            return;
         case EkFieldAccess:
             sema_field_access(sema, expr);
             return;
         case EkArrayIndex:
             sema_array_index(sema, expr);
+            return;
+        case EkArraySlice:
+            sema_array_slice(sema, expr);
             return;
         case EkType:
             return;

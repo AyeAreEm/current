@@ -13,6 +13,17 @@
 #include "include/utils.h"
 #include "include/stb_ds.h"
 
+static void warn(Parser *parser, size_t i, const char *msg, ...) {
+    eprintf("%s:%lu:%lu " TERM_YELLOW "warning" TERM_END ": ", parser->filename, parser->cursors[i].row, parser->cursors[i].col);
+
+    va_list args;
+    va_start(args, msg);
+
+    veprintfln(msg, args);
+
+    va_end(args);
+}
+
 static void elog(Parser *parser, size_t i, const char *msg, ...) {
     eprintf("%s:%lu:%lu " TERM_RED "error" TERM_END ": ", parser->filename, parser->cursors[i].row, parser->cursors[i].col);
 
@@ -442,7 +453,7 @@ Expr parse_primary(Parser *parser) {
         } break;
         case TokFloatLit: {
             next(parser);
-            return expr_floatlit(
+            Expr expr = expr_floatlit(
                 tok.floatlit,
                 type_decimal(
                     TkUntypedFloat,
@@ -451,6 +462,7 @@ Expr parse_primary(Parser *parser) {
                 ),
                 (size_t)parser->cursors_idx
             );
+            return expr;
         } break;
         case TokCharLit: {
             next(parser);
@@ -804,7 +816,7 @@ Expr parse_bitwise_and(Parser *parser) {
             .kind = BkBitAnd,
             .left = left,
             .right = right,
-        }, type_bool(TYPEVAR, index), index);
+        }, type_integer(TkUntypedInt, TYPEVAR, index), index);
     }
 
     return expr;
@@ -826,7 +838,7 @@ Expr parse_bitwise_xor(Parser *parser) {
             .kind = BkBitXor,
             .left = left,
             .right = right,
-        }, type_bool(TYPEVAR, index), index);
+        }, type_integer(TkUntypedInt, TYPEVAR, index), index);
     }
 
     return expr;
@@ -848,7 +860,7 @@ Expr parse_bitwise_or(Parser *parser) {
             .kind = BkBitOr,
             .left = left,
             .right = right,
-        }, type_bool(TYPEVAR, index), index);
+        }, type_integer(TkUntypedInt, TYPEVAR, index), index);
     }
 
     return expr;
@@ -906,8 +918,82 @@ Expr parse_or(Parser *parser) {
     return expr;
 }
 
+Expr parse_range(Parser *parser) {
+    Expr expr;
+    if (peek(parser).kind == TokDot && peek_after(parser).kind == TokDot) {
+        expr = expr_none();
+    } else {
+        expr = parse_or(parser);
+    }
+
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        size_t index = parser->cursors_idx;
+        Token after = peek_after(parser);
+
+        if (tok.kind != TokDot) {
+            break;
+        }
+        if (after.kind != TokDot) {
+            break;
+        }
+        next(parser); next(parser);
+
+        Expr *left = ealloc(sizeof(Expr)); *left = expr;
+        Expr *right = ealloc(sizeof(Expr)); *right = expr_none();
+        bool inclusive = false;
+
+        if (peek(parser).kind == TokEqual) {
+            next(parser);
+
+            switch (peek(parser).kind) {
+                case TokIdent:
+                case TokIntLit:
+                case TokFloatLit:
+                case TokStrLit:
+                case TokCharLit:
+                    *right = parse_or(parser);
+                    break;
+                default: break;
+            }
+
+            inclusive = true;
+        } else {
+            switch (peek(parser).kind) {
+                case TokIdent:
+                case TokIntLit:
+                case TokFloatLit:
+                case TokStrLit:
+                case TokCharLit:
+                    *right = parse_or(parser);
+                    break;
+                default: break;
+            }
+        }
+
+        Type *subtype = ealloc(sizeof(Type)); *subtype = type_integer(TkUntypedInt, TYPECONST, index);
+        expr = expr_range((RangeLit){
+            .start = left,
+            .end = right,
+            .inclusive = inclusive,
+        }, type_range((Range){
+            .subtype = subtype,
+        }, TYPECONST, index), index);
+    }
+
+    return expr;
+}
+
 Expr parse_expr(Parser *parser) {
-    return parse_or(parser);
+    return parse_range(parser);
+}
+
+Expr parse_array_slice(Parser *parser, Expr expr, Expr *range) {
+    Expr *e = ealloc(sizeof(Expr)); *e = expr;
+    Expr arrslice = expr_arrayslice((ArraySlice){
+        .accessing = e,
+        .slice = range,
+    }, type_none(), (size_t)parser->cursors_idx);
+    return arrslice;
 }
 
 // expects [ already nexted
@@ -915,6 +1001,10 @@ Expr parse_expr(Parser *parser) {
 Expr parse_array_index(Parser *parser, Expr expr) {
     Expr *index = ealloc(sizeof(Expr)); *index = parse_expr(parser);
     expect(parser, TokRightSquare);
+
+    if (index->kind == EkRangeLit) {
+        return parse_array_slice(parser, expr, index);
+    }
 
     Expr *e = ealloc(sizeof(Expr)); *e = expr;
     Expr arrindex = expr_arrayindex((ArrayIndex){
