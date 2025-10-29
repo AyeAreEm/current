@@ -445,6 +445,7 @@ void sema_array_slice(Sema *sema, Expr *expr) {
     Type *arrtype = &expr->arrayslice.accessing->type;
 
     sema_range_lit(sema, expr->arrayslice.slice, true);
+    Expr *start = expr->arrayslice.slice->rangelit.start;
     Expr *end = expr->arrayslice.slice->rangelit.end;
 
     if (arrtype->kind == TkArray) {
@@ -452,9 +453,10 @@ void sema_array_slice(Sema *sema, Expr *expr) {
             .of = arrtype->array.of,
         }, arrtype->constant, expr->cursors_idx);
 
+        uint64_t start_n = eval_expr(sema, start);
         uint64_t end_n = eval_expr(sema, end);
         uint64_t len_n = eval_expr(sema, arrtype->array.len);
-        if (end_n >= len_n) {
+        if (start_n >= len_n || end_n >= len_n) {
             elog(sema, expr->cursors_idx, "slice out of bounds, array length is %" PRIu64 ", slice end is %" PRIu64, len_n, end_n);
         }
     } else if (arrtype->kind == TkSlice) {

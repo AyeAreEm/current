@@ -5,21 +5,21 @@
 - Generics
 - Result Type (!)
 - Receiver Methods
-- Defining Libraries
-- Importing Libraries
+- Switch Statements
 - Tagged Union Definitions
 - Tagged Union Literals
-- Switch Statements
+- Variadic Arguments
+- Defining Libraries
+- Importing Libraries
+- Importing C Libraries and Headers
 - Compile Time Expressions
 - Compile Time Execution
-- Variadic Arguments
 - First Class Vectors
 - First Class Matrices?
 - Standard Library
 
 # In Progress
 - For Loops
-- Importing External Libraries
 - Default Function Arguments
 - Array Slicing
 
