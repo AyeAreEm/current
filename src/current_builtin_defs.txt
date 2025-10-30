@@ -62,22 +62,43 @@ CurArray2d_##Tname##B##A curarray2d_##Tname##B##A(CurArray1d_##Tname##A *ptr) {\
     return ret;\
 }
 
-#define CurSliceDef(T, Tname)\
-typedef struct CurSlice_##Tname {\
+#define CurSlice1dDef(T, Tname)\
+typedef struct CurSlice1d_##Tname {\
     T *ptr;\
     usize len;\
-} CurSlice_##Tname;\
-CurSlice_##Tname curslice_##Tname(T *ptr, usize len);\
-CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end);
+} CurSlice1d_##Tname;\
+CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len);\
+CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end);
 
-#define CurSliceImp(T, Tname)\
-CurSlice_##Tname curslice_##Tname(T *ptr, usize len) {\
-    CurSlice_##Tname ret = (CurSlice_##Tname){.len = len};\
+#define CurSlice1dImp(T, Tname)\
+CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len) {\
+    CurSlice1d_##Tname ret = (CurSlice1d_##Tname){.len = len};\
     ret.ptr = ptr;\
     return ret;\
 }\
-CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end) {\
-    CurSlice_##Tname ret;\
+CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end) {\
+    CurSlice1d_##Tname ret;\
+    ret.ptr = &ptr[start];\
+    ret.len = end - 1;\
+    return ret;\
+}
+
+#define CurSlice2dDef(T, Tname)\
+typedef struct CurSlice2d_##Tname {\
+    CurSlice1d_##Tname *ptr;\
+    usize len;\
+} CurSlice2d_##Tname;\
+CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len);\
+CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start, usize end);
+
+#define CurSlice2dImp(T, Tname)\
+CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len) {\
+    CurSlice2d_##Tname ret = (CurSlice2d_##Tname){.len = len};\
+    ret.ptr = ptr;\
+    return ret;\
+}\
+CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start, usize end) {\
+    CurSlice2d_##Tname ret;\
     ret.ptr = &ptr[start];\
     ret.len = end - 1;\
     return ret;\

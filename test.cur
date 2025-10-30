@@ -1,6 +1,11 @@
 main :: fn() void {
-    strs := [2][2]string{
-        [2]string{"hello", "world"},
-        [2]string{"goodbye", "now"},
+    xs := [2][2]i32{
+        [2]i32{1, 2},
+        [2]i32{3, 4},
+    };
+
+    ys := [][]i32{
+        []i32{1, 2},
+        []i32{3, 4},
     };
 }

@@ -69,21 +69,40 @@ char *builtin_defs =
     "    ret.ptr = ptr;\\\n"
     "    return ret;\\\n"
     "}\n"
-    "#define CurSliceDef(T, Tname)\\\n"
-    "typedef struct CurSlice_##Tname {\\\n"
+    "#define CurSlice1dDef(T, Tname)\\\n"
+    "typedef struct CurSlice1d_##Tname {\\\n"
     "    T *ptr;\\\n"
     "    usize len;\\\n"
-    "} CurSlice_##Tname;\\\n"
-    "CurSlice_##Tname curslice_##Tname(T *ptr, usize len);\\\n"
-    "CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end);\n"
-    "#define CurSliceImp(T, Tname)\\\n"
-    "CurSlice_##Tname curslice_##Tname(T *ptr, usize len) {\\\n"
-    "    CurSlice_##Tname ret = (CurSlice_##Tname){.len = len};\\\n"
+    "} CurSlice1d_##Tname;\\\n"
+    "CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len);\\\n"
+    "CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end);\n"
+    "#define CurSlice1dImp(T, Tname)\\\n"
+    "CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len) {\\\n"
+    "    CurSlice1d_##Tname ret = (CurSlice1d_##Tname){.len = len};\\\n"
     "    ret.ptr = ptr;\\\n"
     "    return ret;\\\n"
     "}\\\n"
-    "CurSlice_##Tname curslice_range_##Tname(T *ptr, usize start, usize end) {\\\n"
-    "    CurSlice_##Tname ret;\\\n"
+    "CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end) {\\\n"
+    "    CurSlice1d_##Tname ret;\\\n"
+    "    ret.ptr = &ptr[start];\\\n"
+    "    ret.len = end - 1;\\\n"
+    "    return ret;\\\n"
+    "}\n"
+    "#define CurSlice2dDef(T, Tname)\\\n"
+    "typedef struct CurSlice2d_##Tname {\\\n"
+    "    CurSlice1d_##Tname *ptr;\\\n"
+    "    usize len;\\\n"
+    "} CurSlice2d_##Tname;\\\n"
+    "CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len);\\\n"
+    "CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start, usize end);\n"
+    "#define CurSlice2dImp(T, Tname)\\\n"
+    "CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len) {\\\n"
+    "    CurSlice2d_##Tname ret = (CurSlice2d_##Tname){.len = len};\\\n"
+    "    ret.ptr = ptr;\\\n"
+    "    return ret;\\\n"
+    "}\\\n"
+    "CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start, usize end) {\\\n"
+    "    CurSlice2d_##Tname ret;\\\n"
     "    ret.ptr = &ptr[start];\\\n"
     "    ret.len = end - 1;\\\n"
     "    return ret;\\\n"
@@ -114,7 +133,7 @@ char *builtin_args =
     "    for (int i = 0; i < argc; i++) {\n"
     "        _CUR_ARGS_[i] = curstr(argv[i]);\n"
     "    }\n"
-    "    CurSlice_CurString args = curslice_CurString(_CUR_ARGS_, argc);\n"
+    "    CurSlice1d_CurString args = curslice1d_CurString(_CUR_ARGS_, argc);\n"
 ;
 
 Gen gen_init(Arr(Stmnt) ast, Dgraph dgraph) {
@@ -244,11 +263,8 @@ void gen_slice_type(Gen *gen, Type type, strb *str) {
 
 void gen_array_type(Gen *gen, Type type, strb *str) {
     if (type.kind == TkArray) {
-        MaybeAllocStr length = gen_expr(gen, *type.array.len);
         gen_array_type(gen, *type.array.of, str);
-        strbprintf(str, "[%s]", length.str); 
-
-        if (length.alloced) strbfree(length.str);
+        strbprintf(str, "[]"); 
     } else {
         MaybeAllocStr t = gen_type(gen, type);
         strbprintf(str, "%s", t.str);
@@ -335,15 +351,28 @@ MaybeAllocStr gen_type(Gen *gen, Type type) {
     }
 }
 
-strb gen_typename_slice(Gen *gen, Type type) {
-    strb typename = NULL;
-    gen_typename(gen, type.slice.of, 1, &typename);
+strb gen_typename_slice(Gen *gen, Type type, int dimension) {
+    if (type.kind == TkSlice && type.slice.of->kind == TkSlice) {
+        Type subtype = *type.slice.of;
+        return gen_typename_slice(gen, *subtype.slice.of, dimension + 1);
+    } else if (type.kind == TkSlice) {
+        strb typename = NULL;
+        gen_typename(gen, type.slice.of, 1, &typename);
+        
+        strb slice = NULL;
+        strbprintf(&slice, "CurSlice%dd_%s", dimension, typename);
 
-    strb slice = NULL;
-    strbprintf(&slice, "CurSlice_%s", typename);
+        strbfree(typename);
+        return slice;
+    } else {
+        strb typename = NULL;
+        gen_typename(gen, &type, 1, &typename);
 
-    strbfree(typename);
-    return slice;
+        strb slice = NULL;
+        strbprintf(&slice, "CurSlice%dd_%s", dimension, typename);
+        strbfree(typename);
+        return slice;
+    }
 }
 
 strb gen_typename_array(Gen *gen, Type type, int dimension) {
@@ -410,7 +439,7 @@ void gen_typename(Gen *gen, Type *types, size_t types_len, strb *typename) {
                 strbprintf(typename, "ptr");
                 break;
             case TkSlice: {
-                strb slice = gen_typename_slice(gen, type);
+                strb slice = gen_typename_slice(gen, type, 1);
                 strbprintf(typename, "%s", slice);
                 strbfree(slice);
             } break;
@@ -582,9 +611,16 @@ MaybeAllocStr gen_slice_literal_expr(Gen *gen, Expr expr) {
 
     strbprintf(&lit, "%s(", typename);
 
-    MaybeAllocStr exprtype = gen_type(gen, slice);
-    strbprintf(&lit, "(%s){", exprtype.str);
-    if (exprtype.alloced) strbfree(exprtype.str);
+    if (slice.slice.of->kind == TkSlice) {
+        strclear(typename);
+        gen_typename(gen, slice.slice.of, 1, &typename);
+        strbprintf(&lit, "(%s[]){", typename);
+    } else {
+        MaybeAllocStr exprtype = gen_type(gen, slice);
+        strbprintf(&lit, "(%s){", exprtype.str);
+        if (exprtype.alloced) strbfree(exprtype.str);
+    }
+
 
     for (size_t i = 0; i < arrlenu(expr.literal.exprs); i++) {
         MaybeAllocStr val = gen_expr(gen, expr.literal.exprs[i]);
@@ -599,6 +635,7 @@ MaybeAllocStr gen_slice_literal_expr(Gen *gen, Expr expr) {
     }
     strbprintf(&lit, "}, %d)", arrlenu(expr.literal.exprs));
 
+    strbfree(typename);
     return (MaybeAllocStr){
         .str = lit,
         .alloced = true,
@@ -625,10 +662,7 @@ MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
         strclear(typename);
         gen_typename(gen, arr.array.of, 1, &typename);
 
-        MaybeAllocStr length = gen_expr(gen, *arr.array.len);
-        strbprintf(&lit, "(%s[%s]){", typename, length.str);
-
-        if (length.alloced) strbfree(length.str);
+        strbprintf(&lit, "(%s[]){", typename);
     } else {
         MaybeAllocStr exprtype = gen_type(gen, expr.type);
         strbprintf(&lit, "(%s){", exprtype.str);
@@ -923,7 +957,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             } else {
                 end = gen_expr(gen, *expr.arrayslice.slice->rangelit.end);
             }
-            strb ret = NULL; strbprintf(&ret, "curslice_range_%s(%s.ptr, %s, %s%s)", typename, access.str, start.str, end.str, expr.arrayslice.slice->rangelit.inclusive ? " + 1" : "");
+            strb ret = NULL; strbprintf(&ret, "curslice1d_range_%s(%s.ptr, %s, %s%s)", typename, access.str, start.str, end.str, expr.arrayslice.slice->rangelit.inclusive ? " + 1" : "");
 
             if (end.alloced) strbfree(end.str);
             if (start.alloced) strbfree(start.str);
@@ -964,25 +998,51 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
 }
 
 // returns true if decl needs to be inserted
-bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl) {
-    MaybeAllocStr typestr = gen_type(gen, *type.slice.of);
+bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl, uint8_t dimension) {
+    if (type.kind == TkSlice && type.slice.of->kind == TkSlice) {
+        gen_decl_generic(gen, *type.slice.of);
+        gen_decl_generic_slice(gen, *type.slice.of->slice.of, decl, dimension + 1);
 
-    strb typename = NULL;
-    gen_typename(gen, type.slice.of, 1, &typename);
-
-    strbprintfln(decl, "CurSliceDef(%s, %s);", typestr.str, typename);
-
-    bool to_add = true;
-    for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-        if (streq(*decl, gen->generated_typedefs[i])) {
-            to_add = false;
-            break;
+        if (dimension == 1) {
+            strbprintfln(decl, ");");
+            for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
+                if (streq(*decl, gen->generated_typedefs[i])) {
+                    return false;
+                }
+            }
         }
-    }
 
-    strbfree(typename);
-    if (typestr.alloced) strbfree(typestr.str);
-    return to_add;
+        return true;
+    } else if (type.kind == TkSlice) {
+        MaybeAllocStr typestr = gen_type(gen, *type.slice.of);
+
+        strb typename = NULL;
+        gen_typename(gen, type.slice.of, 1, &typename);
+        strbprintfln(decl, "CurSlice1dDef(%s, %s);", typestr.str, typename);
+
+        for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
+            if (streq(*decl, gen->generated_typedefs[i])) {
+                strbfree(typename);
+                if (typestr.alloced) strbfree(typestr.str);
+                return false;
+            }
+        }
+
+        strbfree(typename);
+        if (typestr.alloced) strbfree(typestr.str);
+        return true;
+    } else {
+        MaybeAllocStr typestr = gen_type(gen, type);
+        strb typename = NULL;
+
+        gen_typename(gen, &type, 1, &typename);
+        strbprintf(decl, "CurSlice%ddDef(%s, %s", dimension, typestr.str, typename);
+
+        strbfree(typename);
+        if (typestr.alloced) strbfree(typestr.str);
+
+        return true;
+    }
 }
 
 // returns true if decl needs to be inserted
@@ -996,7 +1056,7 @@ bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) 
 
         if (dimension == 1) {
             MaybeAllocStr parent_len = gen_expr(gen, *type.array.len);
-            strbprintfln(decl, ", %s)", parent_len.str);
+            strbprintfln(decl, ", %s);", parent_len.str);
 
             for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
                 if (streq(*decl, gen->generated_typedefs[i])) {
@@ -1054,7 +1114,7 @@ void gen_decl_generic(Gen *gen, Type type) {
 
     switch (type.kind) {
         case TkSlice: {
-            bool add = gen_decl_generic_slice(gen, type, &def);
+            bool add = gen_decl_generic_slice(gen, type, &def, 1);
             if (!add) {
                 strbfree(def);
                 return;
@@ -1179,18 +1239,31 @@ void gen_var_decl(Gen *gen, Stmnt stmnt) {
     gen_write(gen, "%s", proto);
 
     if (vardecl.value.kind == EkNone) {
-        if (vardecl.type.kind == TkArray) {
+        if (vardecl.type.kind == TkArray || vardecl.type.kind == TkSlice) {
             gen_write(gen, " = ");
 
-            MaybeAllocStr value = gen_array_literal_expr(gen, expr_literal(
-                (Literal){
-                    .kind = LitkExprs,
-                    .exprs = NULL,
-                },
-                vardecl.type,
-                stmnt.cursors_idx
-                )
-            );
+            MaybeAllocStr value;
+            if (vardecl.type.kind == TkArray) {
+                value = gen_array_literal_expr(gen, expr_literal(
+                    (Literal){
+                        .kind = LitkExprs,
+                        .exprs = NULL,
+                    },
+                    vardecl.type,
+                    stmnt.cursors_idx
+                    )
+                );
+            } else if (vardecl.type.kind == TkSlice) {
+                value = gen_slice_literal_expr(gen, expr_literal(
+                    (Literal){
+                        .kind = LitkExprs,
+                        .exprs = NULL,
+                    },
+                    vardecl.type,
+                    stmnt.cursors_idx
+                    )
+                );
+            }
             gen_writeln(gen, "%s;", value.str);
 
             if (value.alloced) strbfree(value.str);
