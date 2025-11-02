@@ -61,9 +61,6 @@ bool parse_u64(const char *str, uint64_t *n);
 // returns false if failed
 bool parse_f64(const char *str, double *n);
 
-// uses malloc
-char *strclone(const char *str);
-
 void strclear(char *str);
 
 bool streq(const char *s1, const char *s2);

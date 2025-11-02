@@ -2,6 +2,7 @@
 #include "include/lexer.h"
 #include "include/strb.h"
 #include "include/utils.h"
+#include "string.h"
 
 #define BUF_CAP 255
 
@@ -175,10 +176,10 @@ static void resolve_buffer(Lexer *lex) {
         }  else if (parse_f64(lex->buf, &f64)) {
             tok = token_floatlit(f64);
         } else if (lex->is_directive) {
-            tok = token_directive(strclone(lex->buf));
+            tok = token_directive(strdup(lex->buf));
             lex->is_directive = false;
         } else {
-            tok = token_ident(strclone(lex->buf));
+            tok = token_ident(strdup(lex->buf));
         }
         arrpush(lex->tokens, tok);
     }
@@ -333,7 +334,7 @@ Lexer lexer(const char *source) {
                 if (lex.in_double_quotes) {
                     lex.in_double_quotes = false;
                     arrpush(lex.cursors, lex.cursor);
-                    arrpush(lex.tokens, token_strlit(strclone(lex.buf)));
+                    arrpush(lex.tokens, token_strlit(strdup(lex.buf)));
                     reset_buffer(&lex);
                 } else {
                     resolve_buffer(&lex);
