@@ -253,6 +253,16 @@ void gen_indent(Gen *gen) {
     }
 }
 
+bool gen_find_generated_typedef(Gen *gen, const char *needle) {
+    for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
+        if (streq(needle, gen->generated_typedefs[i])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void gen_slice_type(Gen *gen, Type type, strb *str) {
     if (type.kind == TkSlice) {
         gen_slice_type(gen, *type.slice.of, str);
@@ -388,18 +398,16 @@ strb gen_typename_array(Gen *gen, Type type, int dimension) {
                 strb array = gen_typename_array(gen, *subtype.array.of, dimension + 1);
                 MaybeAllocStr length = gen_expr(gen, *subtype.array.len);
                 strbprintf(&array, "%s", length.str); 
+                mastrfree(length);
 
                 if (dimension == 1) {
                     MaybeAllocStr parent_length = gen_expr(gen, *type.array.len);
                     strbprintf(&array, "%s", parent_length.str);
-
-                    // this is why we need differs, or maybe i should just use gotos
                     mastrfree(parent_length);
-                    mastrfree(length);
+
                     return array;
                 }
 
-                mastrfree(length);
                 return array;
             } else {
                 strb typename = NULL;
@@ -1010,10 +1018,8 @@ bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl, uint8_t dimension) 
 
         if (dimension == 1) {
             strbprintfln(decl, ");");
-            for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-                if (streq(*decl, gen->generated_typedefs[i])) {
-                    return false;
-                }
+            if (gen_find_generated_typedef(gen, *decl)) {
+                return false;
             }
         }
 
@@ -1025,16 +1031,13 @@ bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl, uint8_t dimension) 
         gen_typename(gen, type.slice.of, 1, &typename);
         strbprintfln(decl, "CurSlice1dDef(%s, %s);", typestr.str, typename);
 
-        for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-            if (streq(*decl, gen->generated_typedefs[i])) {
-                strbfree(typename);
-                mastrfree(typestr);
-                return false;
-            }
-        }
-
         strbfree(typename);
         mastrfree(typestr);
+
+        if (gen_find_generated_typedef(gen, *decl)) {
+            return false;
+        }
+
         return true;
     } else {
         MaybeAllocStr typestr = gen_type(gen, type);
@@ -1058,24 +1061,18 @@ bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) 
 
         MaybeAllocStr length = gen_expr(gen, *type.array.of->array.len);
         strbprintf(decl, ", %s", length.str);
+        mastrfree(length);
 
         if (dimension == 1) {
             MaybeAllocStr parent_len = gen_expr(gen, *type.array.len);
             strbprintfln(decl, ", %s);", parent_len.str);
-
-            for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-                if (streq(*decl, gen->generated_typedefs[i])) {
-                    mastrfree(parent_len);
-                    mastrfree(length);
-
-                    return false;
-                }
-            }
-
             mastrfree(parent_len);
+
+            if (gen_find_generated_typedef(gen, *decl)) {
+                return false;
+            }
         }
 
-        mastrfree(length);
         return true;
     } else if (type.kind == TkArray) {
         MaybeAllocStr typestr = gen_type(gen, *type.array.of);
@@ -1086,19 +1083,14 @@ bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) 
         MaybeAllocStr length = gen_expr(gen, *type.array.len);
         strbprintfln(decl, "CurArray1dDef(%s, %s, %s);", typestr.str, typename, length.str);
 
-        for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-            if (streq(*decl, gen->generated_typedefs[i])) {
-                mastrfree(length);
-                strbfree(typename);
-                mastrfree(typestr);
-
-                return false;
-            }
-        }
-
         mastrfree(length);
         strbfree(typename);
         mastrfree(typestr);
+
+        if (gen_find_generated_typedef(gen, *decl)) {
+            return false;
+        }
+
         return true;
     } else {
         MaybeAllocStr typestr = gen_type(gen, type);
@@ -1143,11 +1135,9 @@ void gen_decl_generic(Gen *gen, Type type) {
             strbfree(typename);
             mastrfree(typestr);
 
-            for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-                if (streq(def, gen->generated_typedefs[i])) {
-                    strbfree(def);
-                    return;
-                }
+            if (gen_find_generated_typedef(gen, def)) {
+                strbfree(def);
+                return;
             }
         } break;
         case TkTypeDef: {
@@ -1163,12 +1153,11 @@ void gen_decl_generic(Gen *gen, Type type) {
                 strbprintfln(&typedeff, "typedef enum %s %s;", type.typedeff, type.typedeff);
             }
 
-            for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-                if (streq(typedeff, gen->generated_typedefs[i])) {
-                    strbfree(typedeff);
-                    return;
-                }
+            if (gen_find_generated_typedef(gen, typedeff)) {
+                strbfree(typedeff);
+                return;
             }
+
             arrpush(gen->generated_typedefs, typedeff);
 
             gen->defs = strbinsert(gen->defs, typedeff, gen->def_loc);
@@ -1606,11 +1595,9 @@ void gen_struct_decl(Gen *gen, Stmnt stmnt) {
     strb struct_def = NULL;
     strbprintf(&struct_def, "struct %s", structd.name.ident);
 
-    for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-        if (streq(struct_def, gen->generated_typedefs[i])) {
-            strbfree(struct_def);
-            return;
-        }
+    if (gen_find_generated_typedef(gen, struct_def)) {
+        strbfree(struct_def);
+        return;
     }
     arrpush(gen->generated_typedefs, struct_def);
 
@@ -1631,11 +1618,9 @@ void gen_enum_decl(Gen *gen, Stmnt stmnt) {
     strb enum_def = NULL;
     strbprintf(&enum_def, "enum %s", enumd.name.ident);
 
-    for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
-        if (streq(enum_def, gen->generated_typedefs[i])) {
-            strbfree(enum_def);
-            return;
-        }
+    if (gen_find_generated_typedef(gen, enum_def)) {
+        strbfree(enum_def);
+        return;
     }
 
     arrpush(gen->generated_typedefs, enum_def);
