@@ -136,6 +136,10 @@ char *builtin_args =
     "    CurSlice1d_CurString args = curslice1d_CurString(_CUR_ARGS_, argc);\n"
 ;
 
+void mastrfree(MaybeAllocStr s) {
+    if (s.alloced) strbfree(s.str);
+}
+
 Gen gen_init(Arr(Stmnt) ast, Dgraph dgraph) {
     return (Gen){
         .ast = ast,
@@ -257,7 +261,7 @@ void gen_slice_type(Gen *gen, Type type, strb *str) {
         MaybeAllocStr t = gen_type(gen, type);
         strbprintf(str, "%s", t.str);
 
-        if (t.alloced) strbfree(t.str);
+        mastrfree(t);
     }
 }
 
@@ -269,7 +273,7 @@ void gen_array_type(Gen *gen, Type type, strb *str) {
         MaybeAllocStr t = gen_type(gen, type);
         strbprintf(str, "%s", t.str);
 
-        if (t.alloced) strbfree(t.str);
+        mastrfree(t);
     }
 }
 
@@ -315,7 +319,7 @@ MaybeAllocStr gen_type(Gen *gen, Type type) {
             strb ret = NULL;
             MaybeAllocStr option = gen_type(gen, *type.option.subtype);
             strbprintf(&ret, "CurOption_%s", option.str);
-            if (option.alloced) strbfree(option.str);
+            mastrfree(option);
 
             return (MaybeAllocStr){
                 .str = ret,
@@ -390,11 +394,12 @@ strb gen_typename_array(Gen *gen, Type type, int dimension) {
                     strbprintf(&array, "%s", parent_length.str);
 
                     // this is why we need differs, or maybe i should just use gotos
-                    if (parent_length.alloced) strbfree(parent_length.str);
-                    if (length.alloced) strbfree(length.str);
+                    mastrfree(parent_length);
+                    mastrfree(length);
                     return array;
                 }
-                if (length.alloced) strbfree(length.str);
+
+                mastrfree(length);
                 return array;
             } else {
                 strb typename = NULL;
@@ -404,7 +409,7 @@ strb gen_typename_array(Gen *gen, Type type, int dimension) {
                 strb array = NULL;
                 strbprintf(&array, "CurArray%dd_%s%s", dimension, typename, length.str);
 
-                if (length.alloced) strbfree(length.str);
+                mastrfree(length);
                 strbfree(typename);
                 return array;
             }
@@ -478,7 +483,7 @@ MaybeAllocStr gen_option_expr(Gen *gen, Expr expr) {
         strb option = NULL;
         strbprintf(&option, "curoption_%s(%s)", typename, value.str);
 
-        if (value.alloced) strbfree(value.str);
+        mastrfree(value);
         strbfree(typename);
 
         return (MaybeAllocStr){
@@ -563,7 +568,7 @@ MaybeAllocStr gen_unop_expr(Gen *gen, Expr expr) {
             break;
     }
 
-    if (value.alloced) strbfree(value.str);
+    mastrfree(value);
     return (MaybeAllocStr){
         .str = ret,
         .alloced = true,
@@ -585,7 +590,7 @@ MaybeAllocStr gen_fn_call(Gen *gen, Expr expr) {
             strbprintf(&call, ", %s", arg.str);
         }
 
-        if (arg.alloced) strbfree(arg.str);
+        mastrfree(arg);
     }
     strbpush(&call, ')');
 
@@ -618,7 +623,7 @@ MaybeAllocStr gen_slice_literal_expr(Gen *gen, Expr expr) {
     } else {
         MaybeAllocStr exprtype = gen_type(gen, slice);
         strbprintf(&lit, "(%s){", exprtype.str);
-        if (exprtype.alloced) strbfree(exprtype.str);
+        mastrfree(exprtype);
     }
 
 
@@ -631,7 +636,7 @@ MaybeAllocStr gen_slice_literal_expr(Gen *gen, Expr expr) {
             strbprintf(&lit, ", %s", val.str);
         }
 
-        if (val.alloced) strbfree(val.str);
+        mastrfree(val);
     }
     strbprintf(&lit, "}, %d)", arrlenu(expr.literal.exprs));
 
@@ -667,7 +672,7 @@ MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
         MaybeAllocStr exprtype = gen_type(gen, expr.type);
         strbprintf(&lit, "(%s){", exprtype.str);
 
-        if (exprtype.alloced) strbfree(exprtype.str);
+        mastrfree(exprtype);
     }
 
     for (size_t i = 0; i < arrlenu(expr.literal.exprs); i++) {
@@ -679,7 +684,7 @@ MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
             strbprintf(&lit, ", %s", val.str);
         }
 
-        if (val.alloced) strbfree(val.str);
+        mastrfree(val);
     }
     strbprintf(&lit, "})");
 
@@ -713,7 +718,7 @@ MaybeAllocStr gen_literal_expr(Gen *gen, Expr expr) {
                 strbprintf(&lit, ", %s", val.str);
             }
 
-            if (val.alloced) strbfree(val.str);
+            mastrfree(val);
         }
     } else {
         for (size_t i = 0; i < arrlenu(expr.literal.vars); i++) {
@@ -726,13 +731,13 @@ MaybeAllocStr gen_literal_expr(Gen *gen, Expr expr) {
                 strbprintf(&lit, ", .%s = %s", reassigned.str, value.str);
             }
 
-            if (reassigned.alloced) strbfree(reassigned.str);
-            if (value.alloced) strbfree(value.str);
+            mastrfree(reassigned);
+            mastrfree(value);
         }
     }
     strbpush(&lit, '}');
 
-    if (exprtype.alloced) strbfree(exprtype.str);
+    mastrfree(exprtype);
     return (MaybeAllocStr){
         .str = lit,
         .alloced = true,
@@ -803,8 +808,8 @@ MaybeAllocStr gen_binop_expr(Gen *gen, Expr expr) {
             break;
     }
     
-    if (lhs.alloced) strbfree(lhs.str);
-    if (rhs.alloced) strbfree(rhs.str);
+    mastrfree(lhs);
+    mastrfree(rhs);
 
     return (MaybeAllocStr){
         .str = ret,
@@ -886,7 +891,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             MaybeAllocStr subexpr = gen_expr(gen, *expr.fieldacc.accessing);
             if (expr.fieldacc.deref) {
                 strb ret = NULL; strbprintf(&ret, "*%s", subexpr.str);
-                if (subexpr.alloced) strbfree(subexpr.str);
+                mastrfree(subexpr);
                 return (MaybeAllocStr){
                     .str = ret,
                     .alloced = true,
@@ -910,8 +915,8 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
                 strbprintf(&ret, "%s.%s", subexpr.str, field.str);
             }
 
-            if (subexpr.alloced) strbfree(subexpr.str);
-            if (field.alloced) strbfree(field.str);
+            mastrfree(subexpr);
+            mastrfree(field);
 
             return (MaybeAllocStr){
                 .str = ret,
@@ -923,8 +928,8 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             MaybeAllocStr index = gen_expr(gen, *expr.arrayidx.index);
             strb ret = NULL; strbprintf(&ret, "%s.ptr[%s]", access.str, index.str);
 
-            if (access.alloced) strbfree(access.str);
-            if (index.alloced) strbfree(index.str);
+            mastrfree(access);
+            mastrfree(index);
 
             return (MaybeAllocStr){
                 .str = ret,
@@ -959,9 +964,9 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             }
             strb ret = NULL; strbprintf(&ret, "curslice1d_range_%s(%s.ptr, %s, %s%s)", typename, access.str, start.str, end.str, expr.arrayslice.slice->rangelit.inclusive ? " + 1" : "");
 
-            if (end.alloced) strbfree(end.str);
-            if (start.alloced) strbfree(start.str);
-            if (access.alloced) strbfree(access.str);
+            mastrfree(end);
+            mastrfree(start);
+            mastrfree(access);
             strbfree(typename);
 
             return (MaybeAllocStr){
@@ -973,7 +978,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             MaybeAllocStr value = gen_expr(gen, *expr.group);
             strb ret = NULL; strbprintf(&ret, "(%s)", value.str);
 
-            if (value.alloced) strbfree(value.str);
+            mastrfree(value);
             return (MaybeAllocStr){
                 .str = ret,
                 .alloced = true,
@@ -1023,13 +1028,13 @@ bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl, uint8_t dimension) 
         for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
             if (streq(*decl, gen->generated_typedefs[i])) {
                 strbfree(typename);
-                if (typestr.alloced) strbfree(typestr.str);
+                mastrfree(typestr);
                 return false;
             }
         }
 
         strbfree(typename);
-        if (typestr.alloced) strbfree(typestr.str);
+        mastrfree(typestr);
         return true;
     } else {
         MaybeAllocStr typestr = gen_type(gen, type);
@@ -1039,7 +1044,7 @@ bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl, uint8_t dimension) 
         strbprintf(decl, "CurSlice%ddDef(%s, %s", dimension, typestr.str, typename);
 
         strbfree(typename);
-        if (typestr.alloced) strbfree(typestr.str);
+        mastrfree(typestr);
 
         return true;
     }
@@ -1060,17 +1065,17 @@ bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) 
 
             for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
                 if (streq(*decl, gen->generated_typedefs[i])) {
-                    if (parent_len.alloced) strbfree(parent_len.str);
-                    if (length.alloced) strbfree(length.str);
+                    mastrfree(parent_len);
+                    mastrfree(length);
 
                     return false;
                 }
             }
 
-            if (parent_len.alloced) strbfree(parent_len.str);
+            mastrfree(parent_len);
         }
 
-        if (length.alloced) strbfree(length.str);
+        mastrfree(length);
         return true;
     } else if (type.kind == TkArray) {
         MaybeAllocStr typestr = gen_type(gen, *type.array.of);
@@ -1083,17 +1088,17 @@ bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) 
 
         for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
             if (streq(*decl, gen->generated_typedefs[i])) {
-                if (length.alloced) strbfree(length.str);
+                mastrfree(length);
                 strbfree(typename);
-                if (typestr.alloced) strbfree(typestr.str);
+                mastrfree(typestr);
 
                 return false;
             }
         }
 
-        if (length.alloced) strbfree(length.str);
+        mastrfree(length);
         strbfree(typename);
-        if (typestr.alloced) strbfree(typestr.str);
+        mastrfree(typestr);
         return true;
     } else {
         MaybeAllocStr typestr = gen_type(gen, type);
@@ -1103,7 +1108,7 @@ bool gen_decl_generic_array(Gen *gen, Type type, strb *decl, uint8_t dimension) 
         strbprintf(decl, "CurArray%ddDef(%s, %s", dimension, typestr.str, typename);
 
         strbfree(typename);
-        if (typestr.alloced) strbfree(typestr.str);
+        mastrfree(typestr);
 
         return true;
     }
@@ -1136,7 +1141,7 @@ void gen_decl_generic(Gen *gen, Type type) {
             strbprintfln(&def, "CurOptionDef(%s, %s);", typestr.str, typename);
 
             strbfree(typename);
-            if (typestr.alloced) strbfree(typestr.str);
+            mastrfree(typestr);
 
             for (size_t i = 0; i < arrlenu(gen->generated_typedefs); i++) {
                 if (streq(def, gen->generated_typedefs[i])) {
@@ -1227,7 +1232,7 @@ strb gen_decl_proto(Gen *gen, Stmnt stmnt) {
     MaybeAllocStr vartype = gen_type(gen, type);
     strbprintf(&ret, "%s %s", vartype.str, name);
 
-    if (vartype.alloced) strbfree(vartype.str);
+    mastrfree(vartype);
     return ret;
 }
 
@@ -1266,7 +1271,7 @@ void gen_var_decl(Gen *gen, Stmnt stmnt) {
             }
             gen_writeln(gen, "%s;", value.str);
 
-            if (value.alloced) strbfree(value.str);
+            mastrfree(value);
             strbfree(proto);
             return;
         }
@@ -1278,7 +1283,7 @@ void gen_var_decl(Gen *gen, Stmnt stmnt) {
         MaybeAllocStr value = gen_expr(gen, vardecl.value);
         gen_writeln(gen, "%s;", value.str);
 
-        if (value.alloced) strbfree(value.str);
+        mastrfree(value);
     }
 
     strbfree(proto);
@@ -1295,7 +1300,7 @@ void gen_const_decl(Gen *gen, Stmnt stmnt) {
     MaybeAllocStr value = gen_expr(gen, constdecl.value);
     gen_writeln(gen, "%s;", value.str);
 
-    if (value.alloced) strbfree(value.str);
+    mastrfree(value);
     strbfree(proto);
 }
 
@@ -1309,8 +1314,8 @@ void gen_var_reassign(Gen *gen, Stmnt stmnt) {
     MaybeAllocStr value = gen_expr(gen, varre.value);
     gen_writeln(gen, "%s = %s;", reassign.str, value.str);
 
-    if (value.alloced) strbfree(value.str);
-    if (reassign.alloced) strbfree(reassign.str);
+    mastrfree(value);
+    mastrfree(reassign);
 }
 
 void gen_all_defers(Gen *gen) {
@@ -1341,7 +1346,7 @@ void gen_return(Gen *gen, Stmnt stmnt) {
     MaybeAllocStr value = gen_expr(gen, ret.value);
     gen_writeln(gen, "return %s;", value.str);
 
-    if (value.alloced) strbfree(value.str);
+    mastrfree(value);
 }
 
 void gen_continue(Gen *gen, Stmnt stmnt) {
@@ -1366,7 +1371,7 @@ void gen_fn_call_stmnt(Gen *gen, Stmnt stmnt) {
     gen_indent(gen);
     gen_writeln(gen, "%s;", call.str);
 
-    if (call.alloced) strbfree(call.str);
+    mastrfree(call);
 }
 
 void gen_if(Gen *gen, Stmnt stmnt) {
@@ -1401,7 +1406,7 @@ void gen_if(Gen *gen, Stmnt stmnt) {
         gen_writeln(gen, "}");
     }
 
-    if (cond.alloced) strbfree(cond.str);
+    mastrfree(cond);
 }
 
 void gen_for(Gen *gen, Stmnt stmnt) {
@@ -1425,9 +1430,9 @@ void gen_for(Gen *gen, Stmnt stmnt) {
     gen_indent(gen);
     gen_writeln(gen, "}");
 
-    if (value.alloced) strbfree(value.str);
-    if (reassign.alloced) strbfree(reassign.str);
-    if (cond.alloced) strbfree(cond.str);
+    mastrfree(value);
+    mastrfree(reassign);
+    mastrfree(cond);
 }
 
 void gen_stmnt(Gen *gen, Stmnt *stmnt) {
@@ -1649,7 +1654,7 @@ void gen_enum_decl(Gen *gen, Stmnt stmnt) {
         gen_indent(gen);
         gen_writeln(gen, "%s_%s = %s,", enumd.name.ident, f.constdecl.name.ident, expr.str);
 
-        if (expr.alloced) strbfree(expr.str);
+        mastrfree(expr);
     }
     gen->indent--;
     gen_writeln(gen, "};");
