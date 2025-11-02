@@ -1,11 +1,11 @@
-main :: fn() void {
-    xs := [2][2]i32{
-        [2]i32{1, 2},
-        [2]i32{3, 4},
-    };
+extern puts :: fn(s: cstring) i32;
 
-    ys := [][]i32{
-        []i32{1, 2},
-        []i32{3, 4},
-    };
+main :: fn() void {
+    x := 0;
+
+    if (x == 0) {
+        puts(c"zero");
+    } else {
+        puts(c"not zero");
+    }
 }

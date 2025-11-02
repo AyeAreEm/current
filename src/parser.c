@@ -1175,7 +1175,7 @@ Stmnt parse_possible_assignment(Parser *parser, Expr expr, bool expect_semicolon
 }
 
 // CAUTION: can return NULL
-Stmnt *parse_block(Parser *parser, TokenKind start, TokenKind end) {
+Arr(Stmnt) parse_block(Parser *parser, TokenKind start, TokenKind end) {
     if (start != TokNone) {
         expect(parser, start);
     }
@@ -1532,7 +1532,7 @@ Stmnt parse_if(Parser *parser) {
         Identifiers convert = convert_ident(parser, tok);
         if (convert.kind == IkKeyword && convert.keyword == KwElse) {
             next(parser);
-            else_block = parse_block(parser, TokNone, TokRightCurl);
+            else_block = parse_block_curls(parser);
         }
     }
 

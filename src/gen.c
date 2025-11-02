@@ -278,7 +278,10 @@ void gen_slice_type(Gen *gen, Type type, strb *str) {
 void gen_array_type(Gen *gen, Type type, strb *str) {
     if (type.kind == TkArray) {
         gen_array_type(gen, *type.array.of, str);
-        strbprintf(str, "[]"); 
+        MaybeAllocStr len = gen_expr(gen, *type.array.len);
+        strbprintf(str, "[%s]", len);
+
+        mastrfree(len);
     } else {
         MaybeAllocStr t = gen_type(gen, type);
         strbprintf(str, "%s", t.str);
@@ -674,8 +677,10 @@ MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
     if (arr.array.of->kind == TkArray) {
         strclear(typename);
         gen_typename(gen, arr.array.of, 1, &typename);
+        MaybeAllocStr len = gen_expr(gen, *arr.array.len);
 
-        strbprintf(&lit, "(%s[]){", typename);
+        strbprintf(&lit, "(%s[%s]){", typename, len.str);
+        mastrfree(len);
     } else {
         MaybeAllocStr exprtype = gen_type(gen, expr.type);
         strbprintf(&lit, "(%s){", exprtype.str);
@@ -1236,28 +1241,14 @@ void gen_var_decl(Gen *gen, Stmnt stmnt) {
         if (vardecl.type.kind == TkArray || vardecl.type.kind == TkSlice) {
             gen_write(gen, " = ");
 
-            MaybeAllocStr value;
-            if (vardecl.type.kind == TkArray) {
-                value = gen_array_literal_expr(gen, expr_literal(
-                    (Literal){
-                        .kind = LitkExprs,
-                        .exprs = NULL,
-                    },
-                    vardecl.type,
-                    stmnt.cursors_idx
-                    )
-                );
-            } else if (vardecl.type.kind == TkSlice) {
-                value = gen_slice_literal_expr(gen, expr_literal(
-                    (Literal){
-                        .kind = LitkExprs,
-                        .exprs = NULL,
-                    },
-                    vardecl.type,
-                    stmnt.cursors_idx
-                    )
-                );
-            }
+            MaybeAllocStr value = gen_literal_expr(gen, expr_literal(
+                (Literal){
+                    .kind = LitkExprs,
+                    .exprs = NULL,
+                },
+                vardecl.type,
+                stmnt.cursors_idx
+            ));
             gen_writeln(gen, "%s;", value.str);
 
             mastrfree(value);
