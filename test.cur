@@ -1,11 +1,3 @@
-extern puts :: fn(s: cstring) i32;
-
 main :: fn() void {
-    x := 0;
-
-    if (x == 0) {
-        puts(c"zero");
-    } else {
-        puts(c"not zero");
-    }
+    x: f32 = 1.5;
 }

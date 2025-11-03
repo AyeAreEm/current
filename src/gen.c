@@ -475,6 +475,7 @@ void gen_typename(Gen *gen, Type *types, size_t types_len, strb *typename) {
                 if (ty.alloced) {
                     char *tn = strtrim(ty.str);
                     strbprintf(typename, "%s", tn);
+                    mastrfree(ty);
                 } else {
                     strbprintf(typename, "%s", ty);
                 }
@@ -515,7 +516,7 @@ strb gen_numlit_expr(Expr expr) {
 
     switch (expr.type.kind) {
         case TkF32:
-            strbprintf(&s, "%f.f", (float)expr.floatlit);
+            strbprintf(&s, "%ff", (float)expr.floatlit);
             break;
         case TkF64:
         case TkUntypedFloat:
