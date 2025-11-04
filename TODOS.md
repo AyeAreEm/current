@@ -1,6 +1,5 @@
 # Todos
 - UTF-8 Strings
-- Type Casting
 - Better Error Messages
 - Generics
 - Result Type (!)
@@ -20,8 +19,7 @@
 
 # In Progress
 - For Loops
-- Default Function Arguments
-- Array Slicing
+- Type Casting
 
 # Completed
 - Function Declarations
@@ -65,3 +63,5 @@
 - Bitwise Operators
 - Slice Types
 - Slice Literals
+- Array Slicing
+- Default Function Arguments

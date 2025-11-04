@@ -430,10 +430,7 @@ Expr parse_primary(Parser *parser) {
                     next(parser);
                     return parse_end_literal(parser, type);
                 } else {
-                    strb t = string_from_type(type);
-                    elog(parser, parser->cursors_idx, "unexpected type %s", t);
-                    // TODO: later when providing more than one error message, uncomment the line below
-                    // strbfree(t);
+                    return expr_type(type, (size_t)parser->cursors_idx);
                 }
             } else {
                 elog(parser, parser->cursors_idx, "unexpected identifier %s", tok.ident);
@@ -581,32 +578,64 @@ Expr parse_unary(Parser *parser) {
     Token op = peek(parser);
     size_t index = (size_t)parser->cursors_idx;
 
-    if (op.kind != TokExclaim && op.kind != TokMinus && op.kind != TokAmpersand && op.kind != TokTilde) {
+    if (
+        op.kind != TokExclaim &&
+        op.kind != TokMinus &&
+        op.kind != TokAmpersand &&
+        op.kind != TokTilde
+    ) {
+        if (op.kind == TokIdent && streq(op.ident, "cast")) {
+            goto resume;
+        }
         return parse_fn_call(parser, expr_none());
     }
+
+resume:
     next(parser);
 
     Expr *right = ealloc(sizeof(Expr)); *right = parse_unary(parser);
-    if (op.kind == TokExclaim) {
-        return expr_unop((Unop){
-            .kind = UkNot,
-            .val = right,
-        }, type_bool(TYPEVAR, index), index);
-    } else if (op.kind == TokMinus) {
-        return expr_unop((Unop){
-            .kind = UkNegate,
-            .val = right,
-        }, type_none(), index);
-    } else if (op.kind == TokTilde) {
-        return expr_unop((Unop){
-            .kind = UkBitNot,
-            .val = right,
-        }, type_none(), index);
-    } else {
-        return expr_unop((Unop){
-            .kind = UkAddress,
-            .val = right,
-        }, type_none(), index);
+    switch (op.kind) {
+        case TokExclaim:
+            return expr_unop((Unop){
+                .kind = UkNot,
+                .val = right,
+            }, type_bool(TYPEVAR, index), index);
+        case TokMinus:
+            return expr_unop((Unop){
+                .kind = UkNegate,
+                .val = right,
+            }, type_none(), index);
+        case TokTilde:
+            return expr_unop((Unop){
+                .kind = UkBitNot,
+                .val = right,
+            }, type_none(), index);
+        case TokAmpersand:
+            return expr_unop((Unop){
+                .kind = UkAddress,
+                .val = right,
+            }, type_none(), index);
+        case TokIdent:
+            if (streq(op.ident, "cast")) {
+                if (right->kind != EkGrouping) {
+                    elog(parser, right->cursors_idx, "expected () after `cast`");
+                }
+
+                if (right->group->kind != EkType) {
+                    elog(parser, right->cursors_idx, "expected type in cast");
+                }
+
+                Type type = right->group->type_expr;
+                *right = parse_unary(parser);
+
+                return expr_unop((Unop){
+                    .kind = UkCast,
+                    .val = right,
+                }, type, index);
+            }
+        default:
+            // this is unreachable
+            assert(false);
     }
 }
 

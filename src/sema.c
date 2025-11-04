@@ -749,42 +749,54 @@ void sema_fn_call_stmnt(Sema *sema, Stmnt *stmnt) {
 void sema_unop(Sema *sema, Expr *expr) {
     assert(expr->kind == EkUnop);
 
+    if (expr->unop.kind == UkCast) {
+        expr->unop.val->type = expr->type;
+    }
+
     sema_expr(sema, expr->unop.val);
+    switch (expr->unop.kind) {
+        case UkCast:
+            // handled above
+            break;
+        case UkAddress:
+            if (expr->unop.val->kind == EkIdent) {
+                Stmnt stmnt = symtab_find(sema, expr->unop.val->ident, expr->unop.val->cursors_idx);
+                Type *type = ealloc(sizeof(Type)); *type = type_of_stmnt(sema, stmnt);
+                expr->type = type_ptr(type, stmnt_is_constant(stmnt), stmnt.cursors_idx);
+            } else {
+                elog(sema, expr->cursors_idx, "can't take address of expression not on stack");
+            }
+            break;
+        case UkNegate:
+            if (tc_is_unsigned(sema, *expr->unop.val)) {
+                elog(sema, expr->cursors_idx, "cannot negate unsigned integers");
+            }
 
-    if (expr->unop.kind == UkAddress && expr->unop.val->kind == EkIdent) {
-        Stmnt stmnt = symtab_find(sema, expr->unop.val->ident, expr->unop.val->cursors_idx);
-        Type *type = ealloc(sizeof(Type)); *type = type_of_stmnt(sema, stmnt);
-        expr->type = type_ptr(type, stmnt_is_constant(stmnt), stmnt.cursors_idx);
-    } else if (expr->unop.kind == UkNegate) {
+            Type *valtype = resolve_expr_type(sema, expr->unop.val);
+            expr->type = *valtype;
+            break;
+        case UkNot: {
+            Type *type = resolve_expr_type(sema, expr->unop.val);
 
-        if (tc_is_unsigned(sema, *expr->unop.val)) {
-            elog(sema, expr->cursors_idx, "cannot negate unsigned integers");
-        }
+            if (!tc_equals(sema, type_bool(TYPEVAR, 0), type)) {
+                strb t = string_from_type(*type);
+                elog(sema, expr->cursors_idx, "expected a boolean after '!' operator, got %s", t);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t);
+            }
+            expr->type = *type;
+        } break;
+        case UkBitNot: {
+            Type *type = resolve_expr_type(sema, expr->unop.val);
 
-        Type *valtype = resolve_expr_type(sema, expr->unop.val);
-        expr->type = *valtype;
-    } else if (expr->unop.kind == UkNot) {
-        Type *type = resolve_expr_type(sema, expr->unop.val);
-
-        if (!tc_equals(sema, type_bool(TYPEVAR, 0), type)) {
-            strb t = string_from_type(*type);
-            elog(sema, expr->cursors_idx, "expected a boolean after '!' operator, got %s", t);
-            // TODO: later when providing more than one error message, uncomment the line below
-            // strbfree(t);
-        }
-        expr->type = *type;
-    } else if (expr->unop.kind == UkBitNot) {
-        Type *type = resolve_expr_type(sema, expr->unop.val);
-
-        if (!tc_can_bitwise(*type, *type)) {
-            strb t = string_from_type(*type);
-            elog(sema, expr->cursors_idx, "cannot do bitwise not (~) on %s", t);
-            // TODO: later when providing more than one error message, uncomment the line below
-            // strbfree(t);
-        }
-        expr->type = *type;
-    } else {
-        elog(sema, expr->cursors_idx, "can't take address of expression not on stack or heap");
+            if (!tc_can_bitwise(*type, *type)) {
+                strb t = string_from_type(*type);
+                elog(sema, expr->cursors_idx, "cannot do bitwise not (~) on %s", t);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t);
+            }
+            expr->type = *type;
+        } break;
     }
 }
 

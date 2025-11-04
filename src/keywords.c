@@ -34,6 +34,8 @@ Keyword keyword_map(const char *str) {
         return KwFor;
     } else if (streq(str, "defer")) {
         return KwDefer;
+    } else if (streq(str, "cast")) {
+        return KwCast;
     }
 
     return KwNone;
@@ -58,6 +60,7 @@ const char *keyword_stringify(Keyword k) {
         case KwAnd: return "And";
         case KwOr: return "Or";
         case KwDefer: return "Defer";
+        case KwCast: return "Cast";
     }
 
     return "";

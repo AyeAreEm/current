@@ -534,6 +534,12 @@ MaybeAllocStr gen_unop_expr(Gen *gen, Expr expr) {
         case UkBitNot:
             strbprintf(&ret, "~%s", value);
             break;
+        case UkCast: {
+            MaybeAllocStr type = gen_type(gen, expr.type);
+            strbprintf(&ret, "(%s)%s", type.str, value);
+            mastrfree(type);
+            break;
+        }
     }
 
     mastrfree(value);
