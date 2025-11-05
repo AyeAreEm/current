@@ -584,7 +584,7 @@ Expr parse_unary(Parser *parser) {
         op.kind != TokAmpersand &&
         op.kind != TokTilde
     ) {
-        if (op.kind == TokIdent && streq(op.ident, "cast")) {
+        if (op.kind == TokIdent && (streq(op.ident, "cast") || streq(op.ident, "sizeof"))) {
             goto resume;
         }
         return parse_fn_call(parser, expr_none());
@@ -592,6 +592,19 @@ Expr parse_unary(Parser *parser) {
 
 resume:
     next(parser);
+    // handle cast first
+    if (op.kind == TokIdent && streq(op.ident, "cast")) {
+        expect(parser, TokLeftBracket);
+        Type type = parse_type(parser);
+        expect(parser, TokRightBracket);
+
+        Expr *right = ealloc(sizeof(Expr)); *right = parse_unary(parser);
+
+        return expr_unop((Unop){
+            .kind = UkCast,
+            .val = right,
+        }, type, index);
+    }
 
     Expr *right = ealloc(sizeof(Expr)); *right = parse_unary(parser);
     switch (op.kind) {
@@ -616,25 +629,21 @@ resume:
                 .val = right,
             }, type_none(), index);
         case TokIdent:
-            if (streq(op.ident, "cast")) {
+            if (streq(op.ident, "sizeof")) {
                 if (right->kind != EkGrouping) {
-                    elog(parser, right->cursors_idx, "expected () after `cast`");
+                    elog(parser, right->cursors_idx, "expected () after `sizeof`");
                 }
-
-                if (right->group->kind != EkType) {
-                    elog(parser, right->cursors_idx, "expected type in cast");
-                }
-
-                Type type = right->group->type_expr;
-                *right = parse_unary(parser);
 
                 return expr_unop((Unop){
-                    .kind = UkCast,
+                    .kind = UkSizeof,
                     .val = right,
-                }, type, index);
+                }, type_integer(TkUntypedInt, TYPECONST, index), index);
             }
+
+            // unreachable
+            assert(false);
         default:
-            // this is unreachable
+            // unreachable
             assert(false);
     }
 }
@@ -1561,7 +1570,18 @@ Stmnt parse_if(Parser *parser) {
         Identifiers convert = convert_ident(parser, tok);
         if (convert.kind == IkKeyword && convert.keyword == KwElse) {
             next(parser);
-            else_block = parse_block_curls(parser);
+            Token after = peek(parser);
+            if (after.kind == TokIdent) {
+                Identifiers after_conv = convert_ident(parser, after);
+                if (after_conv.kind == IkKeyword && after_conv.keyword == KwIf) {
+                    next(parser);
+                    arrpush(else_block, parse_if(parser));
+                } else {
+                    elog(parser, parser->cursors_idx, "unexpected identifier %s after `else`", after.ident);
+                }
+            } else {
+                else_block = parse_block_curls(parser);
+            }
         }
     }
 

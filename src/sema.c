@@ -277,8 +277,9 @@ Type *resolve_expr_type(Sema *sema, Expr *expr) {
             expr->type = call.fndecl.type;
             return &expr->type;
         case EkType:
-            // TODO: support this, returing TypeId or something
-            elog(sema, expr->cursors_idx, "type of type not implemented yet");
+            // NOTE: this might not be the right way to do things
+            // watch this carefully
+            return &expr->type_expr;
         case EkNone:
             assert(false);
     }
@@ -750,6 +751,7 @@ void sema_unop(Sema *sema, Expr *expr) {
     assert(expr->kind == EkUnop);
 
     if (expr->unop.kind == UkCast) {
+        // TODO: limit casting to possible casts
         expr->unop.val->type = expr->type;
     }
 
@@ -758,13 +760,19 @@ void sema_unop(Sema *sema, Expr *expr) {
         case UkCast:
             // handled above
             break;
+        case UkSizeof:
+            if (expr->unop.val->group->kind != EkType && expr->unop.val->group->kind != EkIdent) {
+                elog(sema, expr->cursors_idx, "expected type or identifier in sizeof");
+            }
+
+            break;
         case UkAddress:
             if (expr->unop.val->kind == EkIdent) {
                 Stmnt stmnt = symtab_find(sema, expr->unop.val->ident, expr->unop.val->cursors_idx);
                 Type *type = ealloc(sizeof(Type)); *type = type_of_stmnt(sema, stmnt);
                 expr->type = type_ptr(type, stmnt_is_constant(stmnt), stmnt.cursors_idx);
             } else {
-                elog(sema, expr->cursors_idx, "can't take address of expression not on stack");
+                elog(sema, expr->cursors_idx, "cannot take address of expression not on stack");
             }
             break;
         case UkNegate:
@@ -1391,7 +1399,7 @@ void sema_extern(Sema *sema, Stmnt *stmnt) {
         case SkExtern:
             elog(sema, stmnt->externf->cursors_idx, "illegal use of extern, already inside extern");
         case SkDirective:
-            elog(sema, stmnt->externf->cursors_idx, "illegal use of directive, can't be inside extern");
+            elog(sema, stmnt->externf->cursors_idx, "illegal use of directive, cannot be inside extern");
             break;
     }
 }

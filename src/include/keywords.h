@@ -20,6 +20,7 @@ typedef enum Keyword {
     KwOr,
     KwDefer,
     KwCast,
+    KwSizeof,
 } Keyword;
 
 Keyword keyword_map(const char *str);

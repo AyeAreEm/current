@@ -20,6 +20,7 @@
 # In Progress
 - For Loops
 - Type Casting
+- Sizeof Operator
 
 # Completed
 - Function Declarations

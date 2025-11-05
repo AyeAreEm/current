@@ -591,10 +591,6 @@ bool tc_is_unsigned(Sema *sema, Expr expr) {
 }
 
 bool tc_can_arithmetic(Type lhs, Type rhs, bool ints_only) {
-    if (lhs.kind != rhs.kind) {
-        return false;
-    }
-
     switch (lhs.kind) {
         case TkI8:
         case TkI16:

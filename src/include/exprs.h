@@ -123,6 +123,7 @@ typedef enum UnopKind {
     UkNegate,
     UkAddress,
     UkCast,
+    UkSizeof,
 } UnopKind;
 
 typedef struct Unop { // Unary Operation
