@@ -43,13 +43,14 @@ static void elog(Sema *sema, size_t i, const char *msg, ...) {
 
 bool tc_ptr_equals(Sema *sema, Type lhs, Type *rhs) {
     if (lhs.kind == TkPtr && rhs->kind == TkPtr) {
+        if (!lhs.constant && rhs->constant) return false;
+
         // hardcoded since usually can't typecheck between void and another type
         // unless it's a *void and *void, or **void and **void so on
         if (lhs.ptr_to->kind == TkVoid && rhs->ptr_to->kind == TkVoid) {
             return true;
         }
 
-        if (!lhs.constant && rhs->constant) return false;
         if (!lhs.constant && !rhs->constant) return tc_ptr_equals(sema, *lhs.ptr_to, rhs->ptr_to);
         if (lhs.constant) return tc_ptr_equals(sema, *lhs.ptr_to, rhs->ptr_to);
     } else {
@@ -84,17 +85,15 @@ bool tc_array_equals(Sema *sema, Type lhs, Type *rhs) {
 bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
     switch (lhs.kind) {
         case TkVoid: {
-            strb t = string_from_type(*rhs);
-            debug("warning: unexpected comparsion between Void and %s", t);
-            strbfree(t);
+            // NOTE: not sure about this
             return false;
-         }
+        }
         case TkTypeDef:
             symtab_find(sema, lhs.typedeff, lhs.cursors_idx);
             if (rhs->kind == TkTypeDef && streq(lhs.typedeff, rhs->typedeff)) {
                 return true;
             }
-            break;
+            return false;
         case TkOption:
             if (rhs->kind == TkOption) {
                 if (lhs.option.subtype->kind == TkVoid) {
@@ -820,6 +819,71 @@ bool tc_can_bitwise(Type lhs, Type rhs) {
                 case TkIsize:
                 case TkUsize:
                 case TkUntypedInt:
+                    return true;
+                default:
+                    return false;
+            }
+        default:
+            return false;
+    }
+}
+
+bool tc_can_cast_ptr(Type *from, Type to) {
+    if (to.kind == TkPtr && from->kind == TkPtr) {
+        if (from->constant && !to.constant) return false;
+        
+        if (to.ptr_to->kind == TkVoid && from->ptr_to->kind != TkPtr) {
+            return true;
+        } else if (from->ptr_to->kind == TkVoid && from->ptr_to->kind != TkPtr) {
+            return true;
+        }
+
+        if (!from->constant && !to.constant) return tc_can_cast_ptr(from->ptr_to, *to.ptr_to);
+        if (to.constant) return tc_can_cast_ptr(from->ptr_to, *to.ptr_to);
+    }
+
+    return false;
+}
+
+bool tc_can_cast(Sema *sema, Type *from, Type to) {
+    if (tc_equals(sema, to, from)) {
+        return true;
+    }
+
+    switch (to.kind) {
+        case TkPtr:
+            return tc_can_cast_ptr(from, to);
+        case TkI8:
+        case TkU8:
+        case TkI16:
+        case TkU16:
+        case TkI32:
+        case TkU32:
+        case TkI64:
+        case TkU64:
+        case TkF32:
+        case TkF64:
+        case TkIsize:
+        case TkUsize:
+        case TkUntypedInt:
+        case TkUntypedFloat:
+        case TkChar:
+            switch (from->kind) {
+                case TkI8:
+                case TkU8:
+                case TkI16:
+                case TkU16:
+                case TkI32:
+                case TkU32:
+                case TkI64:
+                case TkU64:
+                case TkF32:
+                case TkF64:
+                case TkIsize:
+                case TkUsize:
+                case TkUntypedInt:
+                case TkUntypedFloat:
+                case TkChar:
                     return true;
                 default:
                     return false;

@@ -14,5 +14,6 @@ void tc_var_decl(Sema *sema, Stmnt *stmnt);
 bool tc_equals(Sema *sema, Type lhs, Type *rhs);
 void tc_number_within_bounds(Sema *sema, Type type, Expr expr);
 void tc_return(Sema *sema, Stmnt *stmnt);
+bool tc_can_cast(Sema *sema, Type *from, Type to);
 
 #endif // TYPECHECK_H

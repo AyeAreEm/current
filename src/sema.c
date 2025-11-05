@@ -750,15 +750,18 @@ void sema_fn_call_stmnt(Sema *sema, Stmnt *stmnt) {
 void sema_unop(Sema *sema, Expr *expr) {
     assert(expr->kind == EkUnop);
 
-    if (expr->unop.kind == UkCast) {
-        // TODO: limit casting to possible casts
-        expr->unop.val->type = expr->type;
-    }
-
     sema_expr(sema, expr->unop.val);
     switch (expr->unop.kind) {
         case UkCast:
-            // handled above
+            if (!tc_can_cast(sema, &expr->unop.val->type, expr->type)) {
+                strb t1 = string_from_type(expr->unop.val->type);
+                strb t2 = string_from_type(expr->type);
+                elog(sema, expr->cursors_idx, "cannot cast %s to %s", t1, t2);
+                // TODO: later when providing more than one error message, uncomment the line below
+                // strbfree(t1);
+                // strbfree(t2);
+            }
+            expr->unop.val->type = expr->type;
             break;
         case UkSizeof:
             if (expr->unop.val->group->kind != EkType && expr->unop.val->group->kind != EkIdent) {
