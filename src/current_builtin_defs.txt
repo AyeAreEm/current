@@ -27,42 +27,7 @@ typedef struct CurString {
     usize len;
 } CurString;
 #define curstr(s) ((CurString){.ptr = s, strlen(s)})
-#define CurArray1dDef(T, Tname, A)\
-typedef struct CurArray1d_##Tname##A {\
-    T ptr[A];\
-} CurArray1d_##Tname##A;\
-CurArray1d_##Tname##A curarray1d_construct_##Tname##A();\
-CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr);\
 
-#define CurArray1dImp(T, Tname, A)\
-CurArray1d_##Tname##A curarray1d_construct_##Tname##A() {\
-    return (CurArray1d_##Tname##A){};\
-}\
-CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr) {\
-    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){};\
-    memcpy(ret.ptr, ptr, sizeof(T) * A);\
-    return ret;\
-}
-#define CurArray2dDef(T, Tname, A, B)\
-typedef struct CurArray2d_##Tname##A##B {\
-    CurArray1d_##Tname##B ptr[A];\
-} CurArray2d_##Tname##A##B;\
-CurArray2d_##Tname##A##B curarray2d_construct_##Tname##A##B();\
-CurArray2d_##Tname##A##B curarray2d_##Tname##A##B(CurArray1d_##Tname##B *ptr);\
-
-#define CurArray2dImp(T, Tname, A, B)\
-CurArray2d_##Tname##A##B curarray2d_construct_##Tname##A##B() {\
-    CurArray2d_##Tname##A##B ret = (CurArray2d_##Tname##A##B){};\
-    for (usize i = 0; i < A; i++) {\
-        ret.ptr[i] = curarray1d_construct_##Tname##A();\
-    }\
-    return ret;\
-}\
-CurArray2d_##Tname##A##B curarray2d_##Tname##A##B(CurArray1d_##Tname##B *ptr) {\
-    CurArray2d_##Tname##A##B ret = (CurArray2d_##Tname##A##B){};\
-    memcpy(ret.ptr, ptr, sizeof(T) * A);\
-    return ret;\
-}
 #define CurSlice1dDef(T, Tname)\
 typedef struct CurSlice1d_##Tname {\
     T *ptr;\

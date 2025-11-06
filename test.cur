@@ -4,7 +4,7 @@ extern puts :: fn(s: cstring) i32;
 grid_init :: fn(grid: [3][3]char) void {
     for (i: usize = 0; i < grid.len; i += 1) {
         for (j: usize = 0; j < grid[i].len; j += 1) {
-            grid[i][j] = ' ';
+            grid[i][j] = 'O';
         }
     }
 }
@@ -14,6 +14,7 @@ grid_print :: fn(grid: [3][3]char) void {
         for (j: usize = 0; j < grid[i].len; j += 1) {
             putchar(cast(i32)grid[i][j]);
         }
+        putchar(cast(i32)'\n');
     }
 }
 

@@ -60,6 +60,7 @@ uint64_t eval_unop(Sema *sema, Expr *expr) {
 
     uint64_t val = eval_expr(sema, expr->unop.val);
 
+    // TODO: add cast and sizeof to eval
     switch (expr->unop.kind) {
         case UkBitNot:
             return ~val;
