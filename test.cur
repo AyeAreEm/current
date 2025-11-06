@@ -1,26 +1,26 @@
-extern malloc :: fn(size: usize) *void;
-extern free :: fn(ptr: *void) void;
 extern putchar :: fn(c: i32) i32;
+extern puts :: fn(s: cstring) i32;
 
-print_i32 :: fn(n: i32) void {
-    num := n;
-    if (num < 0) {
-        putchar(cast(i32)'-');
-        num = -num;
+grid_print :: fn(grid: [3][3]?bool) void {
+    for (i: usize = 0; i < grid.len; i += 1) {
+        for (j: usize = 0; j < grid[i].len; j += 1) {
+            if (grid[i][j]) [is_o] {
+                if (is_o) { putchar(cast(i32)'O'); }
+                else { putchar(cast(i32)'X'); }
+            } else {
+                putchar(cast(i32)' ');
+            }
+        }
+        putchar(cast(i32)'\n');
     }
-
-    if (num / 10 > 0) {
-        print_i32(num / 10);
-    }
-
-    putchar(num % 10 + cast(i32)'0');
 }
 
 main :: fn() void {
-    x := cast(*i32)malloc(sizeof(i32));
-    defer free(cast(*void)x);
-
-    x.& = 10;
-    print_i32(x.&);
-    putchar(cast(i32)'\n');
+    // bug with `grid: [3][3]?bool;`
+    grid: [3][3]?bool = {
+        [3]?bool{null, null, null},
+        [3]?bool{null, null, null},
+        [3]?bool{null, null, null},
+    };
+    grid_print(grid);
 }

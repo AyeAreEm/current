@@ -348,6 +348,8 @@ static Expr get_field(Sema *sema, Type type, const char *fieldname, size_t curso
             enum { ArrayFieldsLen = 2 };
             Expr ArrayFields[ArrayFieldsLen] = {
                 expr_ident("len", type_integer(TkUsize, TYPECONST, cursor_idx), cursor_idx),
+                // NOTE: typeof(array.ptr) == cstring?
+                // this is definitely a bug
                 expr_ident("ptr", type_cstring(TYPECONST, cursor_idx), cursor_idx),
             };
 
@@ -1047,6 +1049,11 @@ void sema_var_decl(Sema *sema, Stmnt *stmnt) {
             // <name> := <type>{...};
             vardecl->type = vardecl->value.type;
         }
+    }
+
+    // TODO: continue to add array constructor
+    if (vardecl->type.kind == TkArray && vardecl->value.kind == EkNone) {
+
     }
 
     sema_expr(sema, &vardecl->value);

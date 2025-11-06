@@ -870,7 +870,12 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             MaybeAllocStr field = gen_expr(gen, *expr.fieldacc.field);
             strb ret = NULL;
 
-            if (expr.fieldacc.accessing->type.kind == TkPtr) {
+            if (expr.fieldacc.accessing->type.kind == TkArray && streq(field.str, "len")) {
+                // "optimisation"
+                MaybeAllocStr len = gen_expr(gen, *expr.fieldacc.accessing->type.array.len);
+                strbprintf(&ret, "%s", len.str);
+                mastrfree(len);
+            } else if (expr.fieldacc.accessing->type.kind == TkPtr) {
                 strbprintf(&ret, "%s->%s", subexpr.str, field.str);
             } else if (expr.fieldacc.accessing->type.kind == TkTypeDef) {
                 Stmnt stmnt = ast_find_decl(gen->ast, expr.fieldacc.accessing->type.typedeff);
@@ -1181,7 +1186,6 @@ void gen_var_decl(Gen *gen, Stmnt stmnt) {
 
         mastrfree(value);
     }
-
 }
 
 void gen_const_decl(Gen *gen, Stmnt stmnt) {
@@ -1277,12 +1281,12 @@ void gen_if(Gen *gen, Stmnt stmnt) {
     MaybeAllocStr cond = gen_expr(gen, iff.condition);
 
     if (iff.capturekind != CkNone) {
-        gen_writeln(gen, "{");
+        gen_writeln(gen, "if (%s.ok) {", cond.str);
 
+        gen->indent++;
         strb proto = gen_decl_proto(gen, *iff.capture.constdecl);
         gen_writeln(gen, "%s = %s.some;", proto, cond.str);
         gen_indent(gen);
-        gen_write(gen, "if (%s.ok) ", cond.str);
 
         strbfree(proto);
     } else {
@@ -1291,14 +1295,15 @@ void gen_if(Gen *gen, Stmnt stmnt) {
 
     gen_block(gen, iff.body);
 
-    gen_indent(gen);
-    gen_write(gen, "else ");
-    gen_block(gen, iff.els);
-
     if (iff.capturekind != CkNone) {
+        gen->indent--;
         gen_indent(gen);
         gen_writeln(gen, "}");
     }
+
+    gen_indent(gen);
+    gen_write(gen, "else ");
+    gen_block(gen, iff.els);
 
     mastrfree(cond);
 }
