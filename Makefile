@@ -43,10 +43,20 @@ BIN_TYPES = bin/types.o
 SRC_UTILS = src/utils.c
 BIN_UTILS = bin/utils.o
 
-BINS = $(BIN_CLI) $(BIN_EVAL) $(BIN_GEN) $(BIN_EXPRS) $(BIN_KEYWORDS) $(BIN_LEXER) $(BIN_MAIN) $(BIN_PARSER) $(BIN_SEMA) $(BIN_STMNTS) $(BIN_STRB) $(BIN_TYPECHECK) $(BIN_TYPES) $(BIN_UTILS)
+SRC_BUILTIN_DEFS_TXT = src/current_builtin_defs.txt
+SRC_BUILTIN_DEFS = src/builtin_defs.c
+BIN_BUILTIN_DEFS = bin/builtin_defs.o
+
+BINS = $(BIN_CLI) $(BIN_EVAL) $(BIN_GEN) $(BIN_EXPRS) $(BIN_KEYWORDS) $(BIN_LEXER) $(BIN_MAIN) $(BIN_PARSER) $(BIN_SEMA) $(BIN_STMNTS) $(BIN_STRB) $(BIN_TYPECHECK) $(BIN_TYPES) $(BIN_UTILS) $(BIN_BUILTIN_DEFS)
 
 current: $(BINS)
 	$(CC) $(CFLAGS) -o current $(BINS)
+
+$(SRC_BUILTIN_DEFS): $(SRC_BUILTIN_DEFS_TXT)
+	xxd -i -n builtin_defs $(SRC_BUILTIN_DEFS_TXT) > src/builtin_defs.c
+
+$(BIN_BUILTIN_DEFS): $(SRC_BUILTIN_DEFS)
+	$(CC) $(CFLAGS) -c $(SRC_BUILTIN_DEFS) -o $(BIN_BUILTIN_DEFS)
 
 $(BIN_CLI): $(SRC_CLI)
 	$(CC) $(CFLAGS) -c $(SRC_CLI) -o $(BIN_CLI)
@@ -57,7 +67,7 @@ $(BIN_EVAL): $(SRC_EVAL)
 $(BIN_EXPRS): $(SRC_EXPRS)
 	$(CC) $(CFLAGS) -c $(SRC_EXPRS) -o $(BIN_EXPRS)
 
-$(BIN_GEN): $(SRC_GEN)
+$(BIN_GEN): $(SRC_GEN) $(BIN_BUILTIN_DEFS)
 	$(CC) $(CFLAGS) -c $(SRC_GEN) -o $(BIN_GEN)
 
 $(BIN_KEYWORDS): $(SRC_KEYWORDS)

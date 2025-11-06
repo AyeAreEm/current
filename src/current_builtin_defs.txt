@@ -1,67 +1,68 @@
 #ifndef CURRENT_DEFS_H
 #define CURRENT_DEFS_H
-
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
-
 #if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__sun) || defined(__CYGWIN__)
 #include <sys/types.h>
 #elif defined(_WIN32) || defined(__MINGW32__)
 #include <BaseTsd.h>
 typedef SSIZE_T ssize_t;
 #endif
-
 typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 typedef ssize_t isize;
-
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 typedef size_t usize;
-
 typedef float f32;
 typedef double f64;
-
 typedef struct CurString {
     const char *ptr;
     usize len;
 } CurString;
 #define curstr(s) ((CurString){.ptr = s, strlen(s)})
-
 #define CurArray1dDef(T, Tname, A)\
 typedef struct CurArray1d_##Tname##A {\
-    T *ptr;\
-    usize len;\
+    T ptr[A];\
 } CurArray1d_##Tname##A;\
+CurArray1d_##Tname##A curarray1d_construct_##Tname##A();\
 CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr);\
 
 #define CurArray1dImp(T, Tname, A)\
+CurArray1d_##Tname##A curarray1d_construct_##Tname##A() {\
+    return (CurArray1d_##Tname##A){};\
+}\
 CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr) {\
-    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){.len = A};\
-    ret.ptr = ptr;\
+    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){};\
+    memcpy(ret.ptr, ptr, sizeof(T) * A);\
     return ret;\
 }
-
 #define CurArray2dDef(T, Tname, A, B)\
 typedef struct CurArray2d_##Tname##A##B {\
-    CurArray1d_##Tname##B* ptr;\
-    usize len;\
+    CurArray1d_##Tname##B ptr[A];\
 } CurArray2d_##Tname##A##B;\
+CurArray2d_##Tname##A##B curarray2d_construct_##Tname##A##B();\
 CurArray2d_##Tname##A##B curarray2d_##Tname##A##B(CurArray1d_##Tname##B *ptr);\
 
 #define CurArray2dImp(T, Tname, A, B)\
+CurArray2d_##Tname##A##B curarray2d_construct_##Tname##A##B() {\
+    CurArray2d_##Tname##A##B ret = (CurArray2d_##Tname##A##B){};\
+    for (usize i = 0; i < A; i++) {\
+        ret.ptr[i] = curarray1d_construct_##Tname##A();\
+    }\
+    return ret;\
+}\
 CurArray2d_##Tname##A##B curarray2d_##Tname##A##B(CurArray1d_##Tname##B *ptr) {\
-    CurArray2d_##Tname##A##B ret = (CurArray2d_##Tname##A##B){.len = A};\
-    ret.ptr = ptr;\
+    CurArray2d_##Tname##A##B ret = (CurArray2d_##Tname##A##B){};\
+    memcpy(ret.ptr, ptr, sizeof(T) * A);\
     return ret;\
 }
-
 #define CurSlice1dDef(T, Tname)\
 typedef struct CurSlice1d_##Tname {\
     T *ptr;\
@@ -69,7 +70,6 @@ typedef struct CurSlice1d_##Tname {\
 } CurSlice1d_##Tname;\
 CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len);\
 CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end);
-
 #define CurSlice1dImp(T, Tname)\
 CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len) {\
     CurSlice1d_##Tname ret = (CurSlice1d_##Tname){.len = len};\
@@ -82,7 +82,6 @@ CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end) {\
     ret.len = end - 1;\
     return ret;\
 }
-
 #define CurSlice2dDef(T, Tname)\
 typedef struct CurSlice2d_##Tname {\
     CurSlice1d_##Tname *ptr;\
@@ -90,7 +89,6 @@ typedef struct CurSlice2d_##Tname {\
 } CurSlice2d_##Tname;\
 CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len);\
 CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start, usize end);
-
 #define CurSlice2dImp(T, Tname)\
 CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len) {\
     CurSlice2d_##Tname ret = (CurSlice2d_##Tname){.len = len};\
@@ -103,7 +101,6 @@ CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start
     ret.len = end - 1;\
     return ret;\
 }
-
 #define CurOptionDef(T, Tname)\
 typedef struct CurOption_##Tname {\
     T some;\

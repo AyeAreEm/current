@@ -15,118 +15,7 @@
 #include "include/types.h"
 #include "include/utils.h"
 
-char *builtin_defs = 
-    "#ifndef CURRENT_DEFS_H\n"
-    "#define CURRENT_DEFS_H\n"
-    "#include <stdint.h>\n"
-    "#include <stddef.h>\n"
-    "#include <string.h>\n"
-    "#include <stdbool.h>\n"
-    "#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__sun) || defined(__CYGWIN__)\n"
-    "#include <sys/types.h>\n"
-    "#elif defined(_WIN32) || defined(__MINGW32__)\n"
-    "#include <BaseTsd.h>\n"
-    "typedef SSIZE_T ssize_t;\n"
-    "#endif\n"
-    "typedef int8_t i8;\n"
-    "typedef int16_t i16;\n"
-    "typedef int32_t i32;\n"
-    "typedef int64_t i64;\n"
-    "typedef ssize_t isize;\n"
-    "typedef uint8_t u8;\n"
-    "typedef uint16_t u16;\n"
-    "typedef uint32_t u32;\n"
-    "typedef uint64_t u64;\n"
-    "typedef size_t usize;\n"
-    "typedef float f32;\n"
-    "typedef double f64;\n"
-    "typedef struct CurString {\n"
-    "    const char *ptr;\n"
-    "    usize len;\n"
-    "} CurString;\n"
-    "#define curstr(s) ((CurString){.ptr = s, strlen(s)})\n"
-    "#define CurArray1dDef(T, Tname, A)\\\n"
-    "typedef struct CurArray1d_##Tname##A {\\\n"
-    "    T *ptr;\\\n"
-    "    usize len;\\\n"
-    "} CurArray1d_##Tname##A;\\\n"
-    "CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr);\\\n\n"
-    "#define CurArray1dImp(T, Tname, A)\\\n"
-    "CurArray1d_##Tname##A curarray1d_##Tname##A(T *ptr) {\\\n"
-    "    CurArray1d_##Tname##A ret = (CurArray1d_##Tname##A){.len = A};\\\n"
-    "    ret.ptr = ptr;\\\n"
-    "    return ret;\\\n"
-    "}\n"
-    "#define CurArray2dDef(T, Tname, A, B)\\\n"
-    "typedef struct CurArray2d_##Tname##A##B {\\\n"
-    "    CurArray1d_##Tname##B* ptr;\\\n"
-    "    usize len;\\\n"
-    "} CurArray2d_##Tname##A##B;\\\n"
-    "CurArray2d_##Tname##A##B curarray2d_##Tname##A##B(CurArray1d_##Tname##B *ptr);\\\n\n"
-    "#define CurArray2dImp(T, Tname, A, B)\\\n"
-    "CurArray2d_##Tname##A##B curarray2d_##Tname##A##B(CurArray1d_##Tname##B *ptr) {\\\n"
-    "    CurArray2d_##Tname##A##B ret = (CurArray2d_##Tname##A##B){.len = A};\\\n"
-    "    ret.ptr = ptr;\\\n"
-    "    return ret;\\\n"
-    "}\n"
-    "#define CurSlice1dDef(T, Tname)\\\n"
-    "typedef struct CurSlice1d_##Tname {\\\n"
-    "    T *ptr;\\\n"
-    "    usize len;\\\n"
-    "} CurSlice1d_##Tname;\\\n"
-    "CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len);\\\n"
-    "CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end);\n"
-    "#define CurSlice1dImp(T, Tname)\\\n"
-    "CurSlice1d_##Tname curslice1d_##Tname(T *ptr, usize len) {\\\n"
-    "    CurSlice1d_##Tname ret = (CurSlice1d_##Tname){.len = len};\\\n"
-    "    ret.ptr = ptr;\\\n"
-    "    return ret;\\\n"
-    "}\\\n"
-    "CurSlice1d_##Tname curslice1d_range_##Tname(T *ptr, usize start, usize end) {\\\n"
-    "    CurSlice1d_##Tname ret;\\\n"
-    "    ret.ptr = &ptr[start];\\\n"
-    "    ret.len = end - 1;\\\n"
-    "    return ret;\\\n"
-    "}\n"
-    "#define CurSlice2dDef(T, Tname)\\\n"
-    "typedef struct CurSlice2d_##Tname {\\\n"
-    "    CurSlice1d_##Tname *ptr;\\\n"
-    "    usize len;\\\n"
-    "} CurSlice2d_##Tname;\\\n"
-    "CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len);\\\n"
-    "CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start, usize end);\n"
-    "#define CurSlice2dImp(T, Tname)\\\n"
-    "CurSlice2d_##Tname curslice2d_##Tname(CurSlice1d_##Tname *ptr, usize len) {\\\n"
-    "    CurSlice2d_##Tname ret = (CurSlice2d_##Tname){.len = len};\\\n"
-    "    ret.ptr = ptr;\\\n"
-    "    return ret;\\\n"
-    "}\\\n"
-    "CurSlice2d_##Tname curslice2d_range_##Tname(CurSlice1d_##Tname *ptr, usize start, usize end) {\\\n"
-    "    CurSlice2d_##Tname ret;\\\n"
-    "    ret.ptr = &ptr[start];\\\n"
-    "    ret.len = end - 1;\\\n"
-    "    return ret;\\\n"
-    "}\n"
-    "#define CurOptionDef(T, Tname)\\\n"
-    "typedef struct CurOption_##Tname {\\\n"
-    "    T some;\\\n"
-    "    bool ok;\\\n"
-    "} CurOption_##Tname;\\\n"
-    "CurOption_##Tname curoption_##Tname(T some);\\\n"
-    "CurOption_##Tname curoptionnull_##Tname();\\\n\n"
-    "#define CurOptionImp(T, Tname)\\\n"
-    "CurOption_##Tname curoption_##Tname(T some) {\\\n"
-    "    CurOption_##Tname ret;\\\n"
-    "    ret.some = some;\\\n"
-    "    ret.ok = true;\\\n"
-    "    return ret;\\\n"
-    "}\\\n"
-    "CurOption_##Tname curoptionnull_##Tname() {\\\n"
-    "    CurOption_##Tname ret;\\\n"
-    "    ret.ok = false;\\\n"
-    "    return ret;\\\n"
-    "}\n"
-;
+extern unsigned char builtin_defs[];
 
 char *builtin_args =
     "    CurString _CUR_ARGS_[argc];\n"
@@ -617,6 +506,25 @@ MaybeAllocStr gen_slice_literal_expr(Gen *gen, Expr expr) {
         .str = lit,
         .alloced = true,
     };
+}
+
+strb gen_array_literal_constructor(Gen *gen, Type t) {
+    assert(t.kind == TkArray);
+    strb lit = NULL;
+
+    strb typename = NULL;
+    gen_typename(gen, &t, 1, &typename);
+
+    char *type = strtok(typename, "_");
+    for (size_t i = 0; i < strlen(type); i++) {
+        type[i] = tolower(type[i]);
+    }
+
+    strbprintf(&lit, "%s_construct_%s()", type, &typename[strlen(type) + 1]);
+    typename[strlen(type)] = '_';
+
+    strbfree(typename);
+    return lit;
 }
 
 MaybeAllocStr gen_array_literal_expr(Gen *gen, Expr expr) {
@@ -1163,6 +1071,13 @@ void gen_var_decl(Gen *gen, Stmnt stmnt) {
         if (vardecl.type.kind == TkArray || vardecl.type.kind == TkSlice) {
             gen_write(gen, " = ");
 
+            if (vardecl.type.kind == TkArray) {
+                strb value = gen_array_literal_constructor(gen, vardecl.type);
+                gen_writeln(gen, "%s;", value);
+                strbfree(value);
+                return;
+            }
+
             MaybeAllocStr value = gen_literal_expr(gen, expr_literal(
                 (Literal){
                     .kind = LitkExprs,
@@ -1586,7 +1501,7 @@ void gen_generate(Gen *gen) {
     char *defs;
     bool defs_ok = read_entire_file("./newsrc/current_builtin_defs.txt", &defs);
     if (!defs_ok) {
-        defs = builtin_defs;
+        defs = (char*)builtin_defs;
     }
 
     strbprintf(&gen->defs, "%s", defs);

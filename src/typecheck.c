@@ -69,15 +69,15 @@ bool tc_array_equals(Sema *sema, Type lhs, Type *rhs) {
             uint64_t r_len = eval_expr(sema, rhs->array.len);
 
             if (l_len != r_len) return false;
-            return tc_array_equals(sema, *lhs.array.of, rhs->array.of);
+            return tc_equals(sema, *lhs.array.of, rhs->array.of);
         } else {
             if (rhs->array.len->kind == EkNone) elog(sema, rhs->cursors_idx, "cannot infer array length");
             *lhs.array.len = *rhs->array.len;
-            return tc_array_equals(sema, *lhs.array.of, rhs->array.of);
+            return tc_equals(sema, *lhs.array.of, rhs->array.of);
         }
-    } else {
-        return tc_equals(sema, lhs, rhs);
     }
+
+    return false;
 }
 
 // <ident>: <lhs> = <rhs>

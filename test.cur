@@ -1,26 +1,24 @@
 extern putchar :: fn(c: i32) i32;
 extern puts :: fn(s: cstring) i32;
 
-grid_print :: fn(grid: [3][3]?bool) void {
+grid_init :: fn(grid: [3][3]char) void {
     for (i: usize = 0; i < grid.len; i += 1) {
         for (j: usize = 0; j < grid[i].len; j += 1) {
-            if (grid[i][j]) [is_o] {
-                if (is_o) { putchar(cast(i32)'O'); }
-                else { putchar(cast(i32)'X'); }
-            } else {
-                putchar(cast(i32)' ');
-            }
+            grid[i][j] = ' ';
         }
-        putchar(cast(i32)'\n');
+    }
+}
+
+grid_print :: fn(grid: [3][3]char) void {
+    for (i: usize = 0; i < grid.len; i += 1) {
+        for (j: usize = 0; j < grid[i].len; j += 1) {
+            putchar(cast(i32)grid[i][j]);
+        }
     }
 }
 
 main :: fn() void {
-    // bug with `grid: [3][3]?bool;`
-    grid: [3][3]?bool = {
-        [3]?bool{null, null, null},
-        [3]?bool{null, null, null},
-        [3]?bool{null, null, null},
-    };
+    grid: [3][3]char;
+    grid_init(grid);
     grid_print(grid);
 }
