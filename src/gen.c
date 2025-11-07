@@ -194,11 +194,19 @@ strb gen_ptr_type(Gen *gen, Type type) {
 
 MaybeAllocStr gen_type(Gen *gen, Type type) {
     assert(type.kind != TkUntypedInt && type.kind != TkUntypedFloat && "should not be codegening untyped types");
-    assert(type.kind != TkArray && "generating array types must be done explicitly");
     gen_decl_generic(gen, type);
 
     switch (type.kind) {
         case TkSlice: {
+            strb ret = NULL;
+            gen_typename(gen, &type, 1, &ret);
+
+            return (MaybeAllocStr){
+                .str = ret,
+                .alloced = true,
+            };
+        }
+        case TkArray: {
             strb ret = NULL;
             gen_typename(gen, &type, 1, &ret);
 
@@ -245,6 +253,37 @@ MaybeAllocStr gen_type(Gen *gen, Type type) {
     }
 }
 
+strb gen_typename_array(Gen *gen, Type type) {
+    strb arr = NULL;
+    strbprintf(&arr, "CurArray");
+
+    int dim = 0;
+    Type st = type;
+    strb lengths = NULL;
+    while (true) {
+        if (st.kind == TkArray) {
+            dim++;
+
+            MaybeAllocStr len = gen_expr(gen, *st.array.len);
+            strbprintf(&lengths, "%s", len.str);
+            mastrfree(len);
+
+            st = *st.array.of;
+        } else {
+            break;
+        }
+    }
+
+    strb typename = NULL;
+    gen_typename(gen, &st, 1, &typename);
+    strbprintf(&arr, "%d_%s%s", dim, typename, lengths);
+
+    strbfree(typename);
+    strbfree(lengths);
+
+    return arr;
+}
+
 strb gen_typename_slice(Gen *gen, Type type) {
     strb slice = NULL;
     strbprintf(&slice, "CurSlice");
@@ -289,6 +328,11 @@ void gen_typename(Gen *gen, Type *types, size_t types_len, strb *typename) {
                 strb slice = gen_typename_slice(gen, type);
                 strbprintf(typename, "%s", slice);
                 strbfree(slice);
+            } break;
+            case TkArray: {
+                strb arr = gen_typename_array(gen, type);
+                strbprintf(typename, "%s", arr);
+                strbfree(arr);
             } break;
             case TkOption: {
                 strb option = NULL;
@@ -697,12 +741,26 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             MaybeAllocStr field = gen_expr(gen, *expr.fieldacc.field);
             strb ret = NULL;
 
-            if (expr.fieldacc.accessing->type.kind == TkArray && streq(field.str, "len")) {
-                // "optimisation"
-                MaybeAllocStr len = gen_expr(gen, *expr.fieldacc.accessing->type.array.len);
+            // NOTE: temporary fix for constant folding `array.len`
+            // TODO: maybe have an optimisation step, do constant folding, etc
+            if (
+                ((expr.fieldacc.accessing->type.kind == TkPtr &&
+                expr.fieldacc.accessing->type.ptr_to->kind == TkArray) ||
+                expr.fieldacc.accessing->type.kind == TkArray) &&
+                streq(field.str, "len")
+            ) {
+                MaybeAllocStr len;
+                if (expr.fieldacc.accessing->type.kind == TkPtr) {
+                    len = gen_expr(gen, *expr.fieldacc.accessing->type.ptr_to->array.len);
+                } else {
+                    len = gen_expr(gen, *expr.fieldacc.accessing->type.array.len);
+                }
                 strbprintf(&ret, "%s", len.str);
                 mastrfree(len);
-            } else if (expr.fieldacc.accessing->type.kind == TkPtr) {
+            }
+
+
+            else if (expr.fieldacc.accessing->type.kind == TkPtr) {
                 strbprintf(&ret, "%s->%s", subexpr.str, field.str);
             } else if (expr.fieldacc.accessing->type.kind == TkTypeDef) {
                 Stmnt stmnt = ast_find_decl(gen->ast, expr.fieldacc.accessing->type.typedeff);
@@ -727,8 +785,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
         case EkArrayIndex: {
             MaybeAllocStr access = gen_expr(gen, *expr.arrayidx.accessing);
             MaybeAllocStr index = gen_expr(gen, *expr.arrayidx.index);
-            // TODO: consider changing from `%s[%s]` to `(%s)[%s]` in case access is deref
-            strb ret = NULL; strbprintf(&ret, "%s[%s]", access.str, index.str);
+            strb ret = NULL; strbprintf(&ret, "(%s)[%s]", access.str, index.str);
 
             mastrfree(access);
             mastrfree(index);
@@ -744,7 +801,6 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
 
             MaybeAllocStr access = gen_expr(gen, *expr.arrayslice.accessing);
 
-            // TODO: move resolving start & end to sema
             MaybeAllocStr start;
             if (expr.arrayslice.slice->rangelit.start->kind == EkNone) {
                 start = (MaybeAllocStr){
@@ -757,11 +813,21 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
 
             MaybeAllocStr end;
             if (expr.arrayslice.slice->rangelit.end->kind == EkNone) {
-                strb end_s = NULL; strbprintf(&end_s, "%s.len", access.str);
-                end = (MaybeAllocStr){
-                    .str = end_s,
-                    .alloced = true,
-                };
+                if (expr.arrayslice.accessing->type.kind == TkArray) {
+                    MaybeAllocStr len = gen_expr(gen, *expr.arrayslice.accessing->type.array.len);
+                    strb end_s = NULL; strbprintf(&end_s, "%s - 1", len.str);
+                    mastrfree(len);
+                    end = (MaybeAllocStr){
+                        .str = end_s,
+                        .alloced = true,
+                    };
+                } else {
+                    strb end_s = NULL; strbprintf(&end_s, "%s.len - 1", access.str);
+                    end = (MaybeAllocStr){
+                        .str = end_s,
+                        .alloced = true,
+                    };
+                }
             } else {
                 end = gen_expr(gen, *expr.arrayslice.slice->rangelit.end);
             }
@@ -814,6 +880,36 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
 }
 
 // returns true if decl needs to be inserted
+bool gen_decl_generic_array(Gen *gen, Type type, strb *decl) {
+    strb typename = NULL;
+    gen_typename(gen, &type, 1, &typename);
+
+    Type st = type;
+    strb lengths = NULL;
+    while (true) {
+        if (st.kind == TkArray) {
+            gen_decl_generic(gen, *st.array.of);
+
+            MaybeAllocStr len = gen_expr(gen, *st.array.len);
+            strbprintf(&lengths, "[%s]", len.str);
+            mastrfree(len);
+
+            st = *st.array.of;
+        } else {
+            break;
+        }
+    }
+
+    MaybeAllocStr subtype = gen_type(gen, st);
+    strbprintfln(decl, "typedef %s %s%s;", subtype.str, typename, lengths);
+    mastrfree(subtype);
+    strbfree(lengths);
+    strbfree(typename);
+
+    return !gen_find_generated_typedef(gen, *decl);
+}
+
+// returns true if decl needs to be inserted
 bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl) {
     strb typename = NULL;
     gen_typename(gen, &type, 1, &typename);
@@ -852,6 +948,18 @@ void gen_decl_generic(Gen *gen, Type type) {
                 strbfree(def);
                 return;
             }
+        } break;
+        case TkArray: {
+            bool add = gen_decl_generic_array(gen, type, &def);
+            if (!add) {
+                strbfree(def);
+                return;
+            }
+
+            gen->defs = strbinsert(gen->defs, def, gen->def_loc);
+            gen->def_loc += strlen(def);
+            arrpush(gen->generated_typedefs, def);
+            return;
         } break;
         case TkOption: {
             MaybeAllocStr typestr = gen_type(gen, *type.option.subtype);
@@ -936,14 +1044,6 @@ strb gen_decl_proto(Gen *gen, Stmnt stmnt) {
 
     strb ret = NULL;
     gen_indent(gen);
-
-    if (type.kind == TkArray) {
-        strb vartype = gen_array_type(gen, type, name);
-        strbprintf(&ret, "%s", vartype);
-        strbfree(vartype);
-
-        return ret;
-    }
 
     MaybeAllocStr vartype = gen_type(gen, type);
     strbprintf(&ret, "%s %s", vartype.str, name);

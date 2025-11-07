@@ -1068,32 +1068,27 @@ Expr parse_field_access(Parser *parser, Expr expr) {
     size_t index = parser->cursors_idx;
 
     Expr *front = ealloc(sizeof(Expr)); *front = expr;
-
-    // <expr>.&
-    Token tok = next(parser);
-    if (tok.kind == TokAmpersand) {
-        Expr *field = ealloc(sizeof(Expr)); field->kind = EkNone;
-
-        return expr_fieldaccess((FieldAccess){
-            .accessing = front,
-            .field = field,
-            .deref = true,
-        }, type_none(), index);
-    }
-
-    // <expr>.<ident>
-    Identifiers convert = convert_ident(parser, tok);
-    if (convert.kind != IkIdent) {
-        elog(parser, parser->cursors_idx, "unexpected token %s after field access", tokenkind_stringify(tok.kind));
-    }
-
-    Expr *field = ealloc(sizeof(Expr)); *field = convert.expr;
+    Expr *field = ealloc(sizeof(Expr)); *field = expr_none();
 
     Expr fa = expr_fieldaccess((FieldAccess){
         .accessing = front,
         .field = field,
         .deref = false,
-    }, field->type, index);
+    }, type_none(), index);
+
+    Token tok = next(parser);
+    if (tok.kind == TokAmpersand) {
+        // <expr>.&
+        fa.fieldacc.deref = true;
+    } else {
+        // <expr>.<ident>
+        Identifiers convert = convert_ident(parser, tok);
+        if (convert.kind != IkIdent) {
+            elog(parser, parser->cursors_idx, "unexpected token %s after field access", tokenkind_stringify(tok.kind));
+        }
+        *field = convert.expr;
+        fa.type = field->type;
+    }
 
     tok = peek(parser);
     if (tok.kind == TokNone) elog(parser, parser->cursors_idx, "expected more tokens");
