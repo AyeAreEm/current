@@ -767,7 +767,7 @@ void sema_unop(Sema *sema, Expr *expr) {
                 // strbfree(t1);
                 // strbfree(t2);
             }
-            expr->unop.val->type = expr->type;
+            // expr->unop.val->type = expr->type;
             break;
         case UkSizeof:
             if (expr->unop.val->group->kind != EkType && expr->unop.val->group->kind != EkIdent) {

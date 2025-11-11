@@ -429,16 +429,16 @@ MaybeAllocStr gen_unop_expr(Gen *gen, Expr expr) {
 
     switch (expr.unop.kind) {
         case UkAddress:
-            strbprintf(&ret, "&%s", value);
+            strbprintf(&ret, "&%s", value.str);
             break;
         case UkNegate:
-            strbprintf(&ret, "-%s", value);
+            strbprintf(&ret, "-%s", value.str);
             break;
         case UkNot:
-            strbprintf(&ret, "!%s", value);
+            strbprintf(&ret, "!%s", value.str);
             break;
         case UkBitNot:
-            strbprintf(&ret, "~%s", value);
+            strbprintf(&ret, "~%s", value.str);
             break;
         case UkCast: {
             MaybeAllocStr type = gen_type(gen, expr.type);
@@ -750,7 +750,6 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
                 strbprintf(&ret, "%s", len.str);
                 mastrfree(len);
             }
-
 
             else if (expr.fieldacc.accessing->type.kind == TkPtr) {
                 strbprintf(&ret, "%s->%s", subexpr.str, field.str);

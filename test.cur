@@ -1,6 +1,6 @@
-deref :: fn(xs: ^[3]i32) i32 {
-    return xs[0];
-}
+extern fputs :: fn(s: cstring, stream: *void) i32;
 
 main :: fn() void {
+    // lmao didn't realise that FILE is an actual struct... thought i could just use `1` for stdin but that segfaults
+    fputs(c"enter word: \n", cast(*void)1);
 }

@@ -42,6 +42,10 @@ static void elog(Sema *sema, size_t i, const char *msg, ...) {
 }
 
 bool tc_ptr_equals(Sema *sema, Type lhs, Type *rhs) {
+    if (lhs.kind == TkPtr && rhs->kind != TkPtr) {
+        return false;
+    }
+
     if (lhs.kind == TkPtr && rhs->kind == TkPtr) {
         if (!lhs.constant && rhs->constant) return false;
 
@@ -840,6 +844,9 @@ bool tc_can_cast_ptr(Type *from, Type to) {
 
         if (!from->constant && !to.constant) return tc_can_cast_ptr(from->ptr_to, *to.ptr_to);
         if (to.constant) return tc_can_cast_ptr(from->ptr_to, *to.ptr_to);
+    }
+    if (to.kind == TkPtr && to.ptr_to->kind == TkVoid) {
+        return true;
     }
 
     return false;
