@@ -17,14 +17,6 @@
 
 extern unsigned char builtin_defs[];
 
-char *builtin_args =
-    "    CurString _CUR_ARGS_[argc];\n"
-    "    for (int i = 0; i < argc; i++) {\n"
-    "        _CUR_ARGS_[i] = curstr(argv[i]);\n"
-    "    }\n"
-    "    CurSlice1d_CurString args = curslice1d_CurString(_CUR_ARGS_, argc);\n"
-;
-
 void mastrfree(MaybeAllocStr s) {
     if (s.alloced) strbfree(s.str);
 }
@@ -785,7 +777,13 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
         case EkArrayIndex: {
             MaybeAllocStr access = gen_expr(gen, *expr.arrayidx.accessing);
             MaybeAllocStr index = gen_expr(gen, *expr.arrayidx.index);
-            strb ret = NULL; strbprintf(&ret, "(%s)[%s]", access.str, index.str);
+            strb ret = NULL;
+
+            if (expr.fieldacc.accessing->type.kind == TkPtr) {
+                strbprintf(&ret, "(*%s)[%s]", access.str, index.str);
+            } else {
+                strbprintf(&ret, "(%s)[%s]", access.str, index.str);
+            }
 
             mastrfree(access);
             mastrfree(index);
@@ -1320,6 +1318,14 @@ void gen_fn_main_decl(Gen *gen, Stmnt stmnt) {
 
         assert(arg.constdecl.type.kind == TkSlice);
         gen_decl_generic(gen, arg.constdecl.type);
+
+        char *builtin_args =
+            "    CurString _CUR_ARGS_[argc];\n"
+            "    for (int i = 0; i < argc; i++) {\n"
+            "        _CUR_ARGS_[i] = curstr(argv[i]);\n"
+            "    }\n"
+            "    CurSlice1d_CurString args = curslice1d_CurString(_CUR_ARGS_, argc);\n"
+        ;
 
         gen_write(gen, builtin_args);
     }

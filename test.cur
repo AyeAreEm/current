@@ -1,25 +1,6 @@
-extern putchar :: fn(c: i32) i32;
-extern puts :: fn(s: cstring) i32;
-
-grid_init :: fn(grid: *[3][3]char) void {
-    for (i: usize = 0; i < grid.len; i += 1) {
-        for (j: usize = 0; j < grid.&[i].len; j += 1) {
-            grid.&[i][j] = 'O';
-        }
-    }
-}
-
-grid_print :: fn(grid: [3][3]char) void {
-    for (i: usize = 0; i < grid.len; i += 1) {
-        for (j: usize = 0; j < grid[i].len; j += 1) {
-            putchar(cast(i32)grid[i][j]);
-        }
-        putchar(cast(i32)'\n');
-    }
+deref :: fn(xs: ^[3]i32) i32 {
+    return xs[0];
 }
 
 main :: fn() void {
-    grid: [3][3]char;
-    grid_init(&grid);
-    grid_print(grid);
 }

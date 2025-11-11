@@ -499,6 +499,10 @@ void sema_array_index(Sema *sema, Expr *expr) {
 
     sema_expr(sema, expr->arrayidx.index);
 
+    if (arrtype->kind == TkPtr) {
+        arrtype = deref_ptr(arrtype);
+    }
+
     if (arrtype->kind == TkArray) {
         expr->type = *arrtype->array.of;
 
@@ -507,10 +511,6 @@ void sema_array_index(Sema *sema, Expr *expr) {
         }
     } else if (arrtype->kind == TkSlice) {
         expr->type = *arrtype->slice.of;
-    } else if (arrtype->kind == TkPtr) {
-        // TODO: allow indexing if it is a ptr to array / slice
-        strb t = string_from_type(*arrtype);
-        elog(sema, expr->cursors_idx, "cannot index into %s, not an array", t);
     } else {
         strb t = string_from_type(*arrtype);
         elog(sema, expr->cursors_idx, "cannot index into %s, not an array", t);
