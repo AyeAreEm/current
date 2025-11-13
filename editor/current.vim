@@ -8,7 +8,7 @@ endif
 syn keyword currentTypes void bool u8 u16 u32 u64 usize i8 i16 i32 i64 isize f32 f64 string cstring char
 syn keyword currentFn fn
 syn keyword currentStructures struct enum
-syn keyword currentConditionals if else switch
+syn keyword currentConditionals if else switch case fall default
 syn keyword currentRepeat for
 syn keyword currentBooleans true false
 syn keyword currentStatements return break continue defer extern

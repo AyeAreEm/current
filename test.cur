@@ -1,11 +1,21 @@
 extern puts :: fn(s: cstring) i32;
-extern malloc :: fn(size: usize) *void;
-extern free :: fn(ptr: *void) void;
+
+Foo :: enum {
+    Bar;
+    Baz;
+}
 
 main :: fn() void {
-    puts(c"hello world");
+    foo := Foo.Bar;
 
-    num := cast(*i32)malloc(sizeof(i32));
-    defer free(cast(*void)num);
-    num.& = 10;
+    nums := [_]i32{1, 2, 3, 4, 5};
+
+    switch (foo) {
+        fall Foo.Baz:
+            puts(c"foo baz");
+        case Foo.Bar:
+            puts(c"foo bar");
+        default:
+            puts(c"default");
+    }
 }
