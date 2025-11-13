@@ -1,6 +1,5 @@
 # Todos
 - UTF-8 Strings
-- Better Error Messages
 - Generics
 - Result Type (!)
 - Receiver Methods
@@ -21,6 +20,7 @@
 - For Loops
 - Type Casting
 - Sizeof Operator
+- Better Error Messages
 
 # Completed
 - Function Declarations

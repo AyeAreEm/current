@@ -54,9 +54,10 @@ typedef struct Sema {
 
     const char *filename;
     Arr(Cursor) cursors;
+    int error_count;
 } Sema;
 
-Sema sema_init(Arr(Stmnt) ast, const char *filename, Arr(Cursor) cursors);
+Sema sema_init(Arr(Stmnt) ast, const char *filename, Arr(Cursor) cursors, int error_count);
 Type *resolve_expr_type(Sema *sema, Expr *expr);
 void sema_analyse(Sema *sema);
 void sema_extern(Sema *sema, Stmnt *stmnt);

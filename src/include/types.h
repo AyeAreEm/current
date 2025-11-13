@@ -45,6 +45,8 @@ typedef enum TypeKind {
 
     TkTypeDef,
     TkTypeId,
+
+    TkPoison,
 } TypeKind;
 
 typedef struct Slice {
@@ -101,5 +103,6 @@ Type type_array(Array v, CONSTNESS constant, size_t index);
 Type type_ptr(Type *v, CONSTNESS constant, size_t index);
 Type type_option(Option v, CONSTNESS constant, size_t index);
 Type type_typedef(const char *v, CONSTNESS constant, size_t index);
+Type type_poison(void);
 
 #endif // TYPES_H

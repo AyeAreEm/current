@@ -14,10 +14,8 @@
 #define STB_DS_IMPLEMENTATION
 #include "include/stb_ds.h"
 
-const bool DEBUG_MODE = false;
-const char *cc = {0};
-
 void compile(CompileFlags flags) {
+    const char *cc = get_c_compiler();
     strb com = NULL;
     strbprintf(&com, "%s -o %s output.c ", cc, flags.output);
 
@@ -51,9 +49,9 @@ void compile(CompileFlags flags) {
         strbprintf(&com, " %s", flags.links[i]);
     }
 
-    if (DEBUG_MODE) {
-        printf("%s\n", com);
-    }
+    // if (DEBUG_MODE) {
+    //     printf("%s\n", com);
+    // }
 
     FILE *fd = popen(com, "r");
     if (fd == NULL) {
@@ -64,7 +62,7 @@ void compile(CompileFlags flags) {
         comp_elog("failed to compile");
     }
 
-    if (!DEBUG_MODE && !flags.keepc) {
+    if (!flags.keepc) {
         remove("output.c");
         remove("output.h");
     }
@@ -83,10 +81,10 @@ const char *build(Cli cli) {
     Lexer lex = lexer(content);
     if (arrlen(lex.tokens) != arrlen(lex.cursors)) comp_elog("expected length of tokens and length of cursors to be the same");
 
-    if (DEBUG_MODE) {
-        print_tokens(lex.tokens);
-        printfln("");
-    }
+    // if (DEBUG_MODE) {
+    //     print_tokens(lex.tokens);
+    //     printfln("");
+    // }
 
     Arr(Stmnt) ast = NULL;
     Parser parser = parser_init(lex, cli.filename);
@@ -94,8 +92,16 @@ const char *build(Cli cli) {
         arrpush(ast, stmnt);
     }
 
-    Sema sema = sema_init(ast, cli.filename, lex.cursors);
+    if (parser.error_count > 0) {
+        exit(1);
+    }
+
+    Sema sema = sema_init(ast, cli.filename, lex.cursors, parser.error_count);
     sema_analyse(&sema);
+
+    if (sema.error_count > 0) {
+        exit(1);
+    }
 
     Gen gen = gen_init(ast, sema.dgraph);
     gen_generate(&gen);
@@ -140,8 +146,6 @@ void run(Cli cli, const char *exe) {
 }
 
 int main(int argc, char **argv) {
-    cc = get_c_compiler();
-
     Cli cli = cli_parse(argv, argc);
 
     cli_usage(cli, false);

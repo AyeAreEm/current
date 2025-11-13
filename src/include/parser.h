@@ -18,6 +18,7 @@ typedef struct Parser {
     const char *filename;
     Arr(Cursor) cursors;
     long cursors_idx;
+    int error_count;
 } Parser;
 
 Expr parse_expr(Parser *parser);

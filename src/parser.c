@@ -13,6 +13,8 @@
 #include "include/utils.h"
 #include "include/stb_ds.h"
 
+#define ERRORS_MAX 5
+
 static void warn(Parser *parser, size_t i, const char *msg, ...) {
     eprintf("%s:%lu:%lu " TERM_YELLOW "warning" TERM_END ": ", parser->filename, parser->cursors[i].row, parser->cursors[i].col);
 
@@ -25,6 +27,7 @@ static void warn(Parser *parser, size_t i, const char *msg, ...) {
 }
 
 static void elog(Parser *parser, size_t i, const char *msg, ...) {
+    parser->error_count++;
     eprintf("%s:%lu:%lu " TERM_RED "error" TERM_END ": ", parser->filename, parser->cursors[i].row, parser->cursors[i].col);
 
     va_list args;
@@ -33,7 +36,10 @@ static void elog(Parser *parser, size_t i, const char *msg, ...) {
     veprintfln(msg, args);
 
     va_end(args);
-    exit(1);
+
+    if (parser->error_count > ERRORS_MAX) {
+        exit(1);
+    }
 }
 
 Expr expr_from_keyword(Parser *parser, Keyword kw) {
@@ -59,7 +65,7 @@ Expr expr_from_keyword(Parser *parser, Keyword kw) {
         }
         default:
             elog(parser, parser->cursors_idx, "expected an expression, got keyword %s", keyword_stringify(kw));
-            return expr_none(); // just to silence warning, elog exits
+            return expr_none();
     }
 }
 
@@ -106,6 +112,7 @@ Parser parser_init(Lexer lex, const char *filename) {
         .filename = filename,
         .cursors = lex.cursors,
         .cursors_idx = -1,
+        .error_count = 0,
     };
 }
 
@@ -176,7 +183,12 @@ typedef struct Identifiers {
 } Identifiers;
 
 static Identifiers convert_ident(Parser *parser, Token tok) {
-    if (tok.kind != TokIdent) elog(parser, parser->cursors_idx, "expected Ident, got %s", tokenkind_stringify(tok.kind));
+    if (tok.kind != TokIdent) {
+        return (Identifiers){
+            .kind = IkIdent,
+            .expr = expr_ident("", type_none(), parser->cursors_idx),
+        };
+    }
 
     Keyword k = keyword_map(tok.ident);
     if (k != KwNone) {
@@ -198,6 +210,26 @@ static Identifiers convert_ident(Parser *parser, Token tok) {
         .kind = IkIdent,
         .expr = expr_ident(tok.ident, type_none(), (size_t)parser->cursors_idx),
     };
+}
+
+Stmnt parse_next_stmnt(Parser *parser) {
+    for (Token tok = peek(parser); tok.kind != TokNone; tok = peek(parser)) {
+        if (tok.kind == TokLeftCurl) {
+            return parser_parse(parser);
+        }
+
+        next(parser);
+        if (tok.kind == TokSemiColon) {
+            return stmnt_none();
+        } else if (tok.kind == TokComma) {
+            // next(parser);
+            assert(false && "parsing to next statement failed at comma");
+        } else if (tok.kind == TokRightCurl) {
+            return stmnt_none();
+        }
+    }
+
+    return stmnt_none();
 }
 
 // expects = already nexted
@@ -231,14 +263,15 @@ Expr parse_end_literal(Parser *parser, Type type) {
                 next(parser);
                 Token tok = expect(parser, TokIdent);
                 Identifiers convert = convert_ident(parser, tok);
+                is_stmnts = true;
                 if (convert.kind == IkIdent) {
                     expect(parser, TokEqual);
                     Stmnt stmnt = parse_var_reassign(parser, convert.expr, false);
                     arrpush(stmnts, stmnt);
-
-                    is_stmnts = true;
                 } else {
                     elog(parser, parser->cursors_idx, "expected identifer in compound literal, got %s", identifierskind_stringify(convert.kind));
+                    Stmnt stmnt = stmnt_none();
+                    arrpush(stmnts, stmnt);
                 }
             } else {
                 Expr expr = parse_expr(parser);
@@ -263,6 +296,8 @@ Expr parse_end_literal(Parser *parser, Type type) {
                 arrpush(stmnts, stmnt);
             } else {
                 elog(parser, parser->cursors_idx, "expected identifer in compound literal, got %s", identifierskind_stringify(convert.kind));
+                Stmnt stmnt = stmnt_none();
+                arrpush(stmnts, stmnt);
             }
         } else {
             Expr expr = parse_expr(parser);
@@ -339,6 +374,7 @@ Type parse_type(Parser *parser) {
                     len->kind = EkNone;
                 } else {
                     elog(parser, (size_t)parser->cursors_idx, "expected an integer, underscore, or empty []");
+                    len->kind = EkNone;
                 }
 
                 type = type_array((Array){
@@ -362,6 +398,7 @@ Type parse_type(Parser *parser) {
                 type = convert.type;
             } else if (convert.kind == IkKeyword) {
                 elog(parser, parser->cursors_idx, "expected a type, got %s", tokenkind_stringify(tok.kind));
+                type = type_none();
             } else {
                 type = typedef_from_ident(convert.expr);
             }
@@ -388,8 +425,8 @@ Expr parse_primary(Parser *parser) {
             } else {
                 strb t = string_from_type(type);
                 elog(parser, parser->cursors_idx, "unexpected type %s", t);
-                // TODO: later when providing more than one error message, uncomment the line below
-                // strbfree(t);
+                strbfree(t);
+                return expr_none();
             }
         } break;
         case TokIdent: {
@@ -434,6 +471,7 @@ Expr parse_primary(Parser *parser) {
                 }
             } else {
                 elog(parser, parser->cursors_idx, "unexpected identifier %s", tok.ident);
+                return expr_none();
             }
         } break;
         case TokIntLit: {
@@ -479,10 +517,10 @@ Expr parse_primary(Parser *parser) {
         } break;
         default:
             elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
+            return expr_none();
     }
 
-    elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
-    return expr_none(); // silence warning
+    return expr_none();
 }
 
 Expr parse_end_fn_call(Parser *parser, Expr ident) {
@@ -505,6 +543,8 @@ Expr parse_end_fn_call(Parser *parser, Expr ident) {
                 arrpush(stmnts, stmnt);
             } else {
                 elog(parser, parser->cursors_idx, "expected identifer in function call, got %s", identifierskind_stringify(convert.kind));
+                Stmnt stmnt = stmnt_none();
+                arrpush(stmnts, stmnt);
             }
         } else {
             is_stmnts = false;
@@ -523,6 +563,8 @@ Expr parse_end_fn_call(Parser *parser, Expr ident) {
                     arrpush(stmnts, stmnt);
                 } else {
                     elog(parser, parser->cursors_idx, "expected identifer in function call, got %s", identifierskind_stringify(convert.kind));
+                    Stmnt stmnt = stmnt_none();
+                    arrpush(stmnts, stmnt);
                 }
             } else {
                 arrpush(exprs, parse_expr(parser));
@@ -632,6 +674,7 @@ resume:
             if (streq(op.ident, "sizeof")) {
                 if (right->kind != EkGrouping) {
                     elog(parser, right->cursors_idx, "expected () after `sizeof`");
+                    return expr_none();
                 }
 
                 return expr_unop((Unop){
@@ -639,13 +682,13 @@ resume:
                     .val = right,
                 }, type_integer(TkUntypedInt, TYPECONST, index), index);
             }
-
-            // unreachable
-            assert(false);
+            return expr_none();
         default:
-            // unreachable
-            assert(false);
+            elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(op.kind));
+            return expr_none();
     }
+
+    return expr_none();
 }
 
 Expr parse_factor(Parser *parser) {
@@ -1085,15 +1128,18 @@ Expr parse_field_access(Parser *parser, Expr expr) {
         Identifiers convert = convert_ident(parser, tok);
         if (convert.kind != IkIdent) {
             elog(parser, parser->cursors_idx, "unexpected token %s after field access", tokenkind_stringify(tok.kind));
+            *field = expr_none();
+            fa.type = type_none();
+        } else {
+            *field = convert.expr;
+            fa.type = field->type;
         }
-        *field = convert.expr;
-        fa.type = field->type;
     }
 
     tok = peek(parser);
-    if (tok.kind == TokNone) elog(parser, parser->cursors_idx, "expected more tokens");
-
-    if (tok.kind == TokDot) {
+    if (tok.kind == TokNone) {
+        elog(parser, parser->cursors_idx, "expected more tokens");
+    } else if (tok.kind == TokDot) {
         next(parser); // already checked if none
         return parse_field_access(parser, fa);
     } else if (tok.kind == TokLeftSquare) {
@@ -1191,11 +1237,13 @@ Stmnt parse_possible_assignment(Parser *parser, Expr expr, bool expect_semicolon
             Token final = next(parser);
             if (final.kind != TokEqual) {
                 elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(final.kind));
+                return parse_next_stmnt(parser);
             }
 
             return parse_compound_assignment(parser, expr, tok, expect_semicolon);
         } else if (after.kind != TokEqual) {
             elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(after.kind));
+            return parse_next_stmnt(parser);
         }
 
         return parse_compound_assignment(parser, expr, tok, expect_semicolon);
@@ -1250,7 +1298,11 @@ Stmnt parse_fn_decl(Parser *parser, Expr ident) {
     parser->in_func_decl_args = false;
 
     Type type = parse_type(parser);
-    if (type.kind == TkNone) elog(parser, parser->cursors_idx, "expected return type in function declaration");
+    if (type.kind == TkNone) {
+        elog(parser, parser->cursors_idx, "expected return type in function declaration");
+        return parse_next_stmnt(parser);
+    }
+
     FnDecl fndecl = {
         .name = ident,
         .args = args,
@@ -1272,10 +1324,8 @@ Stmnt parse_fn_decl(Parser *parser, Expr ident) {
         return stmnt_fndecl(fndecl, index);
     } else {
         elog(parser, parser->cursors_idx, "expected ';' or '{', got %s", tokenkind_stringify(tok.kind));
+        return parse_next_stmnt(parser);
     }
-
-    // unreachable, silence warning
-    return stmnt_none();
 }
 
 Stmnt parse_struct_decl(Parser *parser, Expr ident) {
@@ -1326,9 +1376,12 @@ Stmnt parse_const_decl(Parser *parser, Expr ident, Type type) {
                     break;
                 default:
                     elog(parser, index, "unexpected token %s", tokenkind_stringify(tok.kind));
-                    break;
+                    return parse_next_stmnt(parser);
             }
         }
+    } else {
+        elog(parser, index, "unexpected token %s", tokenkind_stringify(tok.kind));
+        return parse_next_stmnt(parser);
     }
 
     // <ident>: <type,
@@ -1346,6 +1399,7 @@ Stmnt parse_const_decl(Parser *parser, Expr ident, Type type) {
     // <ident>: <type?> : ;
     if (expr.kind == EkNone) {
         elog(parser, index, "expected expression after \":\" in variable declaration");
+        return parse_next_stmnt(parser);
     }
 
     return stmnt_constdecl((ConstDecl){
@@ -1382,6 +1436,7 @@ Stmnt parse_var_decl(Parser *parser, Expr ident, Type type, bool has_equal) {
     expect(parser, TokSemiColon);
     if (expr.kind == EkNone) {
         elog(parser, index, "expected expression after \"=\" in variable declaration");
+        return parse_next_stmnt(parser);
     }
 
     vardecl.value = expr;
@@ -1401,6 +1456,10 @@ Stmnt parse_decl(Parser *parser, Expr ident) {
         return parse_var_decl(parser, ident, type_none(), true);
     } else {
         Type type = parse_type(parser);
+        if (type.kind == TkNone) {
+            elog(parser, parser->cursors_idx, "expected a type");
+            return parse_next_stmnt(parser);
+        }
 
         tok = peek(parser);
         if (tok.kind == TokNone) return stmnt_none();
@@ -1415,12 +1474,14 @@ Stmnt parse_decl(Parser *parser, Expr ident) {
             next(parser);
             if (type.kind == TkNone) {
                 elog(parser, parser->cursors_idx, "expected type for variable declaration since it does not have a value");
+                return parse_next_stmnt(parser);
             }
             return parse_var_decl(parser, ident, type, false);
         } else if (tok.kind == TokComma) {
             next(parser);
             if (!parser->in_func_decl_args) {
                 elog(parser, parser->cursors_idx, "unexpected comma during declaration");
+                return parse_next_stmnt(parser);
             }
             return parse_const_decl(parser, ident, type);
         } else if (tok.kind == TokRightBracket) {
@@ -1430,6 +1491,7 @@ Stmnt parse_decl(Parser *parser, Expr ident) {
             return parse_const_decl(parser, ident, type);
         } else {
             elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
+            return parse_next_stmnt(parser);
         }
     }
 
@@ -1477,6 +1539,7 @@ Stmnt parse_ident(Parser *parser, Expr ident) {
         case TokSemiColon:
             if (!parser->in_enum_decl) {
                 elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
+                return parse_next_stmnt(parser);
             }
 
             next(parser);
@@ -1486,6 +1549,7 @@ Stmnt parse_ident(Parser *parser, Expr ident) {
             }, parser->cursors_idx);
         default:
             elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
+            return parse_next_stmnt(parser);
     }
 
     return stmnt_none();
@@ -1553,6 +1617,7 @@ Stmnt parse_if(Parser *parser) {
             capture = convert.expr;
         } else {
             elog(parser, parser->cursors_idx, "capture must be a unique identifier");
+            return parse_next_stmnt(parser);
         }
         expect(parser, TokRightSquare);
     }
@@ -1573,6 +1638,7 @@ Stmnt parse_if(Parser *parser) {
                     arrpush(else_block, parse_if(parser));
                 } else {
                     elog(parser, parser->cursors_idx, "unexpected identifier %s after `else`", after.ident);
+                    return parse_next_stmnt(parser);
                 }
             } else {
                 else_block = parse_block_curls(parser);
@@ -1606,6 +1672,7 @@ Stmnt parse_for(Parser *parser) {
         ident = convert.expr;
     } else {
         elog(parser, parser->cursors_idx, "expected identifer, got reserved word");
+        return parse_next_stmnt(parser);
     }
 
     // for (i:
@@ -1626,6 +1693,7 @@ Stmnt parse_for(Parser *parser) {
             *vardecl = parse_var_decl(parser, ident, type, true);
         } else {
             elog(parser, parser->cursors_idx, "unexpected token %s in for loop", tokenkind_stringify(tok.kind));
+            return parse_next_stmnt(parser);
         }
 
         // for (i: <type?> = <expr>; <cond>
@@ -1652,7 +1720,7 @@ Stmnt parse_for(Parser *parser) {
     } else {
         // TODO: support `for (values) [value]`
         elog(parser, parser->cursors_idx, "expected ':', got %s", tokenkind_stringify(tok.kind));
-        return stmnt_none(); // silence warning
+        return parse_next_stmnt(parser);
     }
 }
 
@@ -1707,7 +1775,9 @@ Stmnt parser_parse(Parser *parser) {
                         return parse_extern(parser);
                     case KwFor:
                         return parse_for(parser);
-                    default: break;
+                    default:
+                        elog(parser, parser->cursors_idx, "unexpected keyword \"%s\"", tok.ident);
+                        return parse_next_stmnt(parser);
                 }
             }
         } break;
@@ -1720,7 +1790,7 @@ Stmnt parser_parse(Parser *parser) {
         default:
             next(parser);
             elog(parser, parser->cursors_idx, "unexpected token %s", tokenkind_stringify(tok.kind));
-            break;
+            parse_next_stmnt(parser);
     }
 
     return stmnt_none();

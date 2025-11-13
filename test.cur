@@ -1,6 +1,13 @@
-extern fputs :: fn(s: cstring, stream: *void) i32;
+Person :: struct {
+    name: string;
+    age: f32;
+}
 
 main :: fn() void {
-    // lmao didn't realise that FILE is an actual struct... thought i could just use `1` for stdin but that segfaults
-    fputs(c"enter word: \n", cast(*void)1);
+    person := Person{
+        .name = c"john",
+        .age = cast(i32)10,
+    };
+
+    person.age += 10;
 }

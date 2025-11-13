@@ -118,6 +118,12 @@ Type type_typedef(const char *v, CONSTNESS constant, size_t index) {
     };
 }
 
+Type type_poison(void) {
+    return (Type){
+        .kind = TkPoison,
+    };
+}
+
 Type type_from_string(const char *t) {
     if (streq(t, "void")) {
         return (Type){.kind = TkVoid};
@@ -163,6 +169,8 @@ strb string_from_type(Type t) {
 
     switch (t.kind) {
         case TkNone:
+            break;
+        case TkPoison:
             break;
 
         case TkTypeDef:
