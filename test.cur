@@ -1,13 +1,11 @@
-Person :: struct {
-    name: string;
-    age: f32;
-}
+extern puts :: fn(s: cstring) i32;
+extern malloc :: fn(size: usize) *void;
+extern free :: fn(ptr: *void) void;
 
 main :: fn() void {
-    person := Person{
-        .name = c"john",
-        .age = cast(i32)10,
-    };
+    puts(c"hello world");
 
-    person.age += 10;
+    num := cast(*i32)malloc(sizeof(i32));
+    defer free(cast(*void)num);
+    num.& = 10;
 }
