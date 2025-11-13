@@ -1379,9 +1379,6 @@ Stmnt parse_const_decl(Parser *parser, Expr ident, Type type) {
                     return parse_next_stmnt(parser);
             }
         }
-    } else {
-        elog(parser, index, "unexpected token %s", tokenkind_stringify(tok.kind));
-        return parse_next_stmnt(parser);
     }
 
     // <ident>: <type,
@@ -1487,6 +1484,7 @@ Stmnt parse_decl(Parser *parser, Expr ident) {
         } else if (tok.kind == TokRightBracket) {
             if (!parser->in_func_decl_args) {
                 elog(parser, parser->cursors_idx, "unexpected TokenRb during declaration");
+                return parse_next_stmnt(parser);
             }
             return parse_const_decl(parser, ident, type);
         } else {

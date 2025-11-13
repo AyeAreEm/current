@@ -13,7 +13,10 @@
 #include "include/utils.h"
 #include "include/typecheck.h"
 
+#define ERRORS_MAX 5
+
 static void elog(Sema *sema, size_t i, const char *msg, ...) {
+    sema->error_count++;
     eprintf("%s:%lu:%lu " TERM_RED "error" TERM_END ": ", sema->filename, sema->cursors[i].row, sema->cursors[i].col);
 
     va_list args;
@@ -23,7 +26,7 @@ static void elog(Sema *sema, size_t i, const char *msg, ...) {
 
     va_end(args);
 
-    if (sema->error_count) {
+    if (sema->error_count > ERRORS_MAX) {
         exit(1);
     }
 }
