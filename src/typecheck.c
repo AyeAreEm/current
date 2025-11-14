@@ -65,6 +65,10 @@ bool tc_ptr_equals(Sema *sema, Type lhs, Type *rhs) {
 }
 
 bool tc_array_equals(Sema *sema, Type lhs, Type *rhs) {
+    if (lhs.kind == TkPoison || rhs->kind == TkPoison) {
+        return false;
+    }
+
     if (lhs.kind == TkArray && rhs->kind == TkArray) {
         if (lhs.array.len->kind != EkNone) {
             uint64_t l_len = eval_expr(sema, lhs.array.len);
@@ -92,12 +96,12 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             // NOTE: not sure about this
             return false;
         }
+        case TkBool: {
+            return rhs->kind == TkBool;
+        }
         case TkTypeDef:
             symtab_find(sema, lhs.typedeff, lhs.cursors_idx);
-            if (rhs->kind == TkTypeDef && streq(lhs.typedeff, rhs->typedeff)) {
-                return true;
-            }
-            return false;
+            return rhs->kind == TkTypeDef && streq(lhs.typedeff, rhs->typedeff);
         case TkOption:
             if (rhs->kind == TkOption) {
                 if (lhs.option.subtype->kind == TkVoid) {
@@ -291,8 +295,6 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
                 default:
                     return false;
             }
-        default:
-            break;
     }
 
     if (lhs.kind == rhs->kind) return true;
@@ -306,6 +308,13 @@ void tc_return(Sema *sema, Stmnt *stmnt) {
 
     if (ret->type.kind == TkNone) {
         ret->type = fndecl.type;
+    }
+
+    if (ret->type.kind == TkPoison || fndecl.type.kind == TkPoison) {
+        return;
+    }
+    if (ret->value.type.kind == TkPoison) {
+        return;
     }
 
     if (ret->value.kind == EkNone) {
@@ -375,6 +384,10 @@ void tc_var_decl(Sema *sema, Stmnt *stmnt) {
         tc_infer(sema, &vardecl->type, &vardecl->value);
     } else {
         Type *exprtype = resolve_expr_type(sema, &vardecl->value);
+        if (exprtype->kind == TkPoison || vardecl->type.kind == TkPoison) {
+            return;
+        }
+
         if (!tc_equals(sema, vardecl->type, exprtype)) {
             strb t1 = string_from_type(vardecl->type);
             strb t2 = string_from_type(*exprtype);
@@ -447,6 +460,10 @@ void tc_const_decl(Sema *sema, Stmnt *stmnt) {
     assert(stmnt->kind == SkConstDecl);
     ConstDecl *constdecl = &stmnt->constdecl;
     Type *valtype = resolve_expr_type(sema, &constdecl->value);
+
+    if (constdecl->type.kind == TkPoison || valtype->kind == TkPoison) {
+        return;
+    }
 
     if (constdecl->type.kind == TkNone) {
         tc_infer(sema, &constdecl->type, &constdecl->value);
@@ -583,6 +600,8 @@ bool tc_is_unsigned(Sema *sema, Expr expr) {
         case TkI32:
         case TkI64:
         case TkIsize:
+            return false;
+        case TkPoison:
             return false;
         default: {
             strb t = string_from_type(*type);
