@@ -58,8 +58,7 @@ typedef struct Token {
     TokenKind kind;
     union {
         const char *ident;
-        uint64_t intlit;
-        double floatlit;
+        double numlit;
         char charlit;
         const char *strlit;
         const char *directive;

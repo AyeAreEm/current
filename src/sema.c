@@ -1177,6 +1177,8 @@ void sema_var_decl(Sema *sema, Stmnt *stmnt) {
 
     sema_expr(sema, &vardecl->value);
     tc_var_decl(sema, stmnt);
+    // debug("%s", string_from_type(vardecl->value.type));
+    // debug("%d", vardecl->value.floatlit);
     symtab_push(sema, vardecl->name.ident, *stmnt);
 }
 

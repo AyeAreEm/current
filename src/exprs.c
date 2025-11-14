@@ -46,12 +46,12 @@ Expr expr_type(Type v, size_t index) {
     };
 }
 
-Expr expr_intlit(uint64_t v, Type t, size_t index) {
+Expr expr_intlit(double v, Type t, size_t index) {
     return (Expr){
         .kind = EkIntLit,
         .cursors_idx = index,
         .type = t,
-        .intlit = v,
+        .numlit = v,
     };
 }
 
@@ -60,7 +60,7 @@ Expr expr_floatlit(double v, Type t, size_t index) {
         .kind = EkFloatLit,
         .cursors_idx = index,
         .type = t,
-        .floatlit = v,
+        .numlit = v,
     };
 }
 

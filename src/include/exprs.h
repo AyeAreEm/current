@@ -139,8 +139,7 @@ typedef struct Expr {
     union {
         Type type_expr;
 
-        uint64_t intlit;
-        double floatlit;
+        double numlit;
         uint8_t charlit;
         const char *strlit;
         const char *cstrlit;
@@ -165,7 +164,7 @@ Expr expr_true(size_t index);
 Expr expr_false(size_t index);
 Expr expr_null(Type t, size_t index);
 Expr expr_type(Type v, size_t index);
-Expr expr_intlit(uint64_t v, Type t, size_t index);
+Expr expr_intlit(double v, Type t, size_t index);
 Expr expr_floatlit(double v, Type t, size_t index);
 Expr expr_charlit(uint8_t v, size_t index);
 Expr expr_strlit(const char *v, size_t index);

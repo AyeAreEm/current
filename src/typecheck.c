@@ -10,19 +10,19 @@
 #include "include/types.h"
 #include "include/utils.h"
 
-// static const double F32_MIN = -3.40282347E+38;
+static const double F32_MIN = -3.40282347E+38;
 static const double F32_MAX = 3.40282347E+38;
 // static const double F64_MIN = -1.7976931348623157E+308;
 // static const double F64_MAX = 1.7976931348623157E+308;
 
-// static const int64_t I8_MIN = INT8_MIN;
+static const int64_t I8_MIN = INT8_MIN;
 static const int64_t I8_MAX = INT8_MAX;
-// static const int64_t I16_MIN = INT16_MIN;
+static const int64_t I16_MIN = INT16_MIN;
 static const int64_t I16_MAX = INT16_MAX;
-// static const int64_t I32_MIN = INT32_MIN;
+static const int64_t I32_MIN = INT32_MIN;
 static const int64_t I32_MAX = INT32_MAX;
 // static const int64_t I64_MIN = INT64_MIN;
-static const int64_t I64_MAX = INT64_MAX;
+// static const int64_t I64_MAX = INT64_MAX;
 
 static const uint64_t U8_MAX = UINT8_MAX;
 static const uint64_t U16_MAX = UINT16_MAX;
@@ -64,6 +64,30 @@ bool tc_ptr_equals(Sema *sema, Type lhs, Type *rhs) {
     return false;
 }
 
+bool tc_range_equals(Sema *sema, Type lhs, Type *rhs) {
+    if (lhs.kind == TkPoison || rhs->kind == TkPoison) {
+        return false;
+    }
+
+    if (lhs.kind == TkRange && rhs->kind == TkRange) {
+        return tc_equals(sema, *lhs.range.subtype, rhs->range.subtype);
+    }
+
+    return false;
+}
+
+bool tc_slice_equals(Sema *sema, Type lhs, Type *rhs) {
+    if (lhs.kind == TkPoison || rhs->kind == TkPoison) {
+        return false;
+    }
+
+    if (lhs.kind == TkSlice && rhs->kind == TkSlice) {
+        return tc_equals(sema, *lhs.slice.of, rhs->slice.of);
+    }
+
+    return false;
+}
+
 bool tc_array_equals(Sema *sema, Type lhs, Type *rhs) {
     if (lhs.kind == TkPoison || rhs->kind == TkPoison) {
         return false;
@@ -96,9 +120,20 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             // NOTE: not sure about this
             return false;
         }
-        case TkBool: {
+        case TkNone:
+            return false;
+        case TkPoison:
+            return false;
+        case TkBool:
             return rhs->kind == TkBool;
-        }
+        case TkChar:
+            return rhs->kind == TkChar;
+        case TkString:
+            return rhs->kind == TkString;
+        case TkCstring:
+            return rhs->kind == TkCstring;
+        case TkTypeId:
+            return rhs->kind == TkTypeId;
         case TkTypeDef:
             symtab_find(sema, lhs.typedeff, lhs.cursors_idx);
             return rhs->kind == TkTypeDef && streq(lhs.typedeff, rhs->typedeff);
@@ -128,6 +163,10 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
             return tc_ptr_equals(sema, lhs, rhs);
         case TkArray:
             return tc_array_equals(sema, lhs, rhs);
+        case TkSlice:
+            return tc_slice_equals(sema, lhs, rhs);
+        case TkRange:
+            return tc_range_equals(sema, lhs, rhs);
         case TkUntypedInt:
             switch (rhs->kind) {
                 case TkUntypedInt:
@@ -268,6 +307,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
         case TkUntypedFloat:
             switch (rhs->kind) {
                 case TkUntypedFloat:
+                case TkUntypedInt:
                 case TkF32:
                 case TkF64:
                     return true;
@@ -277,6 +317,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
         case TkF32:
             switch (rhs->kind) {
                 case TkUntypedFloat:
+                case TkUntypedInt:
                     *rhs = lhs;
                     return true;
                 case TkF32:
@@ -287,6 +328,7 @@ bool tc_equals(Sema *sema, Type lhs, Type *rhs) {
         case TkF64:
             switch (rhs->kind) {
                 case TkUntypedFloat:
+                case TkUntypedInt:
                     *rhs = lhs;
                     return true;
                 case TkF32:
@@ -482,99 +524,91 @@ void tc_number_within_bounds(Sema *sema, Type type, Expr expr) {
     if (expr.kind == EkIntLit) {
         switch (type.kind) {
             case TkF32: {
-                double value = (double)expr.intlit;
-                if (value > F32_MAX) {
+                double value = expr.numlit;
+                if (value > F32_MAX || value < F32_MIN) {
                     elog(sema, expr.cursors_idx, "literal \"%f\" cannot be represented in f32", value);
                 }
             } break;
             case TkF64:
+                // no way to properly check here
                 break;
             case TkU8: {
-                uint64_t value = expr.intlit;
+                uint64_t value = (uint64_t)expr.numlit;
                 if (value > U8_MAX) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in u8", value);
                 }
             } break;
             case TkU16: {
-                uint64_t value = expr.intlit;
+                uint64_t value = (uint64_t)expr.numlit;
                 if (value > U16_MAX) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in u16", value);
                 }
             } break;
             case TkU32: {
-                uint64_t value = expr.intlit;
+                uint64_t value = (uint64_t)expr.numlit;
                 if (value > U32_MAX) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in u32", value);
                 }
             } break;
             case TkU64:
+                // no way to properly check here
+                break;
             case TkUsize:
+                // no way to properly check here
                 break;
             case TkI8: {
-                uint64_t value = expr.intlit;
-                if (value > I8_MAX) {
+                int64_t value = (int64_t)expr.numlit;
+                if (value > I8_MAX || value < I8_MIN) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i8", value);
                 }
             } break;
             case TkI16: {
-                uint64_t value = expr.intlit;
-                if (value > I16_MAX) {
+                int64_t value = (int64_t)expr.numlit;
+                if (value > I16_MAX || value < I8_MIN) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i16", value);
                 }
             } break;
             case TkI32: {
-                uint64_t value = expr.intlit;
-                if (value > I32_MAX) {
+                int64_t value = (int64_t)expr.numlit;
+                if (value > I32_MAX || value < I32_MIN) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i32", value);
                 }
             } break;
-            case TkI64: {
-                uint64_t value = expr.intlit;
-                if (value > I64_MAX) {
-                    elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i64", value);
-                }
-            } break;
-            case TkIsize: {
-                uint64_t value = expr.intlit;
-                if (value > I64_MAX) {
-                    elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in isize", value);
-                }
-            } break;
+            case TkI64:
+                // no way to properly check here
+                break;
+            case TkIsize:
+                // no way to properly check here
+                break;
             default:
                 break;
         }
     } else if (expr.kind == EkUnop && expr.unop.kind == UkNegate && expr.unop.val->kind == EkIntLit) {
         switch (type.kind) {
             case TkI8: {
-                uint64_t value = expr.intlit;
-                if (value > I8_MAX) {
+                int64_t value = (int64_t)expr.numlit;
+                if (value > I8_MAX || value < I8_MIN) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i8", value);
                 }
             } break;
             case TkI16: {
-                uint64_t value = expr.intlit;
-                if (value > I16_MAX) {
+                int64_t value = (int64_t)expr.numlit;
+                if (value > I16_MAX || value < I16_MIN) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i16", value);
                 }
             } break;
             case TkI32: {
-                uint64_t value = expr.intlit;
-                if (value > I32_MAX) {
+                int64_t value = (int64_t)expr.numlit;
+                if (value > I32_MAX || value < I32_MIN) {
                     elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i32", value);
                 }
             } break;
-            case TkI64: {
-                uint64_t value = expr.intlit;
-                if (value > I64_MAX) {
-                    elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in i64", value);
-                }
-            } break;
-            case TkIsize: {
-                uint64_t value = expr.intlit;
-                if (value > I64_MAX) {
-                    elog(sema, expr.cursors_idx, "literal \"%zu\" cannot be represented in isize", value);
-                }
-            } break;
+            case TkI64:
+                // no way to properly check here
+                break;
+            case TkIsize:
+                // no way to properly check here
+                break;
             default:
                 break;
         }

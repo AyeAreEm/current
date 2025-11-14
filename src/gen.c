@@ -378,42 +378,42 @@ strb gen_numlit_expr(Expr expr) {
 
     switch (expr.type.kind) {
         case TkF32:
-            strbprintf(&s, "%ff", (float)expr.floatlit);
+            strbprintf(&s, "%.7ff", (float)expr.numlit);
             break;
         case TkF64:
         case TkUntypedFloat:
-            strbprintf(&s, "%f", expr.floatlit);
+            strbprintf(&s, "%.15f", expr.numlit);
             break;
         case TkU8:
-            strbprintf(&s, "UINT8_C(%" PRIu8 ")", (uint8_t)expr.intlit);
+            strbprintf(&s, "UINT8_C(%" PRIu8 ")", (uint8_t)expr.numlit);
             break;
         case TkU16:
-            strbprintf(&s, "UINT16_C(%" PRIu16 ")", (uint16_t)expr.intlit);
+            strbprintf(&s, "UINT16_C(%" PRIu16 ")", (uint16_t)expr.numlit);
             break;
         case TkU32:
-            strbprintf(&s, "UINT32_C(%" PRIu32 ")", (uint32_t)expr.intlit);
+            strbprintf(&s, "UINT32_C(%" PRIu32 ")", (uint32_t)expr.numlit);
             break;
         case TkU64:
-            strbprintf(&s, "UINT64_C(%" PRIu64 ")", expr.intlit);
+            strbprintf(&s, "UINT64_C(%" PRIu64 ")", (uint64_t)expr.numlit);
             break;
         case TkUsize:
-            strbprintf(&s, "UINT64_C(%zu)", expr.intlit);
+            strbprintf(&s, "UINT64_C(%zu)", (size_t)expr.numlit);
             break;
         case TkI8:
-            strbprintf(&s, "INT8_C(%" PRIi8 ")", (int8_t)expr.intlit);
+            strbprintf(&s, "INT8_C(%" PRIi8 ")", (int8_t)expr.numlit);
             break;
         case TkI16:
-            strbprintf(&s, "INT16_C(%" PRIi16 ")", (int16_t)expr.intlit);
+            strbprintf(&s, "INT16_C(%" PRIi16 ")", (int16_t)expr.numlit);
             break;
         case TkI32:
-            strbprintf(&s, "INT32_C(%" PRIi32 ")", (int32_t)expr.intlit);
+            strbprintf(&s, "INT32_C(%" PRIi32 ")", (int32_t)expr.numlit);
             break;
         case TkI64:
         case TkUntypedInt:
-            strbprintf(&s, "INT64_C(%" PRIi64 ")", (int64_t)expr.intlit);
+            strbprintf(&s, "INT64_C(%" PRIi64 ")", (int64_t)expr.numlit);
             break;
         case TkIsize:
-            strbprintf(&s, "INT64_C(%zd)", (ssize_t)expr.intlit);
+            strbprintf(&s, "INT64_C(%zd)", (ssize_t)expr.numlit);
             break;
         default: break;
     }

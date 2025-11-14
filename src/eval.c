@@ -81,7 +81,7 @@ uint64_t eval_expr(Sema *sema, Expr *expr) {
 
     switch (expr->kind) {
         case EkIntLit:
-            return expr->intlit;
+            return (uint64_t)expr->numlit;
         case EkIdent:
             // TODO: find out if ident is compile time known
             return 0;

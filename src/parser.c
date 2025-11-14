@@ -477,7 +477,7 @@ Expr parse_primary(Parser *parser) {
         case TokIntLit: {
             next(parser);
             return expr_intlit(
-                tok.intlit,
+                tok.numlit,
                 type_integer(
                     TkUntypedInt,
                     TYPECONST,
@@ -489,7 +489,7 @@ Expr parse_primary(Parser *parser) {
         case TokFloatLit: {
             next(parser);
             Expr expr = expr_floatlit(
-                tok.floatlit,
+                tok.numlit,
                 type_decimal(
                     TkUntypedFloat,
                     TYPECONST,
@@ -1030,7 +1030,6 @@ Expr parse_range(Parser *parser) {
                 case TokIdent:
                 case TokIntLit:
                 case TokFloatLit:
-                case TokStrLit:
                 case TokCharLit:
                     *right = parse_or(parser);
                     break;
@@ -1043,7 +1042,6 @@ Expr parse_range(Parser *parser) {
                 case TokIdent:
                 case TokIntLit:
                 case TokFloatLit:
-                case TokStrLit:
                 case TokCharLit:
                     *right = parse_or(parser);
                     break;

@@ -13,10 +13,10 @@ Token token_ident(const char *s) {
     return (Token){.kind = TokIdent, .ident = s};
 }
 Token token_intlit(uint64_t n) {
-    return (Token){.kind = TokIntLit, .intlit = n};
+    return (Token){.kind = TokIntLit, .numlit = (double)n};
 }
 Token token_floatlit(double n) {
-    return (Token){.kind = TokFloatLit, .floatlit = n};
+    return (Token){.kind = TokFloatLit, .numlit = n};
 }
 Token token_charlit(char s) {
     return (Token){.kind = TokCharLit, .charlit = s};
@@ -79,11 +79,11 @@ strb token_stringify(Token tok) {
         } break;
         case TokIntLit:
         {
-            strbprintf(&s, "IntLit(%lu)", tok.intlit);
+            strbprintf(&s, "IntLit(%lu)", (uint64_t)tok.numlit);
         } break;
         case TokFloatLit:
         {
-            strbprintf(&s, "FloatLit(%f)", tok.floatlit);
+            strbprintf(&s, "FloatLit(%f)", tok.numlit);
         } break;
         case TokCharLit:
         {
