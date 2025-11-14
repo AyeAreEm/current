@@ -1,21 +1,17 @@
-extern puts :: fn(s: cstring) i32;
-
-Foo :: enum {
-    Bar;
-    Baz;
-}
-
 main :: fn() void {
-    foo := Foo.Bar;
+    a := 10;
+    b: i32 = 10;
+    c: i16 = 10;
+    d: i8 = 10;
 
-    nums := [_]i32{1, 2, 3, 4, 5};
+    e: u64 = 10;
+    f: u32 = 10;
+    g: u16 = 10;
+    h: u8 = 10;
 
-    switch (foo) {
-        fall Foo.Baz:
-            puts(c"foo baz");
-        case Foo.Bar:
-            puts(c"foo bar");
-        default:
-            puts(c"default");
-    }
+    i: isize = 10;
+    j: usize = 10;
+
+    k: f64 = 10.0;
+    l: f32 = 10.0;
 }

@@ -385,35 +385,35 @@ strb gen_numlit_expr(Expr expr) {
             strbprintf(&s, "%f", expr.floatlit);
             break;
         case TkU8:
-            strbprintf(&s, "%"PRIu8, (uint8_t)expr.intlit);
+            strbprintf(&s, "UINT8_C(%" PRIu8 ")", (uint8_t)expr.intlit);
             break;
         case TkU16:
-            strbprintf(&s, "%"PRIu16, (uint16_t)expr.intlit);
+            strbprintf(&s, "UINT16_C(%" PRIu16 ")", (uint16_t)expr.intlit);
             break;
         case TkU32:
-            strbprintf(&s, "%"PRIu32, (uint32_t)expr.intlit);
+            strbprintf(&s, "UINT32_C(%" PRIu32 ")", (uint32_t)expr.intlit);
             break;
         case TkU64:
-            strbprintf(&s, "%"PRIu64, expr.intlit);
+            strbprintf(&s, "UINT64_C(%" PRIu64 ")", expr.intlit);
             break;
         case TkUsize:
-            strbprintf(&s, "%zu", expr.intlit);
+            strbprintf(&s, "UINT64_C(%zu)", expr.intlit);
             break;
         case TkI8:
-            strbprintf(&s, "%"PRIi8, (int8_t)expr.intlit);
+            strbprintf(&s, "INT8_C(%" PRIi8 ")", (int8_t)expr.intlit);
             break;
         case TkI16:
-            strbprintf(&s, "%"PRIi16, (int16_t)expr.intlit);
+            strbprintf(&s, "INT16_C(%" PRIi16 ")", (int16_t)expr.intlit);
             break;
         case TkI32:
-            strbprintf(&s, "%"PRIi32, (int32_t)expr.intlit);
+            strbprintf(&s, "INT32_C(%" PRIi32 ")", (int32_t)expr.intlit);
             break;
         case TkI64:
         case TkUntypedInt:
-            strbprintf(&s, "%"PRIi64, (int64_t)expr.intlit);
+            strbprintf(&s, "INT64_C(%" PRIi64 ")", (int64_t)expr.intlit);
             break;
         case TkIsize:
-            strbprintf(&s, "%zd", (ssize_t)expr.intlit);
+            strbprintf(&s, "INT64_C(%zd)", (ssize_t)expr.intlit);
             break;
         default: break;
     }
