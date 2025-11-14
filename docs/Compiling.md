@@ -1,17 +1,17 @@
 # Compiling
-Just a quick example to show how to compile your program in current
+Just a quick example to show how to compile your program in Pine
 
 ## Executable
 Build:
 ```console
-$ current build main.cur
+$ pine build main.pine
 $ ./main
 Hello, World!
 $
 ```
 Build and run:
 ```console
-$ current run main.cur
+$ pine run main.pine
 Hello, World!
 $
 ```

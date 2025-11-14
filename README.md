@@ -1,12 +1,12 @@
-# Current
+# Pine
 - NOTE: this language is still in development. expect bugs as features<br>
 
 ## Description
-Current is a statically typed compiled programming language with manual memory management.<br>
+Pine is a statically typed compiled programming language with manual memory management.<br>
 It's an ergonomic middle ground between C and C++, similar to new programming languages in this space.<br>
 
 ## Principles
-Current's main principles are simplicity and ease of use. A language with these principles would be one that doesn't stand in the way of the programmer and has features you'd expect in a modern language.<br>
+Pine's main principles are simplicity and ease of use. A language with these principles would be one that doesn't stand in the way of the programmer and has features you'd expect in a modern language.<br>
 To do this, we borrow features from other languages. For example, generics, receiver methods from Golang, options and errors from Zig, etc.
 
 ## Features
@@ -97,7 +97,7 @@ I have noticed one major problem with the ":=", "::" syntax. While it's clear to
 In Odin, you can't take the address of a constant because they are compile time known, which means they won't have a runtime address.<br>
 Similarly in Golang, you can't take the address as well because a constant may or may not have a runtime address and Golang wants to keep all constants immutable by not letting them be addressable.<br>
 <br>
-I thought about making constants in Current only compile time values but this feels restrictive. It would not be possible to have immutable non-compile time known values. Perhaps I'm confusing constants with immutables, but I want compile time constants, constants (immutables), and variables. So instead, you can have a pointer to immutable data and mutable data. Hence, two pointer symbols.<br>
+I thought about making constants in Pine only compile time values but this feels restrictive. It would not be possible to have immutable non-compile time known values. Perhaps I'm confusing constants with immutables, but I want compile time constants, constants (immutables), and variables. So instead, you can have a pointer to immutable data and mutable data. Hence, two pointer symbols.<br>
 `*` is a pointer to a variable / mutable data.<br>
 `^` is a pointer to a constant / immutable data.<br>
 
@@ -118,8 +118,8 @@ $ ./build.bat build
 ## How to use
 GCC or Clang is needed as an external dependency.
 
-`./current help` shows the commands available. Doing `./current <command> help` will give more detail into a command.<br>
-`./current build <file.cur>` will build an executable from said file.<br>
-`./current run <file.cur>` will build and run the executable from said file.<br>
+`./pine help` shows the commands available. Doing `./pine <command> help` will give more detail into a command.<br>
+`./pine build <file.pine>` will build an executable from said file.<br>
+`./pine run <file.pine>` will build and run the executable from said file.<br>
 <br>
 To find documentation or examples, there are folders `docs` and `examples` to help.

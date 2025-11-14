@@ -1,5 +1,5 @@
 # Directives
-Current does not have build options from the cli but instead is written in your code.<br>
+Pine does not have build options from the cli but instead is written in your code.<br>
 The idea is to have a full compile time system in place that uses directives and compile time code.
 
 ## Output
@@ -10,7 +10,7 @@ NOTE: without this directive, the compiler will assume the output name is the sa
 ```
 
 ## Optimisation
-There are 7 types of optimisation in Current.<br>
+There are 7 types of optimisation in Pine.<br>
 NOTE: if an optimisation has already been set, another optimise directive will be an error. You can change the kind of optimisation programmatically using compile time ifs.
 1. O0
     - No optimisations

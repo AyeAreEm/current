@@ -43,14 +43,14 @@ BIN_TYPES = bin/types.o
 SRC_UTILS = src/utils.c
 BIN_UTILS = bin/utils.o
 
-SRC_BUILTIN_DEFS_TXT = src/current_builtin_defs.txt
+SRC_BUILTIN_DEFS_TXT = src/pine_builtin_defs.txt
 SRC_BUILTIN_DEFS = src/builtin_defs.c
 BIN_BUILTIN_DEFS = bin/builtin_defs.o
 
 BINS = $(BIN_CLI) $(BIN_EVAL) $(BIN_GEN) $(BIN_EXPRS) $(BIN_KEYWORDS) $(BIN_LEXER) $(BIN_MAIN) $(BIN_PARSER) $(BIN_SEMA) $(BIN_STMNTS) $(BIN_STRB) $(BIN_TYPECHECK) $(BIN_TYPES) $(BIN_UTILS) $(BIN_BUILTIN_DEFS)
 
-current: $(BINS)
-	$(CC) $(CFLAGS) -o current $(BINS)
+pine: $(BINS)
+	$(CC) $(CFLAGS) -o pine $(BINS)
 
 $(SRC_BUILTIN_DEFS): $(SRC_BUILTIN_DEFS_TXT)
 	xxd -i -n builtin_defs $(SRC_BUILTIN_DEFS_TXT) > src/builtin_defs.c
@@ -101,4 +101,4 @@ $(BIN_UTILS): $(SRC_UTILS)
 	$(CC) $(CFLAGS) -c $(SRC_UTILS) -o $(BIN_UTILS)
 
 clean:
-	rm -rf bin/*.o current
+	rm -rf bin/*.o pine

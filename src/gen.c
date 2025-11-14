@@ -228,7 +228,7 @@ MaybeAllocStr gen_type(Gen *gen, Type type) {
             };
         case TkString:
             return (MaybeAllocStr){
-                .str = "CurString",
+                .str = "PineString",
                 .alloced = false,
             };
         case TkChar:
@@ -247,7 +247,7 @@ MaybeAllocStr gen_type(Gen *gen, Type type) {
 
 strb gen_typename_array(Gen *gen, Type type) {
     strb arr = NULL;
-    strbprintf(&arr, "CurArray");
+    strbprintf(&arr, "PineArray");
 
     int dim = 0;
     Type st = type;
@@ -278,7 +278,7 @@ strb gen_typename_array(Gen *gen, Type type) {
 
 strb gen_typename_slice(Gen *gen, Type type) {
     strb slice = NULL;
-    strbprintf(&slice, "CurSlice");
+    strbprintf(&slice, "PineSlice");
 
     int dim = 0;
     Type st = type;
@@ -329,7 +329,7 @@ void gen_typename(Gen *gen, Type *types, size_t types_len, strb *typename) {
             case TkOption: {
                 strb option = NULL;
                 gen_typename(gen, type.option.subtype, 1, &option);
-                strbprintf(typename, "CurOption_%s", option);
+                strbprintf(typename, "PineOption_%s", option);
                 strbfree(option);
             } break;
             default: {
@@ -355,7 +355,7 @@ MaybeAllocStr gen_option_expr(Gen *gen, Expr expr) {
         MaybeAllocStr value = gen_expr(gen, expr);
 
         strb option = NULL;
-        strbprintf(&option, "curoption_%s(%s)", typename, value.str);
+        strbprintf(&option, "pineoption_%s(%s)", typename, value.str);
 
         mastrfree(value);
         strbfree(typename);
@@ -682,7 +682,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
         }
         case EkStrLit: {
             strb lit = NULL;
-            strbprintf(&lit, "curstr(\"%s\")", expr.strlit);
+            strbprintf(&lit, "pinestr(\"%s\")", expr.strlit);
             return (MaybeAllocStr){
                 .str = lit,
                 .alloced = true,
@@ -711,7 +711,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             gen_typename(gen, expr.type.option.subtype, 1, &typename);
 
             strb option = NULL;
-            strbprintf(&option, "curoptionnull_%s()", typename);
+            strbprintf(&option, "pineoptionnull_%s()", typename);
 
             strbfree(typename);
             return (MaybeAllocStr){
@@ -830,7 +830,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
             }
             strb ret = NULL;
             strbprintf(&ret,
-                "curslice1d_range_%s(%s.ptr, %s, %s%s)",
+                "pineslice1d_range_%s(%s.ptr, %s, %s%s)",
                 typename,
                 access.str,
                 start.str,
@@ -912,7 +912,7 @@ bool gen_decl_generic_slice(Gen *gen, Type type, strb *decl) {
     gen_typename(gen, &type, 1, &typename);
     char *t = strtok(typename, "_");
 
-    // CurSlice<N>dDef(
+    // PineSlice<N>dDef(
     strbprintf(decl, "%sDef(", t);
     size_t underscore_idx = strlen(t);
     typename[underscore_idx] = '_';
@@ -964,7 +964,7 @@ void gen_decl_generic(Gen *gen, Type type) {
             strb typename = NULL;
             gen_typename(gen, type.option.subtype, 1, &typename);
 
-            strbprintfln(&def, "CurOptionDef(%s, %s);", typestr.str, typename);
+            strbprintfln(&def, "PineOptionDef(%s, %s);", typestr.str, typename);
 
             strbfree(typename);
             mastrfree(typestr);
@@ -1018,7 +1018,7 @@ void gen_decl_generic(Gen *gen, Type type) {
 strb gen_decl_proto(Gen *gen, Stmnt stmnt) {
     assert(stmnt.kind == SkVarDecl || stmnt.kind == SkConstDecl || stmnt.kind == SkFnDecl);
     const char *name = "";
-    Type type;
+    Type type = type_none();
 
     switch (stmnt.kind) {
         case SkVarDecl:
@@ -1319,11 +1319,11 @@ void gen_fn_main_decl(Gen *gen, Stmnt stmnt) {
         gen_decl_generic(gen, arg.constdecl.type);
 
         char *builtin_args =
-            "    CurString _CUR_ARGS_[argc];\n"
+            "    PineString _PINE_ARGS_[argc];\n"
             "    for (int i = 0; i < argc; i++) {\n"
-            "        _CUR_ARGS_[i] = curstr(argv[i]);\n"
+            "        _PINE_ARGS_[i] = pinestr(argv[i]);\n"
             "    }\n"
-            "    CurSlice1d_CurString args = curslice1d_CurString(_CUR_ARGS_, argc);\n"
+            "    PineSlice1d_PineString args = pineslice1d_PineString(_PINE_ARGS_, argc);\n"
         ;
 
         gen_write(gen, builtin_args);
@@ -1490,7 +1490,7 @@ void gen_resolve_defs(Gen *gen) {
 
 void gen_generate(Gen *gen) {
     char *defs;
-    bool defs_ok = read_entire_file("./newsrc/current_builtin_defs.txt", &defs);
+    bool defs_ok = read_entire_file("./newsrc/pine_builtin_defs.txt", &defs);
     if (!defs_ok) {
         defs = (char*)builtin_defs;
     }
@@ -1530,5 +1530,5 @@ void gen_generate(Gen *gen) {
 
     gen_resolve_defs(gen);
 
-    strbprintf(&gen->defs, "#endif // CURRENT_DEFS_H");
+    strbprintf(&gen->defs, "#endif // PINE_DEFS_H");
 }

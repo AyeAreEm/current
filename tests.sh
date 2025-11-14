@@ -4,47 +4,47 @@ option="$1"
 
 functions() {
     gcc -c -o tests/functions/greet.o tests/functions/greet.c
-    ./current run tests/functions/main.cur
+    ./pine run tests/functions/main.pine
     echo functions exit code: $?
 }
 
 structs() {
-    ./current run tests/structs/main.cur
+    ./pine run tests/structs/main.pine
     echo structs exit code: $?
 }
 
 vars() {
-    ./current run tests/vars/main.cur
+    ./pine run tests/vars/main.pine
     echo vars exit code: $?
 }
 
 consts() {
-    ./current run tests/consts/main.cur
+    ./pine run tests/consts/main.pine
     echo consts exit code: $?
 }
 
 enums() {
-    ./current run tests/enums/main.cur
+    ./pine run tests/enums/main.pine
     echo enums exit code: $?
 }
 
 directives() {
-    ./current run tests/directives/main.cur
+    ./pine run tests/directives/main.pine
     echo directives exit code: $?
 }
 
 escaped() {
-    ./current run tests/escaped/main.cur
+    ./pine run tests/escaped/main.pine
     echo escaped exit code: $?
 }
 
 arrays() {
-    ./current run tests/arrays/main.cur
+    ./pine run tests/arrays/main.pine
     echo escaped exit code: $?
 }
 
 options() {
-    ./current run tests/options/main.cur
+    ./pine run tests/options/main.pine
     echo escaped exit code: $?
 }
 

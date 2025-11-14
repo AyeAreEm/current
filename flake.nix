@@ -1,5 +1,5 @@
 {
-  description = "current devenv";
+  description = "pine devenv";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
