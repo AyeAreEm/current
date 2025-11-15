@@ -26,7 +26,6 @@ typedef struct PineString {
     const char *ptr;
     usize len;
 } PineString;
-#define pinestr(s) ((PineString){.ptr = s, strlen(s)})
 
 #define PineSlice1dDef(T, Tname)\
 typedef struct PineSlice1d_##Tname {\

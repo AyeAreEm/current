@@ -170,18 +170,26 @@ strb gen_array_type(Gen *gen, Type type, const char *name) {
 }
 
 strb gen_ptr_type(Gen *gen, Type type) {
-    if (type.kind == TkPtr) {
-        strb rest = gen_ptr_type(gen, *type.ptr_to);
+    strb stars = NULL;
+    Type st = type;
 
-        strb ret = NULL;
-        strbprintf(&ret, "%s*", rest);
-
-        strbfree(rest);
-        return ret;
-    } else {
-        MaybeAllocStr t = gen_type(gen, type);
-        return t.str;
+    while (true) {
+        if (st.kind == TkPtr) {
+            strbprintf(&stars, "*");
+            st = *st.ptr_to;
+        } else {
+            break;
+        }
     }
+
+    strb ret = NULL;
+
+    MaybeAllocStr t = gen_type(gen, st);
+    strbprintf(&ret, "%s%s", t.str, stars);
+    mastrfree(t);
+
+    strbfree(stars);
+    return ret;
 }
 
 MaybeAllocStr gen_type(Gen *gen, Type type) {
@@ -682,7 +690,7 @@ MaybeAllocStr gen_expr(Gen *gen, Expr expr) {
         }
         case EkStrLit: {
             strb lit = NULL;
-            strbprintf(&lit, "pinestr(\"%s\")", expr.strlit);
+            strbprintf(&lit, "(PineString){.ptr = \"%s\", .len = %zu}", expr.strlit, strlen(expr.strlit));
             return (MaybeAllocStr){
                 .str = lit,
                 .alloced = true,

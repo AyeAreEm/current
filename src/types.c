@@ -1,6 +1,7 @@
+#include <assert.h>
+#include <inttypes.h>
 #include "include/strb.h"
 #include "include/utils.h"
-#include <assert.h>
 #include "include/types.h"
 #include "include/exprs.h"
 
@@ -192,7 +193,7 @@ strb string_from_type(Type t) {
         } break;
         case TkArray: {
             strb sub = string_from_type(*t.array.of);
-            strbprintf(&ret, "[%ld]%s", t.array.len->intlit, sub);
+            strbprintf(&ret, "[%" PRIu64 "]%s", (uint64_t)t.array.len->numlit, sub);
             strbfree(sub);
         } break;
         case TkOption: {
